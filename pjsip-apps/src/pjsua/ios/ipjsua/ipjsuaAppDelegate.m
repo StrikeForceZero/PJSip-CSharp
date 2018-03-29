@@ -27,6 +27,7 @@
 #include "../../pjsua_app_config.h"
 
 #import "ipjsuaViewController.h"
+#import "Reachability.h"
 
 @implementation ipjsuaAppDelegate
 
@@ -39,6 +40,51 @@ static pjsua_app_cfg_t  app_cfg;
 static bool             isShuttingDown;
 static char           **restartArgv;
 static int              restartArgc;
+Reachability            *internetReach;
+
+- (void) updateWithReachability: (Reachability *)curReach
+{
+    NetworkStatus netStatus = [curReach currentReachabilityStatus];
+    BOOL connectionRequired = [curReach connectionRequired];
+    switch (netStatus) {
+        case NotReachable:
+            PJ_LOG(3,("", "Access Not Available.."));
+            connectionRequired= NO;
+            break;
+        case ReachableViaWiFi:
+            PJ_LOG(3,("", "Reachable WiFi.."));
+            break;
+        case ReachableViaWWAN:
+            PJ_LOG(3,("", "Reachable WWAN.."));
+        break;
+    }
+    if (connectionRequired) {
+        PJ_LOG(3,("", "Connection Required"));
+    }
+}
+
+/* Called by Reachability whenever status changes. */
+- (void)reachabilityChanged: (NSNotification *)note
+{
+    Reachability* curReach = [note object];
+    NSParameterAssert([curReach isKindOfClass: [Reachability class]]);
+    PJ_LOG(3,("", "reachability changed.."));
+    [self updateWithReachability: curReach];
+    
+    if ([curReach currentReachabilityStatus] != NotReachable &&
+        ![curReach connectionRequired])
+    {
+        pjsua_ip_change_param param;
+        pjsua_ip_change_param_default(&param);
+        pjsua_handle_ip_change(&param);
+    }
+}
+
+
+void displayLog(const char *msg, int len)
+{
+    NSLog(@"%.*s", len, msg);
+}
 
 static void displayMsg(const char *msg)
 {
@@ -150,6 +196,17 @@ static void pjsuaOnAppConfigCb(pjsua_app_config *cfg)
     self.window.rootViewController = self.viewController;
     [self.window makeKeyAndVisible];
     
+    /* Observe the kNetworkReachabilityChangedNotification. When that
+     * notification is posted, the method "reachabilityChanged" will be called.
+     */
+    [[NSNotificationCenter defaultCenter] addObserver: self
+          selector: @selector(reachabilityChanged:)
+          name: kReachabilityChangedNotification object: nil];
+    
+    internetReach = [Reachability reachabilityForInternetConnection];
+    [internetReach startNotifier];
+    [self updateWithReachability: internetReach];
+    
     app = self;
     
     /* Start pjsua app thread */
@@ -180,6 +237,7 @@ static void pjsuaOnAppConfigCb(pjsua_app_config *cfg)
     static pj_thread_t *a_thread;
     static UIDeviceOrientation prev_ori = 0;
     UIDeviceOrientation dev_ori = [[UIDevice currentDevice] orientation];
+    int i;
     
     if (dev_ori == prev_ori) return;
     
@@ -192,9 +250,15 @@ static void pjsuaOnAppConfigCb(pjsua_app_config *cfg)
             pj_thread_register("ipjsua", a_thread_desc, &a_thread);
         }
         
-        pjsua_vid_dev_set_setting(PJMEDIA_VID_DEFAULT_CAPTURE_DEV,
-                                  PJMEDIA_VID_DEV_CAP_ORIENTATION,
-                                  &pj_ori[dev_ori-1], PJ_TRUE);
+        /* Here we set the orientation for all video devices.
+         * This may return failure for renderer devices or for
+         * capture devices which do not support orientation setting,
+         * we can simply ignore them.
+         */
+        for (i = pjsua_vid_dev_count()-1; i >= 0; i--) {
+            pjsua_vid_dev_set_setting(i, PJMEDIA_VID_DEV_CAP_ORIENTATION,
+                                      &pj_ori[dev_ori-1], PJ_TRUE);
+        }
     }
 #endif
 }
@@ -259,7 +323,9 @@ pj_bool_t showNotification(pjsua_call_id call_id)
          */
 	alert.alertAction = @"Activate app";
 	
-	[[UIApplication sharedApplication] presentLocalNotificationNow:alert];
+        dispatch_async(dispatch_get_main_queue(),
+                       ^{[[UIApplication sharedApplication]
+                          presentLocalNotificationNow:alert];});
     }
     
     return PJ_FALSE;

@@ -1,4 +1,4 @@
-/* $Id: srtp_config.h 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: srtp_config.h 5635 2017-08-01 07:49:34Z nanang $ */
 /* 
  * Copyright (C) 2003-2007 Benny Prijono <benny@prijono.org>
  *
@@ -137,11 +137,16 @@
 #	define inline _inline
 #   endif
 
-#   pragma warning(disable:4311)
-#   pragma warning(disable:4761) // integral mismatch
-#   pragma warning(disable:4018) // signed/unsigned mismatch
+#   pragma warning(disable:4311) // 'type cast': pointer truncation from 'unsigned char *' to 'unsigned long'
+//#   pragma warning(disable:4761) // integral mismatch
+#   pragma warning(disable:4018) // '<' : signed/unsigned mismatch
 #   pragma warning(disable:4244) // conversion from int64 to int
 #   pragma warning(disable:4100) // unreferenced formal parameter
+#   pragma warning(disable:4214) // bit field types other than int
+#   pragma warning(disable:4389) // '!=' : signed/unsigned mismatch
+#   pragma warning(disable:4701) // potentially uninitialized local variable used
+#   pragma warning(disable:4702) // unreachable code
+#   pragma warning(disable:4703) // potentially uninitialized local pointer variable used
 #endif
 
 /* clock()  */
@@ -219,6 +224,12 @@
 
 /* Define to `unsigned' if <sys/types.h> does not define. */
 /* #undef size_t */
+
+/* Define to the full name and version of this package. */
+#define PACKAGE_STRING "libsrtp 2.1.0"
+
+/* Define to the version of this package. */
+#define PACKAGE_VERSION "2.1.0"
 
 
 #endif	/* __SRTP_CONFIG_H__ */

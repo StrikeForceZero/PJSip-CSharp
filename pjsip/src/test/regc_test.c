@@ -1,4 +1,4 @@
-/* $Id: regc_test.c 5024 2015-03-26 02:51:19Z nanang $ */
+/* $Id: regc_test.c 5678 2017-11-01 04:55:29Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -64,7 +64,7 @@ static pj_status_t mod_send_on_tx_request(pjsip_tx_data *tdata)
 	return PJ_ECANCELLED;
     else
 	return PJ_SUCCESS;
-};
+}
 
 
 /************************************************************************/
@@ -204,7 +204,7 @@ static pj_bool_t regs_rx_request(pjsip_rx_data *rdata)
 				 &hdr_list, NULL, NULL);
     pj_assert(status == PJ_SUCCESS);
 
-    return PJ_TRUE;
+    return (status == PJ_SUCCESS);
 }
 
 
@@ -242,6 +242,7 @@ static void client_cb(struct pjsip_regc_cbparam *param)
 
     status = pjsip_regc_get_info(param->regc, &info);
     pj_assert(status == PJ_SUCCESS);
+    PJ_UNUSED_ARG(status);
 
     client->error = (param->status != PJ_SUCCESS);
     client->code = param->code;
@@ -524,7 +525,7 @@ static int refresh_error(const pj_str_t *registrar_uri,
     }
 
     return PJ_SUCCESS;
-};
+}
 
 
 /* Send error on refresh */
@@ -699,7 +700,7 @@ on_return:
     if (tdata) pjsip_tx_data_dec_ref(tdata);
     pjsip_regc_destroy(regc);
     return ret;
-};
+}
 
 
 /* send error on authentication */
@@ -730,7 +731,7 @@ static int auth_send_error(const pj_str_t *registrar_uri,
     send_mod.count_before_reject = 0xFFFF;
 
     return ret;
-};
+}
 
 
 

@@ -1,4 +1,4 @@
-/* $Id: _pjsua.h 4724 2014-01-31 08:52:09Z nanang $ */
+/* $Id: _pjsua.h 5448 2016-10-06 07:20:41Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -1451,6 +1451,8 @@ static PyMemberDef PyObj_pjsua_transport_config_members[] =
         "       Voice traffic."
         "  4: PJ_QOS_TYPE_CONTROL"
         "       Control traffic."
+        "  5: PJ_QOS_TYPE_SIGNALLING"
+        "       Signalling traffic."
     },
     {
         "qos_params_flags", T_INT,

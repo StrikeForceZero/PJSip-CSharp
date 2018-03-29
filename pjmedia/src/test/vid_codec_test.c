@@ -1,4 +1,4 @@
-/* $Id: vid_codec_test.c 4815 2014-04-10 10:01:07Z bennylp $ */
+/* $Id: vid_codec_test.c 5659 2017-09-25 02:58:42Z riza $ */
 /* 
  * Copyright (C) 2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -278,8 +278,7 @@ static int encode_decode_test(pj_pool_t *pool, const char *codec_id,
     /* Prepare codec */
     {
         pj_str_t codec_id_st;
-        unsigned info_cnt = 1;
-        const pjmedia_vid_codec_info *codec_info;
+        unsigned info_cnt = 1;        
 
         /* Lookup codec */
         pj_cstr(&codec_id_st, codec_id);
@@ -463,6 +462,13 @@ int vid_codec_test(void)
     }
 #endif
 
+#if PJMEDIA_HAS_VIDEO && PJMEDIA_HAS_VID_TOOLBOX_CODEC
+    status = pjmedia_codec_vid_toolbox_init(NULL, mem);
+    if (status != PJ_SUCCESS) {
+	return -23;
+    }
+#endif
+
 #if PJMEDIA_HAS_FFMPEG_VID_CODEC
     status = pjmedia_codec_ffmpeg_vid_init(NULL, mem);
     if (status != PJ_SUCCESS)
@@ -483,7 +489,9 @@ int vid_codec_test(void)
 	goto on_return;
 #endif
 
-#if PJMEDIA_HAS_FFMPEG_VID_CODEC || PJMEDIA_HAS_OPENH264_CODEC
+#if PJMEDIA_HAS_FFMPEG_VID_CODEC || PJMEDIA_HAS_OPENH264_CODEC || \
+    PJMEDIA_HAS_VID_TOOLBOX_CODEC
+
     rc = encode_decode_test(pool, "h264", PJMEDIA_VID_PACKING_WHOLE);
     if (rc != 0)
 	goto on_return;
@@ -500,6 +508,9 @@ on_return:
 #endif
 #if defined(PJMEDIA_HAS_OPENH264_CODEC) && PJMEDIA_HAS_OPENH264_CODEC != 0
     pjmedia_codec_openh264_vid_deinit();
+#endif
+#if PJMEDIA_HAS_VIDEO && PJMEDIA_HAS_VID_TOOLBOX_CODEC
+    pjmedia_codec_vid_toolbox_deinit();
 #endif
     pjmedia_vid_dev_subsys_shutdown();
     pj_pool_release(pool);

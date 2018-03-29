@@ -1,4 +1,4 @@
-/* $Id: ssl_sock_dump.c 4910 2014-09-01 06:32:50Z riza $ */
+/* $Id: ssl_sock_dump.c 5659 2017-09-25 02:58:42Z riza $ */
 /* 
  * Copyright (C) 2009-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -105,8 +105,6 @@ PJ_DEF(pj_ssize_t) pj_ssl_cert_info_dump(const pj_ssl_cert_info *ci,
 
     /* Subject alternative name extension */
     if (ci->subj_alt_name.cnt) {
-	unsigned i;
-
 	len = pj_ansi_snprintf(p, end-p, "%ssubjectAltName extension\n", 
 			       indent);
 	CHECK_BUF_LEN();

@@ -1,4 +1,4 @@
-/* $Id: config.c 4112 2012-04-27 09:47:20Z bennylp $ */
+/* $Id: config.c 5421 2016-08-18 08:04:37Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -50,7 +50,7 @@ PJ_DEF(const char*) pj_get_version(void)
 
 PJ_DEF(void) pj_dump_config(void)
 {
-    PJ_LOG(3, (id, "PJLIB (c)2008-2009 Teluu Inc."));
+    PJ_LOG(3, (id, "PJLIB (c)2008-2016 Teluu Inc."));
     PJ_LOG(3, (id, "Dumping configurations:"));
     PJ_LOG(3, (id, " PJ_VERSION                : %s", PJ_VERSION));
     PJ_LOG(3, (id, " PJ_M_NAME                 : %s", PJ_M_NAME));
@@ -85,5 +85,6 @@ PJ_DEF(void) pj_dump_config(void)
     PJ_LOG(3, (id, " PJ_TIMESTAMP_USE_RDTSC:   : %d", PJ_TIMESTAMP_USE_RDTSC));
     PJ_LOG(3, (id, " PJ_OS_HAS_CHECK_STACK     : %d", PJ_OS_HAS_CHECK_STACK));
     PJ_LOG(3, (id, " PJ_HAS_HIGH_RES_TIMER     : %d", PJ_HAS_HIGH_RES_TIMER));
+    PJ_LOG(3, (id, " PJ_HAS_IPV6               : %d", PJ_HAS_IPV6));
 }
 

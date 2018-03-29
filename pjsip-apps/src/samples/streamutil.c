@@ -1,4 +1,4 @@
-/* $Id: streamutil.c 5095 2015-05-15 06:47:00Z ming $ */
+/* $Id: streamutil.c 5681 2017-11-06 10:30:07Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -41,6 +41,11 @@
 
 #include "util.h"
 
+/* An experimental feature to add multicast option to this app for providing
+ * the capability to send IP datagrams from a single source to more than
+ * one receivers.
+ */
+#define HAVE_MULTICAST 1
 
 static const char *desc = 
  " streamutil								\n"
@@ -60,6 +65,15 @@ static const char *desc =
  "  --remote=IP:PORT      Set the remote peer. If this option is set,	\n"
  "                        the program will transmit RTP audio to the	\n"
  "                        specified address. (default: recv only)	\n"
+#if HAVE_MULTICAST
+ "  --mcast-add=IP   	  Joins the multicast group as specified by     \n"
+ "                        the address. Sample usage:			\n"
+ "			  Sender:					\n"
+ "			  streamutil --remote=[multicast_addr]:[port] 	\n"
+ "			  Receivers:					\n"
+ "			  streamutil --local-port=[port]		\n"
+ "				     --mcast-add=[multicast_addr]	\n"
+#endif
  "  --play-file=WAV       Send audio from the WAV file instead of from	\n"
  "                        the sound device.				\n"
  "  --record-file=WAV     Record incoming audio to WAV file instead of	\n"
@@ -73,9 +87,11 @@ static const char *desc =
  "                        e.g: AES_CM_128_HMAC_SHA1_80 (default),       \n"
  "                             AES_CM_128_HMAC_SHA1_32                  \n"
  "                        Use this option along with the TX & RX keys,  \n"
- "                        formated of 60 hex digits (e.g: E148DA..)      \n"
+ "                        formated of 60 hex digits (e.g: E148DA..)     \n"
  "  --srtp-tx-key         SRTP key for transmiting                      \n"
  "  --srtp-rx-key         SRTP key for receiving                        \n"
+ "  --srtp-dtls-client    Use DTLS for SRTP keying, as DTLS client      \n"
+ "  --srtp-dtls-server    Use DTLS for SRTP keying, as DTLS server      \n"
 #endif
 
  "\n"
@@ -92,8 +108,20 @@ static const char *desc =
 static void print_stream_stat(pjmedia_stream *stream, 
 			      const pjmedia_codec_param *codec_param);
 
-/* Prototype for LIBSRTP utility in file datatypes.c */
-int hex_string_to_octet_string(char *raw, char *hex, int len);
+/* Hexa string to octet array */
+int my_hex_string_to_octet_string(char *raw, char *hex, int len)
+{
+    int i;
+    for (i = 0; i < len; i+=2) {
+	int tmp;
+	if (i+1 >= len || !pj_isxdigit(hex[i]) || !pj_isxdigit(hex[i+1]))
+	    return i;
+	tmp  = pj_hex_digit_to_val((unsigned char)hex[i]) << 4;
+	tmp |= pj_hex_digit_to_val((unsigned char)hex[i+1]);
+	raw[i/2] = (char)(tmp & 0xFF);
+    }
+    return len;
+}
 
 /* 
  * Register all codecs. 
@@ -113,11 +141,15 @@ static pj_status_t create_stream( pj_pool_t *pool,
 				  pjmedia_dir dir,
 				  pj_uint16_t local_port,
 				  const pj_sockaddr_in *rem_addr,
+				  pj_bool_t mcast,
+				  const pj_sockaddr_in *mcast_addr,
 #if defined(PJMEDIA_HAS_SRTP) && (PJMEDIA_HAS_SRTP != 0)
 				  pj_bool_t use_srtp,
 				  const pj_str_t *crypto_suite,
 				  const pj_str_t *srtp_tx_key,
 				  const pj_str_t *srtp_rx_key,
+				  pj_bool_t is_dtls_client,
+				  pj_bool_t is_dtls_server,
 #endif
 				  pjmedia_stream **p_stream )
 {
@@ -157,33 +189,143 @@ static pj_status_t create_stream( pj_pool_t *pool,
 	pj_sockaddr_in_init(&info.rem_addr.ipv4, &addr, 0);
     }
 
-    /* Create media transport */
-    status = pjmedia_transport_udp_create(med_endpt, NULL, local_port,
-					  0, &transport);
-    if (status != PJ_SUCCESS)
-	return status;
+    pj_sockaddr_cp(&info.rem_rtcp, &info.rem_addr);
+    pj_sockaddr_set_port(&info.rem_rtcp,
+    			 pj_sockaddr_get_port(&info.rem_rtcp)+1);
+
+    if (mcast) {
+     	pjmedia_sock_info si;
+    	int reuse = 1;
+
+    	pj_bzero(&si, sizeof(pjmedia_sock_info));
+    	si.rtp_sock = si.rtcp_sock = PJ_INVALID_SOCKET;
+
+    	/* Create RTP socket */
+    	status = pj_sock_socket(pj_AF_INET(), pj_SOCK_DGRAM(), 0,
+    				&si.rtp_sock);
+    	if (status != PJ_SUCCESS)
+	    return status;
+
+    	status = pj_sock_setsockopt(si.rtp_sock, pj_SOL_SOCKET(),
+    				    pj_SO_REUSEADDR(), &reuse, sizeof(reuse));
+    	if (status != PJ_SUCCESS)
+    	    return status;
+
+    	/* Bind RTP socket */
+    	status = pj_sockaddr_init(pj_AF_INET(), &si.rtp_addr_name,
+    				  NULL, local_port);
+    	if (status != PJ_SUCCESS)
+	    return status;
+    
+        status = pj_sock_bind(si.rtp_sock, &si.rtp_addr_name,
+			      pj_sockaddr_get_len(&si.rtp_addr_name));
+    	if (status != PJ_SUCCESS)
+	    return status;
+
+    	/* Create RTCP socket */
+    	status = pj_sock_socket(pj_AF_INET(), pj_SOCK_DGRAM(), 0,
+    				&si.rtcp_sock);
+    	if (status != PJ_SUCCESS)
+	    return status;
+
+    	status = pj_sock_setsockopt(si.rtcp_sock, pj_SOL_SOCKET(),
+    				    pj_SO_REUSEADDR(), &reuse, sizeof(reuse));
+    	if (status != PJ_SUCCESS)
+    	    return status;
+
+    	/* Bind RTCP socket */
+    	status = pj_sockaddr_init(pj_AF_INET(), &si.rtcp_addr_name,
+    				  NULL, local_port+1);
+    	if (status != PJ_SUCCESS)
+	    return status;
+    
+    	status = pj_sock_bind(si.rtcp_sock, &si.rtcp_addr_name,
+                              pj_sockaddr_get_len(&si.rtcp_addr_name));
+    	if (status != PJ_SUCCESS)
+	    return status;
+
+#ifdef HAVE_MULTICAST
+	{
+	    unsigned char loop;
+	    struct pj_ip_mreq imr;
+	
+	    pj_memset(&imr, 0, sizeof(struct pj_ip_mreq));
+	    imr.imr_multiaddr.s_addr = mcast_addr->sin_addr.s_addr;
+	    imr.imr_interface.s_addr = pj_htonl(PJ_INADDR_ANY);
+	    status = pj_sock_setsockopt(si.rtp_sock, pj_SOL_IP(),
+	    				pj_IP_ADD_MEMBERSHIP(),
+				   	&imr, sizeof(struct pj_ip_mreq));
+	    if (status != PJ_SUCCESS)
+	    	return status;
+
+	    status = pj_sock_setsockopt(si.rtcp_sock, pj_SOL_IP(),
+	    				pj_IP_ADD_MEMBERSHIP(),
+				   	&imr, sizeof(struct pj_ip_mreq));
+	    if (status != PJ_SUCCESS)
+	    	return status;
+
+	    /* Disable local reception of local sent packets */
+	    loop = 0;
+	    pj_sock_setsockopt(si.rtp_sock, pj_SOL_IP(),
+	    		       pj_IP_MULTICAST_LOOP(), &loop, sizeof(loop));
+	    pj_sock_setsockopt(si.rtcp_sock, pj_SOL_IP(),
+	    		       pj_IP_MULTICAST_LOOP(), &loop, sizeof(loop));
+	}
+#endif
+	
+    	/* Create media transport from existing sockets */
+    	status = pjmedia_transport_udp_attach( med_endpt, NULL, &si, 
+				PJMEDIA_UDP_NO_SRC_ADDR_CHECKING, &transport);
+    	if (status != PJ_SUCCESS)
+	    return status;	
+	
+    } else {
+        /* Create media transport */
+        status = pjmedia_transport_udp_create(med_endpt, NULL, local_port,
+					      0, &transport);
+        if (status != PJ_SUCCESS)
+	    return status;
+    }
 
 #if defined(PJMEDIA_HAS_SRTP) && (PJMEDIA_HAS_SRTP != 0)
     /* Check if SRTP enabled */
     if (use_srtp) {
-	pjmedia_srtp_crypto tx_plc, rx_plc;
-
 	status = pjmedia_transport_srtp_create(med_endpt, transport, 
 					       NULL, &srtp_tp);
 	if (status != PJ_SUCCESS)
 	    return status;
 
-	pj_bzero(&tx_plc, sizeof(pjmedia_srtp_crypto));
-	pj_bzero(&rx_plc, sizeof(pjmedia_srtp_crypto));
+	if (is_dtls_client || is_dtls_server) {
+	    char fp[128];
+	    pj_size_t fp_len = sizeof(fp);
+	    pjmedia_srtp_dtls_nego_param dtls_param;
+	    
+	    pjmedia_transport_srtp_dtls_get_fingerprint(srtp_tp, "SHA-256", fp, &fp_len);
+	    PJ_LOG(3, (THIS_FILE, "Local cert fingerprint: %s", fp));
 
-	tx_plc.key = *srtp_tx_key;
-	tx_plc.name = *crypto_suite;
-	rx_plc.key = *srtp_rx_key;
-	rx_plc.name = *crypto_suite;
-	
-	status = pjmedia_transport_srtp_start(srtp_tp, &tx_plc, &rx_plc);
-	if (status != PJ_SUCCESS)
-	    return status;
+	    pj_bzero(&dtls_param, sizeof(dtls_param));
+	    pj_sockaddr_cp(&dtls_param.rem_addr, rem_addr);
+	    pj_sockaddr_cp(&dtls_param.rem_rtcp, rem_addr);
+	    dtls_param.is_role_active = is_dtls_client;
+
+	    status = pjmedia_transport_srtp_dtls_start_nego(srtp_tp, &dtls_param);
+	    if (status != PJ_SUCCESS)
+		return status;
+	} else {
+	    pjmedia_srtp_crypto tx_plc, rx_plc;
+
+	    pj_bzero(&tx_plc, sizeof(pjmedia_srtp_crypto));
+	    pj_bzero(&rx_plc, sizeof(pjmedia_srtp_crypto));
+
+	    tx_plc.key = *srtp_tx_key;
+	    tx_plc.name = *crypto_suite;
+	    rx_plc.key = *srtp_rx_key;
+	    rx_plc.name = *crypto_suite;
+    	
+	    status = pjmedia_transport_srtp_start(srtp_tp, &tx_plc, &rx_plc);
+	    if (status != PJ_SUCCESS)
+		return status;
+	}
 
 	transport = srtp_tp;
     }
@@ -230,6 +372,7 @@ int main(int argc, char *argv[])
     pjmedia_stream *stream = NULL;
     pjmedia_port *stream_port;
     char tmp[10];
+    char addr[PJ_INET_ADDRSTRLEN];
     pj_status_t status; 
 
 #if defined(PJMEDIA_HAS_SRTP) && (PJMEDIA_HAS_SRTP != 0)
@@ -240,6 +383,8 @@ int main(int argc, char *argv[])
     pj_str_t  srtp_tx_key = {NULL, 0};
     pj_str_t  srtp_rx_key = {NULL, 0};
     pj_str_t  srtp_crypto_suite = {NULL, 0};
+    pj_bool_t is_dtls_client = PJ_FALSE;
+    pj_bool_t is_dtls_server = PJ_FALSE;
     int	tmp_key_len;
 #endif
 
@@ -248,15 +393,18 @@ int main(int argc, char *argv[])
     pjmedia_codec_param codec_param;
     pjmedia_dir dir = PJMEDIA_DIR_DECODING;
     pj_sockaddr_in remote_addr;
+    pj_sockaddr_in mcast_addr;
     pj_uint16_t local_port = 4000;
     char *codec_id = NULL;
     char *rec_file = NULL;
     char *play_file = NULL;
+    int mcast = 0;
 
     enum {
 	OPT_CODEC	= 'c',
 	OPT_LOCAL_PORT	= 'p',
 	OPT_REMOTE	= 'r',
+	OPT_MCAST	= 'm',
 	OPT_PLAY_FILE	= 'w',
 	OPT_RECORD_FILE	= 'R',
 	OPT_SEND_RECV	= 'b',
@@ -267,6 +415,8 @@ int main(int argc, char *argv[])
 #endif
 	OPT_SRTP_TX_KEY	= 'x',
 	OPT_SRTP_RX_KEY	= 'y',
+	OPT_SRTP_DTLS_CLIENT = 'd',
+	OPT_SRTP_DTLS_SERVER = 'D',
 	OPT_HELP	= 'h',
     };
 
@@ -274,6 +424,7 @@ int main(int argc, char *argv[])
 	{ "codec",	    1, 0, OPT_CODEC },
 	{ "local-port",	    1, 0, OPT_LOCAL_PORT },
 	{ "remote",	    1, 0, OPT_REMOTE },
+	{ "mcast-add",	    1, 0, OPT_MCAST },
 	{ "play-file",	    1, 0, OPT_PLAY_FILE },
 	{ "record-file",    1, 0, OPT_RECORD_FILE },
 	{ "send-recv",      0, 0, OPT_SEND_RECV },
@@ -283,6 +434,8 @@ int main(int argc, char *argv[])
 	{ "use-srtp",	    2, 0, OPT_USE_SRTP },
 	{ "srtp-tx-key",    1, 0, OPT_SRTP_TX_KEY },
 	{ "srtp-rx-key",    1, 0, OPT_SRTP_RX_KEY },
+	{ "srtp-dtls-client", 0, 0, OPT_SRTP_DTLS_CLIENT },
+	{ "srtp-dtls-server", 0, 0, OPT_SRTP_DTLS_SERVER },
 #endif
 	{ "help",	    0, 0, OPT_HELP },
 	{ NULL, 0, 0, 0 },
@@ -330,6 +483,19 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 
+	case OPT_MCAST:
+	    {
+	    	pj_str_t ip = pj_str(pj_optarg);
+
+	    	mcast = 1;
+		status = pj_sockaddr_in_init(&mcast_addr, &ip, 0);
+		if (status != PJ_SUCCESS) {
+		    app_perror(THIS_FILE, "Invalid mcast address", status);
+		    return 1;
+		}
+	    }
+	    break;
+
 	case OPT_PLAY_FILE:
 	    play_file = pj_optarg;
 	    break;
@@ -361,15 +527,29 @@ int main(int argc, char *argv[])
 	    break;
 
 	case OPT_SRTP_TX_KEY:
-	    tmp_key_len = hex_string_to_octet_string(tmp_tx_key, pj_optarg, 
-						     (int)strlen(pj_optarg));
+	    tmp_key_len = my_hex_string_to_octet_string(tmp_tx_key, pj_optarg, 
+						        (int)strlen(pj_optarg));
 	    pj_strset(&srtp_tx_key, tmp_tx_key, tmp_key_len/2);
 	    break;
 
 	case OPT_SRTP_RX_KEY:
-	    tmp_key_len = hex_string_to_octet_string(tmp_rx_key, pj_optarg, 
-						     (int)strlen(pj_optarg));
+	    tmp_key_len = my_hex_string_to_octet_string(tmp_rx_key, pj_optarg, 
+						        (int)strlen(pj_optarg));
 	    pj_strset(&srtp_rx_key, tmp_rx_key, tmp_key_len/2);
+	    break;
+	case OPT_SRTP_DTLS_CLIENT:
+	    is_dtls_client = PJ_TRUE;
+	    if (is_dtls_server) {
+		printf("Error: Cannot be as both DTLS server & client\n");
+		return 1;
+	    }
+	    break;
+	case OPT_SRTP_DTLS_SERVER:
+	    is_dtls_server = PJ_TRUE;
+	    if (is_dtls_client) {
+		printf("Error: Cannot be as both DTLS server & client\n");
+		return 1;
+	    }
 	    break;
 #endif
 
@@ -386,7 +566,11 @@ int main(int argc, char *argv[])
 
 
     /* Verify arguments. */
-    if (dir & PJMEDIA_DIR_ENCODING) {
+    if (dir & PJMEDIA_DIR_ENCODING
+#if defined(PJMEDIA_HAS_SRTP) && (PJMEDIA_HAS_SRTP != 0)
+        || is_dtls_client || is_dtls_server
+#endif
+       ) {
 	if (remote_addr.sin_addr.s_addr == 0) {
 	    printf("Error: remote address must be set\n");
 	    return 1;
@@ -401,7 +585,8 @@ int main(int argc, char *argv[])
 #if defined(PJMEDIA_HAS_SRTP) && (PJMEDIA_HAS_SRTP != 0)
     /* SRTP validation */
     if (use_srtp) {
-	if (!srtp_tx_key.slen || !srtp_rx_key.slen)
+	if (!is_dtls_client && !is_dtls_server && 
+	    (!srtp_tx_key.slen || !srtp_rx_key.slen))
 	{
 	    printf("Error: Key for each SRTP stream direction must be set\n");
 	    return 1;
@@ -453,10 +638,11 @@ int main(int argc, char *argv[])
 
     /* Create stream based on program arguments */
     status = create_stream(pool, med_endpt, codec_info, dir, local_port, 
-			   &remote_addr, 
+			   &remote_addr, mcast, &mcast_addr,
 #if defined(PJMEDIA_HAS_SRTP) && (PJMEDIA_HAS_SRTP != 0)
 			   use_srtp, &srtp_crypto_suite, 
 			   &srtp_tx_key, &srtp_rx_key,
+			   is_dtls_client, is_dtls_server,
 #endif
 			   &stream);
     if (status != PJ_SUCCESS)
@@ -577,13 +763,15 @@ int main(int argc, char *argv[])
 	       local_port);
     else if (dir == PJMEDIA_DIR_ENCODING)
 	printf("Stream is active, dir is send-only, sending to %s:%d\n",
-	       pj_inet_ntoa(remote_addr.sin_addr),
+	       pj_inet_ntop2(pj_AF_INET(), &remote_addr.sin_addr, addr,
+        		     sizeof(addr)),
 	       pj_ntohs(remote_addr.sin_port));
     else
 	printf("Stream is active, send/recv, local port is %d, "
 	       "sending to %s:%d\n",
 	       local_port,
-	       pj_inet_ntoa(remote_addr.sin_addr),
+	       pj_inet_ntop2(pj_AF_INET(), &remote_addr.sin_addr, addr,
+        		     sizeof(addr)),
 	       pj_ntohs(remote_addr.sin_port));
 
 

@@ -2,15 +2,15 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{97f1c719-ab21-4554-9c3a-633be3649fe5}</UniqueIdentifier>
+      <UniqueIdentifier>{87ba28ea-fd15-43b2-8da2-52ca1fedaa86}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
     </Filter>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{8c0cb3d9-f51f-4bc1-b59c-13cee2f49015}</UniqueIdentifier>
+      <UniqueIdentifier>{d65a57ff-143e-46bc-92e3-bef39475b72a}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl</Extensions>
     </Filter>
     <Filter Include="Resource Files">
-      <UniqueIdentifier>{a2c253d1-5a7e-4a67-aaa9-70333e299267}</UniqueIdentifier>
+      <UniqueIdentifier>{131d925a-9a14-4c13-87f9-4350e5b57a65}</UniqueIdentifier>
       <Extensions>ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
     </Filter>
   </ItemGroup>
@@ -52,9 +52,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\pjlib-test\list.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\pjlib-test\main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\pjlib-test\main_mod.c">

@@ -1,4 +1,4 @@
-/* $Id: pjsua_app_config.c 5077 2015-04-23 02:47:49Z ming $ */
+/* $Id: pjsua_app_config.c 5461 2016-10-14 04:53:07Z ming $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -22,6 +22,9 @@
 #define THIS_FILE	"pjsua_app_config.c"
 
 #define MAX_APP_OPTIONS 128
+
+#define str(s) #s
+#define xstr(s) str(s)
 
 char   *stdout_refresh_text = "STDOUT_REFRESH";
 
@@ -141,17 +144,22 @@ static void usage(void)
     puts  ("  --auto-conf         Automatically put calls in conference with others");
     puts  ("  --rec-file=file     Open file recorder (extension can be .wav or .mp3");
     puts  ("  --auto-rec          Automatically record conversation");
-    puts  ("  --quality=N         Specify media quality (0-10, default=6)");
+    puts  ("  --quality=N         Specify media quality (0-10, default="
+    				  xstr(PJSUA_DEFAULT_CODEC_QUALITY) ")");
     puts  ("  --ptime=MSEC        Override codec ptime to MSEC (default=specific)");
     puts  ("  --no-vad            Disable VAD/silence detector (default=vad enabled)");
-    puts  ("  --ec-tail=MSEC      Set echo canceller tail length (default=256)");
+    puts  ("  --ec-tail=MSEC      Set echo canceller tail length (default="
+	   			  xstr(PJSUA_DEFAULT_EC_TAIL_LEN) ")");
     puts  ("  --ec-opt=OPT        Select echo canceller algorithm (0=default, ");
-    puts  ("                        1=speex, 2=suppressor)");
-    puts  ("  --ilbc-mode=MODE    Set iLBC codec mode (20 or 30, default is 30)");
+    puts  ("                        1=speex, 2=suppressor, 3=WebRtc)");
+    puts  ("  --ilbc-mode=MODE    Set iLBC codec mode (20 or 30, default is "
+    				  xstr(PJSUA_DEFAULT_ILBC_MODE) ")");
     puts  ("  --capture-dev=id    Audio capture device ID (default=-1)");
     puts  ("  --playback-dev=id   Audio playback device ID (default=-1)");
-    puts  ("  --capture-lat=N     Audio capture latency, in ms (default=100)");
-    puts  ("  --playback-lat=N    Audio playback latency, in ms (default=100)");
+    puts  ("  --capture-lat=N     Audio capture latency, in ms (default="
+    				  xstr(PJMEDIA_SND_DEFAULT_REC_LATENCY) ")");
+    puts  ("  --playback-lat=N    Audio playback latency, in ms (default="
+    				  xstr(PJMEDIA_SND_DEFAULT_PLAY_LATENCY) ")");
     puts  ("  --snd-auto-close=N  Auto close audio device when idle for N secs (default=1)");
     puts  ("                      Specify N=-1 to disable this feature.");
     puts  ("                      Specify N=0 for instant close when unused.");
@@ -551,7 +559,7 @@ static pj_status_t parse_args(int argc, char *argv[],
 	    break;
 
 	case OPT_LOG_LEVEL:
-	    c = pj_strtoul(pj_cstr(&tmp, pj_optarg));
+	    c = (int)pj_strtoul(pj_cstr(&tmp, pj_optarg));
 	    if (c < 0 || c > 6) {
 		PJ_LOG(1,(THIS_FILE,
 			  "Error: expecting integer value 0-6 "
@@ -563,7 +571,7 @@ static pj_status_t parse_args(int argc, char *argv[],
 	    break;
 
 	case OPT_APP_LOG_LEVEL:
-	    cfg->log_cfg.console_level = pj_strtoul(pj_cstr(&tmp, pj_optarg));
+	    cfg->log_cfg.console_level = (unsigned)pj_strtoul(pj_cstr(&tmp, pj_optarg));
 	    if (cfg->log_cfg.console_level > 6) {
 		PJ_LOG(1,(THIS_FILE,
 			  "Error: expecting integer value 0-6 "
@@ -618,7 +626,7 @@ static pj_status_t parse_args(int argc, char *argv[],
 				     "8000-192000 for conference clock rate"));
 		return PJ_EINVAL;
 	    }
-	    cfg->media_cfg.clock_rate = lval;
+	    cfg->media_cfg.clock_rate = (unsigned)lval;
 	    break;
 
 	case OPT_SND_CLOCK_RATE:
@@ -628,7 +636,7 @@ static pj_status_t parse_args(int argc, char *argv[],
 				     "8000-192000 for sound device clock rate"));
 		return PJ_EINVAL;
 	    }
-	    cfg->media_cfg.snd_clock_rate = lval;
+	    cfg->media_cfg.snd_clock_rate = (unsigned)lval;
 	    break;
 
 	case OPT_STEREO:
@@ -709,7 +717,7 @@ static pj_status_t parse_args(int argc, char *argv[],
 	    break;
 
 	case OPT_REG_TIMEOUT:   /* reg-timeout */
-	    cur_acc->reg_timeout = pj_strtoul(pj_cstr(&tmp,pj_optarg));
+	    cur_acc->reg_timeout = (unsigned)pj_strtoul(pj_cstr(&tmp,pj_optarg));
 	    if (cur_acc->reg_timeout < 1 || cur_acc->reg_timeout > 3600) {
 		PJ_LOG(1,(THIS_FILE,
 			  "Error: invalid value for --reg-timeout "
@@ -738,12 +746,12 @@ static pj_status_t parse_args(int argc, char *argv[],
 			  "Error: expecting integer value 0-3 for --use-timer"));
 		return PJ_EINVAL;
 	    }
-	    cur_acc->use_timer = lval;
-	    cfg->cfg.use_timer = lval;
+	    cur_acc->use_timer = (pjsua_sip_timer_use)lval;
+	    cfg->cfg.use_timer = (pjsua_sip_timer_use)lval;
 	    break;
 
 	case OPT_TIMER_SE: /** session timer session expiration */
-	    cur_acc->timer_setting.sess_expires = pj_strtoul(pj_cstr(&tmp, pj_optarg));
+	    cur_acc->timer_setting.sess_expires = (unsigned)pj_strtoul(pj_cstr(&tmp, pj_optarg));
 	    if (cur_acc->timer_setting.sess_expires < 90) {
 		PJ_LOG(1,(THIS_FILE,
 			  "Error: invalid value for --timer-se "
@@ -754,7 +762,7 @@ static pj_status_t parse_args(int argc, char *argv[],
 	    break;
 
 	case OPT_TIMER_MIN_SE: /** session timer minimum session expiration */
-	    cur_acc->timer_setting.min_se = pj_strtoul(pj_cstr(&tmp, pj_optarg));
+	    cur_acc->timer_setting.min_se = (unsigned)pj_strtoul(pj_cstr(&tmp, pj_optarg));
 	    if (cur_acc->timer_setting.min_se < 90) {
 		PJ_LOG(1,(THIS_FILE,
 			  "Error: invalid value for --timer-min-se "
@@ -801,7 +809,7 @@ static pj_status_t parse_args(int argc, char *argv[],
 	    break;
 
 	case OPT_AUTO_UPDATE_NAT:   /* OPT_AUTO_UPDATE_NAT */
-            cur_acc->allow_contact_rewrite  = pj_strtoul(pj_cstr(&tmp, pj_optarg));
+            cur_acc->allow_contact_rewrite  = (pj_bool_t)pj_strtoul(pj_cstr(&tmp, pj_optarg));
 	    break;
 
 	case OPT_DISABLE_STUN:
@@ -862,7 +870,7 @@ static pj_status_t parse_args(int argc, char *argv[],
 	    break;
 
 	case OPT_REG_RETRY_INTERVAL:
-	    cur_acc->reg_retry_interval = pj_strtoul(pj_cstr(&tmp, pj_optarg));
+	    cur_acc->reg_retry_interval = (unsigned)pj_strtoul(pj_cstr(&tmp, pj_optarg));
 	    break;
 
 	case OPT_REG_USE_PROXY:

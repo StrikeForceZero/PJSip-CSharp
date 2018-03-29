@@ -1,4 +1,4 @@
-/* $Id: coreaudio_dev.m 5142 2015-07-31 08:35:34Z nanang $ */
+/* $Id: coreaudio_dev.m 5463 2016-10-18 00:38:18Z ming $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -52,6 +52,12 @@
 
     /* Starting iOS SDK 7, Audio Session API is deprecated. */
     #define USE_AUDIO_SESSION_API 0
+
+    /* For better integration with CallKit features (available starting
+     * in iOS 10), let the application setup and manage its own
+     * audio session.
+     */
+    #define SETUP_AV_AUDIO_SESSION  0
 #endif
 
 /* For Mac OS 10.5.x and earlier */
@@ -335,6 +341,7 @@ static pj_status_t ca_factory_init(pjmedia_aud_dev_factory *f)
     }
 #endif
 
+#if SETUP_AV_AUDIO_SESSION
     /* Initialize audio session category and mode */
     {
 	AVAudioSession *sess = [AVAudioSession sharedInstance];
@@ -360,6 +367,7 @@ static pj_status_t ca_factory_init(pjmedia_aud_dev_factory *f)
 	    PJ_LOG(3, (THIS_FILE, "Warning: failed settting audio mode"));
 	}
     }
+#endif
 
     cf_instance = cf;
 #endif
@@ -2080,10 +2088,19 @@ static pj_status_t ca_stream_stop(pjmedia_aud_stream *strm)
     }
     pj_mutex_unlock(stream->cf->mutex);
 
-#if !COREAUDIO_MAC
+#if !COREAUDIO_MAC && SETUP_AV_AUDIO_SESSION
     if (should_deactivate) {
-	if ([stream->sess setActive:false error:nil] != YES) {
-            PJ_LOG(4, (THIS_FILE, "Warning: cannot deactivate audio session"));
+        if ([stream->sess 
+             respondsToSelector:@selector(setActive:withOptions:error:)])
+        {
+  	    [stream->sess setActive:NO
+  	    withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation 
+  	    error:nil];
+	} else {
+	    if ([stream->sess setActive:NO error:nil] != YES) {
+            	PJ_LOG(4, (THIS_FILE, "Warning: cannot deactivate "
+            			      "audio session"));
+            }
         }
     }
 #endif

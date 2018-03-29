@@ -2,15 +2,15 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{50dfef82-9a90-448b-b7aa-d48853bfb15c}</UniqueIdentifier>
+      <UniqueIdentifier>{49faef61-c622-4da3-92d8-f586c05334fe}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
     </Filter>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{0fc0cf3e-695f-4192-a17d-ad71a7126091}</UniqueIdentifier>
+      <UniqueIdentifier>{2e643d9a-e249-4757-b59a-88872dff0fad}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl</Extensions>
     </Filter>
     <Filter Include="Resource Files">
-      <UniqueIdentifier>{46b74081-576f-44be-a770-631597d12557}</UniqueIdentifier>
+      <UniqueIdentifier>{a7091863-a6e2-4113-9fa5-b28581984f4b}</UniqueIdentifier>
       <Extensions>ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
     </Filter>
   </ItemGroup>
@@ -42,6 +42,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\pjsua\pjsua_app_common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\pjsua\pjsua_app_config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,4 +1,4 @@
-/* $Id: srv_resolver.c 5115 2015-06-22 08:49:34Z ming $ */
+/* $Id: srv_resolver.c 5635 2017-08-01 07:49:34Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -37,22 +37,26 @@ struct common
     pj_dns_type		     type;	    /**< Type of this structure.*/
 };
 
+#pragma pack(1)
 struct srv_target
 {
     struct common	    common;
+    struct common	    common_aaaa;
     pj_dns_srv_async_query *parent;
     pj_str_t		    target_name;
     pj_dns_async_query	   *q_a;
+    pj_dns_async_query	   *q_aaaa;
     char		    target_buf[PJ_MAX_HOSTNAME];
     pj_str_t		    cname;
     char		    cname_buf[PJ_MAX_HOSTNAME];
-    unsigned		    port;
+    pj_uint16_t		    port;
     unsigned		    priority;
     unsigned		    weight;
     unsigned		    sum;
     unsigned		    addr_cnt;
-    pj_in_addr		    addr[ADDR_MAX_COUNT];
+    pj_sockaddr		    addr[ADDR_MAX_COUNT];/**< Address family and IP.*/
 };
+#pragma pack()
 
 struct pj_dns_srv_async_query
 {
@@ -135,6 +139,10 @@ PJ_DEF(pj_status_t) pj_dns_srv_resolve( const pj_str_t *domain_name,
     query_job->domain_part.slen = target_name.slen - len;
     query_job->def_port = (pj_uint16_t)def_port;
 
+    /* Normalize query job option PJ_DNS_SRV_RESOLVE_AAAA_ONLY */
+    if (query_job->option & PJ_DNS_SRV_RESOLVE_AAAA_ONLY)
+	query_job->option |= PJ_DNS_SRV_RESOLVE_AAAA;
+
     /* Start the asynchronous query_job */
 
     query_job->dns_state = PJ_DNS_TYPE_SRV;
@@ -177,6 +185,14 @@ PJ_DEF(pj_status_t) pj_dns_srv_cancel_query(pj_dns_srv_async_query *query,
 	    pj_dns_resolver_cancel_query(srv->q_a, PJ_FALSE);
 	    srv->q_a = NULL;
 	    has_pending = PJ_TRUE;
+	}
+	if (srv->q_aaaa) {
+	    /* Check if it is a dummy query. */
+	    if (srv->q_aaaa != (pj_dns_async_query*)0x1) {
+		pj_dns_resolver_cancel_query(srv->q_aaaa, PJ_FALSE);
+		has_pending = PJ_TRUE;
+	    }
+	    srv->q_aaaa = NULL;
 	}
     }
 
@@ -314,29 +330,56 @@ static void build_server_entries(pj_dns_srv_async_query *query_job,
 	query_job->srv[i].target_name.ptr = query_job->srv[i].target_buf;
     }
 
-    /* Check for Additional Info section if A records are available, and
-     * fill in the IP address (so that we won't need to resolve the A 
+    /* Check for Additional Info section if A/AAAA records are available, and
+     * fill in the IP address (so that we won't need to resolve the A/AAAA 
      * record with another DNS query_job). 
      */
     for (i=0; i<response->hdr.arcount; ++i) {
 	pj_dns_parsed_rr *rr = &response->arr[i];
 	unsigned j;
 
-	if (rr->type != PJ_DNS_TYPE_A)
+	/* Skip non-A/AAAA record */
+	if (rr->type != PJ_DNS_TYPE_A && rr->type != PJ_DNS_TYPE_AAAA)
 	    continue;
 
-	/* Yippeaiyee!! There is an "A" record! 
+	/* Also skip if:
+	 * - it is A record and app only want AAAA record, or
+	 * - it is AAAA record and app does not want AAAA record
+	 */
+	if ((rr->type == PJ_DNS_TYPE_A &&
+	    (query_job->option & PJ_DNS_SRV_RESOLVE_AAAA_ONLY)!=0) ||
+	    (rr->type == PJ_DNS_TYPE_AAAA &&
+	    (query_job->option & PJ_DNS_SRV_RESOLVE_AAAA)==0))
+	{
+	    continue;
+	}	    
+
+	/* Yippeaiyee!! There is an "A/AAAA" record! 
 	 * Update the IP address of the corresponding SRV record.
 	 */
 	for (j=0; j<query_job->srv_cnt; ++j) {
-            if (pj_stricmp(&rr->name, &query_job->srv[j].target_name)==0 &&
-                query_job->srv[j].addr_cnt < ADDR_MAX_COUNT)
-            {
+	    if (pj_stricmp(&rr->name, &query_job->srv[j].target_name)==0
+		&& query_job->srv[j].addr_cnt < ADDR_MAX_COUNT)
+	    {
 		unsigned cnt = query_job->srv[j].addr_cnt;
-		query_job->srv[j].addr[cnt].s_addr = rr->rdata.a.ip_addr.s_addr;
+		if (rr->type == PJ_DNS_TYPE_A) {
+		    pj_sockaddr_init(pj_AF_INET(),
+					&query_job->srv[j].addr[cnt], NULL,
+					query_job->srv[j].port);
+		    query_job->srv[j].addr[cnt].ipv4.sin_addr =
+						rr->rdata.a.ip_addr;
+		} else {
+		    pj_sockaddr_init(pj_AF_INET6(),
+					&query_job->srv[j].addr[cnt], NULL,
+					query_job->srv[j].port);
+		    query_job->srv[j].addr[cnt].ipv6.sin6_addr =
+						rr->rdata.aaaa.ip_addr;
+		}
+
 		/* Only increment host_resolved once per SRV record */
 		if (query_job->srv[j].addr_cnt == 0)
 		    ++query_job->host_resolved;
+
 		++query_job->srv[j].addr_cnt;
 		break;
 	    }
@@ -354,6 +397,7 @@ static void build_server_entries(pj_dns_srv_async_query *query_job,
 		      rr->name.ptr));
 	}
 	*/
+	
     }
 
     /* Rescan again the name specified in the SRV record to see if IP
@@ -362,14 +406,31 @@ static void build_server_entries(pj_dns_srv_async_query *query_job,
      */
     for (i=0; i<query_job->srv_cnt; ++i) {
 	pj_in_addr addr;
+	pj_in6_addr addr6;
+	unsigned cnt = query_job->srv[i].addr_cnt;
 
-	if (query_job->srv[i].addr_cnt != 0) {
+	if (cnt != 0) {
 	    /* IP address already resolved */
 	    continue;
 	}
 
-	if (pj_inet_aton(&query_job->srv[i].target_name, &addr) != 0) {
-	    query_job->srv[i].addr[query_job->srv[i].addr_cnt++] = addr;
+	if ((query_job->option & PJ_DNS_SRV_RESOLVE_AAAA_ONLY)==0 &&
+	    pj_inet_pton(pj_AF_INET(), &query_job->srv[i].target_name,
+			 &addr) == PJ_SUCCESS)
+	{
+	    pj_sockaddr_init(pj_AF_INET(), &query_job->srv[i].addr[cnt],
+			     NULL, query_job->srv[i].port);
+	    query_job->srv[i].addr[cnt].ipv4.sin_addr = addr;
+	    ++query_job->srv[i].addr_cnt;
+	    ++query_job->host_resolved;
+	} else if ((query_job->option & PJ_DNS_SRV_RESOLVE_AAAA)!=0 &&
+		   pj_inet_pton(pj_AF_INET6(), &query_job->srv[i].target_name,
+				&addr6) == PJ_SUCCESS)
+	{
+	    pj_sockaddr_init(pj_AF_INET6(), &query_job->srv[i].addr[cnt],
+			     NULL, query_job->srv[i].port);
+	    query_job->srv[i].addr[cnt].ipv6.sin6_addr = addr6;
+	    ++query_job->srv[i].addr_cnt;
 	    ++query_job->host_resolved;
 	}
     }
@@ -385,12 +446,13 @@ static void build_server_entries(pj_dns_srv_async_query *query_job,
 	      (query_job->srv_cnt ? ':' : ' ')));
 
     for (i=0; i<query_job->srv_cnt; ++i) {
-	const char *addr;
+	char addr[PJ_INET6_ADDRSTRLEN];
 
-	if (query_job->srv[i].addr_cnt != 0)
-	    addr = pj_inet_ntoa(query_job->srv[i].addr[0]);
-	else
-	    addr = "-";
+	if (query_job->srv[i].addr_cnt != 0) {
+	    pj_sockaddr_print(&query_job->srv[i].addr[0],
+			 addr, sizeof(addr), 2);
+	} else
+	    pj_ansi_strcpy(addr, "-");
 
 	PJ_LOG(5,(query_job->objname, 
 		  " %d: SRV %d %d %d %.*s (%s)",
@@ -404,15 +466,27 @@ static void build_server_entries(pj_dns_srv_async_query *query_job,
 }
 
 
-/* Start DNS A record queries for all SRV records in the query_job structure */
+/* Start DNS A and/or AAAA record queries for all SRV records in
+ * the query_job structure.
+ */
 static pj_status_t resolve_hostnames(pj_dns_srv_async_query *query_job)
 {
     unsigned i, err_cnt = 0;
     pj_status_t err=PJ_SUCCESS, status;
 
     query_job->dns_state = PJ_DNS_TYPE_A;
+
     for (i=0; i<query_job->srv_cnt; ++i) {
 	struct srv_target *srv = &query_job->srv[i];
+
+	if (srv->addr_cnt != 0) {
+	    /*
+	     * This query is already counted as resolved because of the
+	     * additional records in the SRV response or the target name
+	     * is an IP address exception in build_server_entries().
+	     */
+	    continue;
+	}
 
 	PJ_LOG(5, (query_job->objname, 
 		   "Starting async DNS A query_job for %.*s",
@@ -420,18 +494,47 @@ static pj_status_t resolve_hostnames(pj_dns_srv_async_query *query_job)
 		   srv->target_name.ptr));
 
 	srv->common.type = PJ_DNS_TYPE_A;
+	srv->common_aaaa.type = PJ_DNS_TYPE_AAAA;
 	srv->parent = query_job;
+	srv->q_a = NULL;
+	srv->q_aaaa = NULL;
+
+	status = PJ_SUCCESS;
+
+	/* Start DNS A record query */
+	if ((query_job->option & PJ_DNS_SRV_RESOLVE_AAAA_ONLY) == 0)
+	{
+	    if ((query_job->option & PJ_DNS_SRV_RESOLVE_AAAA) != 0) {
+		/* If there will be DNS AAAA query too, let's setup
+		 * a dummy one here, otherwise app callback may be called
+		 * immediately (before DNS AAAA query is sent) when
+		 * DNS A record is available in the cache.
+		 */
+		srv->q_aaaa = (pj_dns_async_query*)0x1;
+	    }
+	    status = pj_dns_resolver_start_query(query_job->resolver,
+						 &srv->target_name,
+						 PJ_DNS_TYPE_A, 0,
+						 &dns_callback,
+						 &srv->common, &srv->q_a);
+	}
+
+	/* Start DNS AAAA record query */
+	if (status == PJ_SUCCESS &&
+	    (query_job->option & PJ_DNS_SRV_RESOLVE_AAAA) != 0)
+	{
+	    status = pj_dns_resolver_start_query(query_job->resolver,
+						 &srv->target_name,
+						 PJ_DNS_TYPE_AAAA, 0,
+						 &dns_callback,
+						 &srv->common_aaaa, &srv->q_aaaa);
+	}
 
 	/* See also #1809: dns_callback() will be invoked synchronously when response
 	 * is available in the cache, and var 'query_job->host_resolved' will get
 	 * incremented within the dns_callback(), which will cause this function
 	 * returning false error, so don't use that variable for counting errors.
 	 */
-	status = pj_dns_resolver_start_query(query_job->resolver,
-					     &srv->target_name,
-					     PJ_DNS_TYPE_A, 0,
-					     &dns_callback,
-					     srv, &srv->q_a);
 	if (status != PJ_SUCCESS) {
 	    query_job->host_resolved++;
 	    err_cnt++;
@@ -461,6 +564,9 @@ static void dns_callback(void *user_data,
     } else if (common->type == PJ_DNS_TYPE_A) {
 	srv = (struct srv_target*) common;
 	query_job = srv->parent;
+    } else if (common->type == PJ_DNS_TYPE_AAAA) {
+	srv = (struct srv_target*)((pj_int8_t*)common-sizeof(struct common));
+	query_job = srv->parent;
     } else {
 	pj_assert(!"Unexpected user data!");
 	return;
@@ -471,6 +577,7 @@ static void dns_callback(void *user_data,
 
 	/* We are getting SRV response */
 
+	/* Clear the outstanding job */
 	query_job->q_srv = NULL;
 
 	if (status == PJ_SUCCESS && pkt->hdr.anscount != 0) {
@@ -504,13 +611,15 @@ static void dns_callback(void *user_data,
 	 * an A record and resolve with DNS A resolution.
 	 */
 	if (query_job->srv_cnt == 0) {
+	    unsigned new_option = 0;
+
 	    /* Looks like we aren't getting any SRV responses.
 	     * Resolve the original target as A record by creating a 
 	     * single "dummy" srv record and start the hostname resolution.
 	     */
 	    PJ_LOG(4, (query_job->objname, 
 		       "DNS SRV resolution failed for %.*s, trying "
-		       "resolving A record for %.*s",
+		       "resolving A/AAAA record for %.*s",
 		       (int)query_job->full_name.slen, 
 		       query_job->full_name.ptr,
 		       (int)query_job->domain_part.slen,
@@ -523,11 +632,20 @@ static void dns_callback(void *user_data,
 	    query_job->srv[i].priority = 0;
 	    query_job->srv[i].weight = 0;
 	    query_job->srv[i].port = query_job->def_port;
-	} 
+
+	    /* Update query_job resolution option based on fallback option */
+	    if (query_job->option & PJ_DNS_SRV_FALLBACK_AAAA)
+		new_option |= (PJ_DNS_SRV_RESOLVE_AAAA |
+			       PJ_DNS_SRV_RESOLVE_AAAA_ONLY);
+	    if (query_job->option & PJ_DNS_SRV_FALLBACK_A)
+		new_option &= (~PJ_DNS_SRV_RESOLVE_AAAA_ONLY);
+	    
+	    query_job->option = new_option;
+	}
 	
 
-	/* Resolve server hostnames (DNS A record) for hosts which don't have
-	 * A record yet.
+	/* Resolve server hostnames (DNS A/AAAA record) for hosts which
+	 * don't have A/AAAA record yet.
 	 */
 	if (query_job->host_resolved != query_job->srv_cnt) {
 	    status = resolve_hostnames(query_job);
@@ -541,51 +659,99 @@ static void dns_callback(void *user_data,
 	}
 
     } else if (query_job->dns_state == PJ_DNS_TYPE_A) {
+	pj_bool_t is_type_a, srv_completed;
+        pj_dns_addr_record rec;
 
-	/* Clear the outstanding job */
-	srv->q_a = NULL;
+	/* Avoid warning: potentially uninitialized local variable 'rec' */
+	rec.alias.slen = 0;
+	rec.addr_count = 0;
+
+	/* Clear outstanding job */
+	if (common->type == PJ_DNS_TYPE_A) {
+	    srv_completed = (srv->q_aaaa == NULL);
+	    srv->q_a = NULL;
+	} else if (common->type == PJ_DNS_TYPE_AAAA) {
+	    srv_completed = (srv->q_a == NULL);
+	    srv->q_aaaa = NULL;
+	} else {
+	    pj_assert(!"Unexpected job type");
+	    query_job->last_error = status = PJ_EINVALIDOP;
+	    goto on_error;
+	}
+
+	is_type_a = (common->type == PJ_DNS_TYPE_A);
+
+        /* Parse response */
+        if (status==PJ_SUCCESS && pkt->hdr.anscount != 0) {
+            status = pj_dns_parse_addr_response(pkt, &rec);
+            if (status!=PJ_SUCCESS) {
+                char errmsg[PJ_ERR_MSG_SIZE];
+	        
+                PJ_LOG(4,(query_job->objname, 
+		          "DNS %s record parse error for '%.*s'."
+		          " Err=%d (%s)",
+                          (is_type_a ? "A" : "AAAA"),
+		          (int)query_job->domain_part.slen,
+		          query_job->domain_part.ptr,
+		          status,
+		          pj_strerror(status,errmsg,sizeof(errmsg)).ptr));
+	    }
+	}
 
 	/* Check that we really have answer */
 	if (status==PJ_SUCCESS && pkt->hdr.anscount != 0) {
-	    pj_dns_a_record rec;
-
-	    /* Parse response */
-	    status = pj_dns_parse_a_response(pkt, &rec);
-	    if (status != PJ_SUCCESS)
-		goto on_error;
+	    char addr[PJ_INET6_ADDRSTRLEN];
 
 	    pj_assert(rec.addr_count != 0);
 
 	    /* Update CNAME alias, if present. */
-	    if (rec.alias.slen) {
+	    if (srv->cname.slen==0 && rec.alias.slen) {
 		pj_assert(rec.alias.slen <= (int)sizeof(srv->cname_buf));
 		srv->cname.ptr = srv->cname_buf;
 		pj_strcpy(&srv->cname, &rec.alias);
-	    } else {
-		srv->cname.slen = 0;
+	    //} else {
+		//srv->cname.slen = 0;
 	    }
 
 	    /* Update IP address of the corresponding hostname or CNAME */
-	    if (srv->addr_cnt < ADDR_MAX_COUNT) {
-		srv->addr[srv->addr_cnt++].s_addr = rec.addr[0].s_addr;
-
-		PJ_LOG(5,(query_job->objname, 
-			  "DNS A for %.*s: %s",
-			  (int)srv->target_name.slen, 
-			  srv->target_name.ptr,
-			  pj_inet_ntoa(rec.addr[0])));
-	    }
-
-	    /* Check for multiple IP addresses */
-	    for (i=1; i<rec.addr_count && srv->addr_cnt < ADDR_MAX_COUNT; ++i)
+	    for (i=0; i<rec.addr_count && srv->addr_cnt<ADDR_MAX_COUNT; ++i)
 	    {
-		srv->addr[srv->addr_cnt++].s_addr = rec.addr[i].s_addr;
+		pj_bool_t added = PJ_FALSE;
 
-		PJ_LOG(5,(query_job->objname, 
-			  "Additional DNS A for %.*s: %s",
-			  (int)srv->target_name.slen, 
-			  srv->target_name.ptr,
-			  pj_inet_ntoa(rec.addr[i])));
+		if (is_type_a && rec.addr[i].af == pj_AF_INET()) {
+		    pj_sockaddr_init(pj_AF_INET(), &srv->addr[srv->addr_cnt],
+				     NULL, srv->port);
+		    srv->addr[srv->addr_cnt].ipv4.sin_addr =
+				     rec.addr[i].ip.v4;
+		    added = PJ_TRUE;
+		} else if (!is_type_a && rec.addr[i].af == pj_AF_INET6()) {
+		    pj_sockaddr_init(pj_AF_INET6(), &srv->addr[srv->addr_cnt],
+				     NULL, srv->port);
+		    srv->addr[srv->addr_cnt].ipv6.sin6_addr =
+				     rec.addr[i].ip.v6;
+		    added = PJ_TRUE;
+		} else {
+		    /* Mismatched address family, e.g: getting IPv6 address in
+		     * DNS A query resolution.
+		     */
+		    PJ_LOG(4,(query_job->objname, 
+			      "Bad address family in DNS %s query for %.*s",
+			      (is_type_a? "A" : "AAAA"),
+			      (int)srv->target_name.slen, 
+			      srv->target_name.ptr));
+		}
+
+		if (added) {
+		    PJ_LOG(5,(query_job->objname, 
+			      "DNS %s for %.*s: %s",
+			      (is_type_a? "A" : "AAAA"),
+			      (int)srv->target_name.slen, 
+			      srv->target_name.ptr,
+			      pj_sockaddr_print(&srv->addr[srv->addr_cnt],
+						addr, sizeof(addr), 2)));
+
+		    ++srv->addr_cnt;
+		}
 	    }
 
 	} else if (status != PJ_SUCCESS) {
@@ -596,11 +762,17 @@ static void dns_callback(void *user_data,
 
 	    /* Log error */
 	    pj_strerror(status, errmsg, sizeof(errmsg));
-	    PJ_LOG(4,(query_job->objname, "DNS A record resolution failed: %s", 
+	    PJ_LOG(4,(query_job->objname,
+		      "DNS %s record resolution failed: %s",
+		      (is_type_a? "A" : "AAAA"),
 		      errmsg));
 	}
 
-	++query_job->host_resolved;
+	/* Increment host resolved count when both DNS A and AAAA record
+	 * queries for this server are completed.
+	 */
+	if (srv_completed)
+	    ++query_job->host_resolved;
 
     } else {
 	pj_assert(!"Unexpected state!");
@@ -616,25 +788,29 @@ static void dns_callback(void *user_data,
 	srv_rec.count = 0;
 	for (i=0; i<query_job->srv_cnt; ++i) {
 	    unsigned j;
-	    struct srv_target *srv = &query_job->srv[i];
+	    struct srv_target *srv2 = &query_job->srv[i];
+	    pj_dns_addr_record *s = &srv_rec.entry[srv_rec.count].server;
 
-	    srv_rec.entry[srv_rec.count].priority = srv->priority;
-	    srv_rec.entry[srv_rec.count].weight = srv->weight;
-	    srv_rec.entry[srv_rec.count].port = (pj_uint16_t)srv->port ;
+	    srv_rec.entry[srv_rec.count].priority = srv2->priority;
+	    srv_rec.entry[srv_rec.count].weight = srv2->weight;
+	    srv_rec.entry[srv_rec.count].port = (pj_uint16_t)srv2->port ;
 
-	    srv_rec.entry[srv_rec.count].server.name = srv->target_name;
-	    srv_rec.entry[srv_rec.count].server.alias = srv->cname;
+	    srv_rec.entry[srv_rec.count].server.name = srv2->target_name;
+	    srv_rec.entry[srv_rec.count].server.alias = srv2->cname;
 	    srv_rec.entry[srv_rec.count].server.addr_count = 0;
 
-	    pj_assert(srv->addr_cnt <= PJ_DNS_MAX_IP_IN_A_REC);
+	    pj_assert(srv2->addr_cnt <= PJ_DNS_MAX_IP_IN_A_REC);
 
-	    for (j=0; j<srv->addr_cnt; ++j) {
-		srv_rec.entry[srv_rec.count].server.addr[j].s_addr = 
-		    srv->addr[j].s_addr;
-		++srv_rec.entry[srv_rec.count].server.addr_count;
+	    for (j=0; j<srv2->addr_cnt; ++j) {		
+		s->addr[j].af = srv2->addr[j].addr.sa_family;
+		if (s->addr[j].af == pj_AF_INET())
+		    s->addr[j].ip.v4 = srv2->addr[j].ipv4.sin_addr;
+		else
+		    s->addr[j].ip.v6 = srv2->addr[j].ipv6.sin6_addr;
+		++s->addr_count;
 	    }
 
-	    if (srv->addr_cnt > 0) {
+	    if (srv2->addr_cnt > 0) {
 		++srv_rec.count;
 		if (srv_rec.count == PJ_DNS_SRV_MAX_ADDR)
 		    break;
@@ -674,6 +850,10 @@ on_error:
 		  query_job->domain_part.ptr,
 		  status,
 		  pj_strerror(status,errmsg,sizeof(errmsg)).ptr));
+
+	/* Cancel any pending query */
+	pj_dns_srv_cancel_query(query_job, PJ_FALSE);
+
 	(*query_job->cb)(query_job->token, status, NULL);
 	return;
     }

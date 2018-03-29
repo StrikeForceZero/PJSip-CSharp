@@ -1,4 +1,4 @@
-/* $Id: stun_sock.c 4712 2014-01-23 08:09:29Z nanang $ */
+/* $Id: stun_sock.c 5678 2017-11-01 04:55:29Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -136,7 +136,7 @@ PJ_DEF(const char*) pj_stun_sock_op_name(pj_stun_sock_op op)
     };
 
     return op < PJ_ARRAY_SIZE(names) ? names[op] : "???";
-};
+}
 
 
 /*
@@ -416,10 +416,11 @@ PJ_DEF(pj_status_t) pj_stun_sock_start( pj_stun_sock *stun_sock,
 
 	pj_assert(stun_sock->q == NULL);
 
-	opt = PJ_DNS_SRV_FALLBACK_A;
-	if (stun_sock->af == pj_AF_INET6()) {
-	    opt |= (PJ_DNS_SRV_RESOLVE_AAAA | PJ_DNS_SRV_FALLBACK_AAAA);
-	}
+	/* Init DNS resolution option */
+	if (stun_sock->af == pj_AF_INET6())
+	    opt = (PJ_DNS_SRV_RESOLVE_AAAA_ONLY | PJ_DNS_SRV_FALLBACK_AAAA);
+	else
+	    opt = PJ_DNS_SRV_FALLBACK_A;
 
 	status = pj_dns_srv_resolve(domain, &res_name, default_port, 
 				    stun_sock->pool, resolver, opt,
@@ -435,8 +436,13 @@ PJ_DEF(pj_status_t) pj_stun_sock_start( pj_stun_sock *stun_sock,
 	    unsigned cnt = 1;
 
 	    status = pj_getaddrinfo(stun_sock->af, domain, &cnt, &ai);
-	    if (status != PJ_SUCCESS)
+	    if (cnt == 0)
+		status = PJ_EAFNOTSUP;
+
+	    if (status != PJ_SUCCESS) {
+	        pj_grp_lock_release(stun_sock->grp_lock);
 		return status;
+	    }
 
 	    pj_sockaddr_cp(&stun_sock->srv_addr, &ai.ai_addr);
 	}
@@ -468,11 +474,7 @@ static void stun_sock_destructor(void *obj)
     }
     */
 
-    if (stun_sock->pool) {
-	pj_pool_t *pool = stun_sock->pool;
-	stun_sock->pool = NULL;
-	pj_pool_release(pool);
-    }
+    pj_pool_safe_release(&stun_sock->pool);
 
     TRACE_(("", "STUN sock %p destroyed", stun_sock));
 
@@ -572,14 +574,18 @@ static void dns_srv_resolver_cb(void *user_data,
 
     pj_assert(rec->count);
     pj_assert(rec->entry[0].server.addr_count);
-
-    PJ_TODO(SUPPORT_IPV6_IN_RESOLVER);
-    pj_assert(stun_sock->af == pj_AF_INET());
+    pj_assert(rec->entry[0].server.addr[0].af == stun_sock->af);
 
     /* Set the address */
-    pj_sockaddr_in_init(&stun_sock->srv_addr.ipv4, NULL,
-			rec->entry[0].port);
-    stun_sock->srv_addr.ipv4.sin_addr = rec->entry[0].server.addr[0];
+    pj_sockaddr_init(stun_sock->af, &stun_sock->srv_addr, NULL,
+		     rec->entry[0].port);
+    if (stun_sock->af == pj_AF_INET6()) {
+	stun_sock->srv_addr.ipv6.sin6_addr = 
+				    rec->entry[0].server.addr[0].ip.v6;
+    } else {
+	stun_sock->srv_addr.ipv4.sin_addr = 
+				    rec->entry[0].server.addr[0].ip.v4;
+    }
 
     /* Start sending Binding request */
     get_mapped_addr(stun_sock);

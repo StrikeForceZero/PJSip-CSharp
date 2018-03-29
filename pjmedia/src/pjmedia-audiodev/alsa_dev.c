@@ -1,4 +1,4 @@
-/* $Id: alsa_dev.c 4818 2014-04-16 07:15:50Z bennylp $ */
+/* $Id: alsa_dev.c 5678 2017-11-01 04:55:29Z riza $ */
 /*
  * Copyright (C) 2009-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2007-2009 Keystream AB and Konftel AB, All rights reserved.
@@ -44,6 +44,7 @@
 #define MAX_SOUND_CARDS 		5
 #define MAX_SOUND_DEVICES_PER_CARD 	5
 #define MAX_DEVICES			32
+#define MAX_MIX_NAME_LEN                64 
 
 /* Set to 1 to enable tracing */
 #if 0
@@ -97,6 +98,7 @@ struct alsa_factory
 
     unsigned			 dev_cnt;
     pjmedia_aud_dev_info	 devs[MAX_DEVICES];
+    char                         pb_mixer_name[MAX_MIX_NAME_LEN];
 };
 
 struct alsa_stream
@@ -270,6 +272,44 @@ static pj_status_t add_dev (struct alsa_factory *af, const char *dev_name)
     return PJ_SUCCESS;
 }
 
+static void get_mixer_name(struct alsa_factory *af)
+{
+    snd_mixer_t *handle;
+    snd_mixer_elem_t *elem;
+
+    if (snd_mixer_open(&handle, 0) < 0)
+	return;
+
+    if (snd_mixer_attach(handle, "default") < 0) {
+	snd_mixer_close(handle);
+	return;
+    }
+
+    if (snd_mixer_selem_register(handle, NULL, NULL) < 0) {
+	snd_mixer_close(handle);
+	return;
+    }
+
+    if (snd_mixer_load(handle) < 0) {
+	snd_mixer_close(handle);
+	return;
+    }
+
+    for (elem = snd_mixer_first_elem(handle); elem;
+	 elem = snd_mixer_elem_next(elem))
+    {
+	if (snd_mixer_selem_is_active(elem) &&
+	    snd_mixer_selem_has_playback_volume(elem))
+	{
+	    pj_ansi_strncpy(af->pb_mixer_name, snd_mixer_selem_get_name(elem),
+	    		    sizeof(af->pb_mixer_name));
+	    TRACE_((THIS_FILE, "Playback mixer name: %s", af->pb_mixer_name));
+	    break;
+	}
+    }
+    snd_mixer_close(handle);
+}
+
 
 /* Create ALSA audio driver. */
 pjmedia_aud_dev_factory* pjmedia_alsa_factory(pj_pool_factory *pf)
@@ -348,12 +388,16 @@ static pj_status_t alsa_factory_refresh(pjmedia_aud_dev_factory *f)
     n = hints;
     while (*n != NULL) {
 	char *name = snd_device_name_get_hint(*n, "NAME");
-	if (name != NULL && 0 != strcmp("null", name)) {
-	    add_dev(af, name);
+	if (name != NULL) {
+	    if (0 != strcmp("null", name))
+		add_dev(af, name);
 	    free(name);
 	}
 	n++;
     }
+
+    /* Get the mixer name */
+    get_mixer_name(af);
 
     /* Install error handler after enumeration, otherwise we'll get many
      * error messages about invalid card/device ID.
@@ -891,9 +935,43 @@ static pj_status_t alsa_stream_set_cap(pjmedia_aud_stream *strm,
 				       pjmedia_aud_dev_cap cap,
 				       const void *value)
 {
-    PJ_UNUSED_ARG(strm);
-    PJ_UNUSED_ARG(cap);
-    PJ_UNUSED_ARG(value);
+    struct alsa_factory *af = ((struct alsa_stream*)strm)->af;
+
+    if (cap==PJMEDIA_AUD_DEV_CAP_OUTPUT_VOLUME_SETTING && 
+	pj_ansi_strlen(af->pb_mixer_name)) 
+    {
+	pj_ssize_t min, max;
+	snd_mixer_t *handle;
+	snd_mixer_selem_id_t *sid;
+	snd_mixer_elem_t* elem;
+	unsigned vol = *(unsigned*)value;
+
+	if (snd_mixer_open(&handle, 0) < 0)
+	    return PJMEDIA_EAUD_SYSERR;
+
+	if (snd_mixer_attach(handle, "default") < 0)
+	    return PJMEDIA_EAUD_SYSERR;
+
+	if (snd_mixer_selem_register(handle, NULL, NULL) < 0)
+	    return PJMEDIA_EAUD_SYSERR;
+
+	if (snd_mixer_load(handle) < 0)
+	    return PJMEDIA_EAUD_SYSERR;
+
+	snd_mixer_selem_id_alloca(&sid);
+	snd_mixer_selem_id_set_index(sid, 0);
+	snd_mixer_selem_id_set_name(sid, af->pb_mixer_name);
+	elem = snd_mixer_find_selem(handle, sid);
+	if (!elem)
+	    return PJMEDIA_EAUD_SYSERR;
+
+	snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
+	if (snd_mixer_selem_set_playback_volume_all(elem, vol * max / 100) < 0)
+	    return PJMEDIA_EAUD_SYSERR;
+
+	snd_mixer_close(handle);
+	return PJ_SUCCESS;
+    }
 
     return PJMEDIA_EAUD_INVCAP;
 }

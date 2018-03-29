@@ -1,4 +1,4 @@
-/* $Id: turn_session.c 4606 2013-10-01 05:00:57Z ming $ */
+/* $Id: turn_session.c 5636 2017-08-02 02:51:59Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -328,12 +328,8 @@ static void turn_sess_on_destroy(void *comp)
 
     /* Destroy pool */
     if (sess->pool) {
-	pj_pool_t *pool = sess->pool;
-
 	PJ_LOG(4,(sess->obj_name, "TURN client session destroyed"));
-
-	sess->pool = NULL;
-	pj_pool_release(pool);
+	pj_pool_safe_release(&sess->pool);
     }
 }
 
@@ -608,9 +604,16 @@ PJ_DEF(pj_status_t) pj_turn_session_set_server( pj_turn_session *sess,
 	    goto on_return;
 	}
 
+	/* Init DNS resolution option for IPv6 */
+	if (sess->af == pj_AF_INET6())
+	    opt |= PJ_DNS_SRV_RESOLVE_AAAA_ONLY;
+
 	/* Fallback to DNS A only if default port is specified */
 	if (default_port>0 && default_port<65536) {
-	    opt = PJ_DNS_SRV_FALLBACK_A;
+	    if (sess->af == pj_AF_INET6())
+		opt |= PJ_DNS_SRV_FALLBACK_AAAA;
+	    else
+		opt |= PJ_DNS_SRV_FALLBACK_A;
 	    sess->default_port = (pj_uint16_t)default_port;
 	}
 
@@ -625,11 +628,15 @@ PJ_DEF(pj_status_t) pj_turn_session_set_server( pj_turn_session *sess,
 	    goto on_return;
 	}
 
+	/* Add reference before async DNS resolution */
+	pj_grp_lock_add_ref(sess->grp_lock);
+
 	status = pj_dns_srv_resolve(domain, &res_name, default_port, 
 				    sess->pool, resolver, opt, sess, 
 				    &dns_srv_resolver_cb, NULL);
 	if (status != PJ_SUCCESS) {
 	    set_state(sess, PJ_TURN_STATE_NULL);
+	    pj_grp_lock_dec_ref(sess->grp_lock);
 	    goto on_return;
 	}
 
@@ -670,7 +677,7 @@ PJ_DEF(pj_status_t) pj_turn_session_set_server( pj_turn_session *sess,
 	    pj_sockaddr *addr = &sess->srv_addr_list[i];
 	    pj_memcpy(addr, &ai[i].ai_addr, sizeof(pj_sockaddr));
 	    addr->addr.sa_family = sess->af;
-	    addr->ipv4.sin_port = pj_htons(sess->default_port);
+	    pj_sockaddr_set_port(addr, sess->default_port);
 	}
 
 	sess->srv_addr = &sess->srv_addr_list[0];
@@ -716,6 +723,12 @@ PJ_DEF(pj_status_t) pj_turn_session_alloc(pj_turn_session *sess,
     PJ_ASSERT_RETURN(sess->state>PJ_TURN_STATE_NULL && 
 		     sess->state<=PJ_TURN_STATE_RESOLVED, 
 		     PJ_EINVALIDOP);
+
+    /* Verify address family in allocation param */
+    if (param && param->af) {
+	PJ_ASSERT_RETURN(param->af==pj_AF_INET() || param->af==pj_AF_INET6(),
+			 PJ_EINVAL);
+    }
 
     pj_grp_lock_acquire(sess->grp_lock);
 
@@ -763,6 +776,23 @@ PJ_DEF(pj_status_t) pj_turn_session_alloc(pj_turn_session *sess,
 				  sess->alloc_param.lifetime);
     }
 
+    /* Include ADDRESS-FAMILY if requested */
+    if (sess->alloc_param.af || sess->af == pj_AF_INET6()) {
+	enum  { IPV4_AF_TYPE = 0x01 << 24,
+		IPV6_AF_TYPE = 0x02 << 24 };
+
+	if (sess->alloc_param.af == pj_AF_INET6() ||
+	    (sess->alloc_param.af == 0 && sess->af == pj_AF_INET6()))
+	{
+	    pj_stun_msg_add_uint_attr(tdata->pool, tdata->msg,
+				      PJ_STUN_ATTR_REQ_ADDR_TYPE, IPV6_AF_TYPE);
+	} else if (sess->alloc_param.af == pj_AF_INET()) {
+	    /* For IPv4, only add the attribute when explicitly requested */
+	    pj_stun_msg_add_uint_attr(tdata->pool, tdata->msg,
+				      PJ_STUN_ATTR_REQ_ADDR_TYPE, IPV4_AF_TYPE);
+	}
+    }
+
     /* Server address must be set */
     pj_assert(sess->srv_addr != NULL);
 
@@ -777,7 +807,8 @@ PJ_DEF(pj_status_t) pj_turn_session_alloc(pj_turn_session *sess,
 	/* Set state back to RESOLVED. We don't want to destroy session now,
 	 * let the application do it if it wants to.
 	 */
-	set_state(sess, PJ_TURN_STATE_RESOLVED);
+	/* Set state back to RESOLVED may cause infinite loop (see #1942). */
+	//set_state(sess, PJ_TURN_STATE_RESOLVED);
     }
 
     pj_grp_lock_release(sess->grp_lock);
@@ -1291,7 +1322,6 @@ static void on_allocate_success(pj_turn_session *sess,
     const pj_stun_xor_relayed_addr_attr *raddr_attr;
     const pj_stun_sockaddr_attr *mapped_attr;
     pj_str_t s;
-    pj_time_val timeout;
 
     /* Must have LIFETIME attribute */
     lf_attr = (const pj_stun_lifetime_attr*)
@@ -1344,11 +1374,15 @@ static void on_allocate_success(pj_turn_session *sess,
 				    "RELAY-ADDRESS attribute"));
 	return;
     }
-    if (raddr_attr && raddr_attr->sockaddr.addr.sa_family != sess->af) {
+    if (raddr_attr &&
+	((sess->alloc_param.af != 0 &&
+	  raddr_attr->sockaddr.addr.sa_family != sess->alloc_param.af) ||
+	 (sess->alloc_param.af == 0 &&
+	  raddr_attr->sockaddr.addr.sa_family != sess->af)))
+    {
 	on_session_fail(sess, method, PJNATH_EINSTUNMSG,
-			pj_cstr(&s, "Error: RELAY-ADDRESS with non IPv4"
-				    " address family is not supported "
-				    "for now"));
+			pj_cstr(&s, "Error: Mismatched RELAY-ADDRESS "
+				    "address family"));
 	return;
     }
     if (raddr_attr && !pj_sockaddr_has_addr(&raddr_attr->sockaddr)) {
@@ -1396,6 +1430,7 @@ static void on_allocate_success(pj_turn_session *sess,
 
     /* Start keep-alive timer once allocation succeeds */
     if (sess->state < PJ_TURN_STATE_DEALLOCATING) {
+	pj_time_val timeout;
 	timeout.sec = sess->ka_interval;
 	timeout.msec = 0;
 
@@ -1694,6 +1729,7 @@ static void dns_srv_resolver_cb(void *user_data,
     if (status != PJ_SUCCESS || sess->pending_destroy) {
 	set_state(sess, PJ_TURN_STATE_DESTROYING);
 	sess_shutdown(sess, status);
+	pj_grp_lock_dec_ref(sess->grp_lock);
 	return;
     }
 
@@ -1718,13 +1754,18 @@ static void dns_srv_resolver_cb(void *user_data,
 	for (j=0; j<rec->entry[i].server.addr_count && 
 		  cnt<PJ_TURN_MAX_DNS_SRV_CNT; ++j) 
 	{
-	    pj_sockaddr_in *addr = &sess->srv_addr_list[cnt].ipv4;
+	    if (rec->entry[i].server.addr[j].af == sess->af) {
+		pj_sockaddr *addr = &sess->srv_addr_list[cnt];
 
-	    addr->sin_family = sess->af;
-	    addr->sin_port = pj_htons(rec->entry[i].port);
-	    addr->sin_addr.s_addr = rec->entry[i].server.addr[j].s_addr;
+		addr->addr.sa_family = sess->af;
+		pj_sockaddr_set_port(addr, rec->entry[i].port);
+		if (sess->af == pj_AF_INET6())
+		    addr->ipv6.sin6_addr = rec->entry[i].server.addr[j].ip.v6;
+		else
+		    addr->ipv4.sin_addr = rec->entry[i].server.addr[j].ip.v4;
 
-	    ++cnt;
+		++cnt;
+	    }
 	}
     }
     sess->srv_addr_cnt = (pj_uint16_t)cnt;
@@ -1737,8 +1778,13 @@ static void dns_srv_resolver_cb(void *user_data,
 
     /* Run pending allocation */
     if (sess->pending_alloc) {
-	pj_turn_session_alloc(sess, NULL);
+	pj_status_t status2;
+	status2 = pj_turn_session_alloc(sess, NULL);
+	if (status2 != PJ_SUCCESS)
+	    on_session_fail(sess, PJ_STUN_ALLOCATE_METHOD, status2, NULL);
     }
+
+    pj_grp_lock_dec_ref(sess->grp_lock);
 }
 
 
@@ -1771,14 +1817,14 @@ static struct ch_t *lookup_ch_by_addr(pj_turn_session *sess,
 	ch->expiry.sec += PJ_TURN_PERM_TIMEOUT - sess->ka_interval - 1;
 
 	if (bind_channel) {
-	    pj_uint32_t hval = 0;
+	    pj_uint32_t hval2 = 0;
 	    /* Register by channel number */
 	    pj_assert(ch->num != PJ_TURN_INVALID_CHANNEL && ch->bound);
 
 	    if (pj_hash_get(sess->ch_table, &ch->num, 
-			    sizeof(ch->num), &hval)==0) {
+			    sizeof(ch->num), &hval2)==0) {
 		pj_hash_set(sess->pool, sess->ch_table, &ch->num,
-			    sizeof(ch->num), hval, ch);
+			    sizeof(ch->num), hval2, ch);
 	    }
 	}
     }

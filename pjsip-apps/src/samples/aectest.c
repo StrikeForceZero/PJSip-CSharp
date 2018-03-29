@@ -1,4 +1,4 @@
-/* $Id: aectest.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: aectest.c 5535 2017-01-19 10:31:38Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -59,7 +59,7 @@ static const char *desc =
 "      Default is 25 ms. See note below.                            \n"
 "  -l  Set the echo tail length in ms. Default is 200 ms	    \n"
 "  -r  Set repeat count (default=1)                                 \n"
-"  -a  Algorithm: 0=default, 1=speex, 3=echo suppress		    \n"
+"  -a  Algorithm: 0=default, 1=speex, 2=echo suppress, 3=WebRtc	    \n"
 "  -i  Interactive						    \n"
 "\n"
 " Note that for the AEC internal buffering mechanism, it is required\n"
@@ -123,11 +123,15 @@ int main(int argc, char *argv[])
 		switch (alg) {
 		case 0:
 		    opt = 0;
+		    break;
 		case 1:
 		    opt = PJMEDIA_ECHO_SPEEX;
 		    break;
-		case 3:
+		case 2:
 		    opt = PJMEDIA_ECHO_SIMPLE;
+		    break;
+		case 3:
+		    opt = PJMEDIA_ECHO_WEBRTC;
 		    break;
 		default:
 		    puts("Invalid algorithm");
@@ -296,6 +300,7 @@ int main(int argc, char *argv[])
 	char s[10], *dummy;
 	puts("ENTER to quit");
 	dummy = fgets(s, sizeof(s), stdin);
+	PJ_UNUSED_ARG(dummy);
     }
 
     /* Done. */

@@ -9,7 +9,7 @@
 
 /*
  *	
- * Copyright (c) 2001-2006, Cisco Systems, Inc.
+ * Copyright (c) 2001-2017, Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -44,23 +44,25 @@
  */
 
 
-#ifndef _DATATYPES_H
-#define _DATATYPES_H
+#ifndef DATATYPES_H
+#define DATATYPES_H
 
 #include "integers.h"           /* definitions of uint32_t, et cetera   */
 #include "alloc.h"
 
 #include <stdarg.h>
 
-#ifndef SRTP_KERNEL
-# include <stdio.h>
-# include <string.h>
-# include <time.h>
-# ifdef HAVE_NETINET_IN_H
-#  include <netinet/in.h>
-# elif defined HAVE_WINSOCK2_H
-#  include <winsock2.h>
-# endif
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#ifdef HAVE_NETINET_IN_H
+# include <netinet/in.h>
+#elif defined HAVE_WINSOCK2_H
+# include <winsock2.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 
@@ -92,6 +94,12 @@ typedef union {
   uint64_t v64[2];
 } v128_t;
 
+typedef union {
+    uint8_t v8[32];
+    uint16_t v16[16];
+    uint32_t v32[8];
+    uint64_t v64[4];
+} v256_t;
 
 
 /* some useful and simple math functions */
@@ -109,13 +117,10 @@ typedef union {
 int
 octet_get_weight(uint8_t octet);
 
-char *
-octet_bit_string(uint8_t x);
-
 #define MAX_PRINT_STRING_LEN 1024
 
 char *
-octet_string_hex_string(const void *str, int length);
+srtp_octet_string_hex_string(const void *str, int length);
 
 char *
 v128_bit_string(v128_t *x);
@@ -123,42 +128,14 @@ v128_bit_string(v128_t *x);
 char *
 v128_hex_string(v128_t *x);
 
-uint8_t
-nibble_to_hex_char(uint8_t nibble);
-
-char *
-char_to_hex_string(char *x, int num_char);
-
-uint8_t
-hex_string_to_octet(char *s);
-
-/*
- * hex_string_to_octet_string(raw, hex, len) converts the hexadecimal
- * string at *hex (of length len octets) to the equivalent raw data
- * and writes it to *raw.
- *
- * if a character in the hex string that is not a hexadeciaml digit
- * (0123456789abcdefABCDEF) is encountered, the function stops writing
- * data to *raw
- *
- * the number of hex digits copied (which is two times the number of
- * octets in *raw) is returned
- */
-
-int
-hex_string_to_octet_string(char *raw, char *hex, int len);
-
-v128_t
-hex_string_to_v128(char *s);
-
 void
 v128_copy_octet_string(v128_t *x, const uint8_t s[16]);
 
 void
-v128_left_shift(v128_t *x, int index);
+v128_left_shift(v128_t *x, int shift_index);
 
 void
-v128_right_shift(v128_t *x, int index);
+v128_right_shift(v128_t *x, int shift_index);
 
 /*
  * the following macros define the data manipulation functions
@@ -268,51 +245,6 @@ v128_right_shift(v128_t *x, int index);
              _v128_clear_bit(x, bit)      \
 )
 
-
-#if 0
-/* nothing uses this */
-#ifdef WORDS_BIGENDIAN
-
-#define _v128_add(z, x, y) {                    \
-  uint64_t tmp;					\
-    						\
-  tmp = x->v32[3] + y->v32[3];                  \
-  z->v32[3] = (uint32_t) tmp;			\
-  						\
-  tmp =  x->v32[2] + y->v32[2] + (tmp >> 32);	\
-  z->v32[2] = (uint32_t) tmp;                   \
-						\
-  tmp =  x->v32[1] + y->v32[1] + (tmp >> 32);	\
-  z->v32[1] = (uint32_t) tmp;			\
-                                                \
-  tmp =  x->v32[0] + y->v32[0] + (tmp >> 32);	\
-  z->v32[0] = (uint32_t) tmp;			\
-}
-
-#else /* assume little endian architecture */
-
-#define _v128_add(z, x, y) {                    \
-  uint64_t tmp;					\
-						\
-  tmp = htonl(x->v32[3]) + htonl(y->v32[3]);	\
-  z->v32[3] = ntohl((uint32_t) tmp);		\
-  						\
-  tmp =  htonl(x->v32[2]) + htonl(y->v32[2])	\
-       + htonl(tmp >> 32);			\
-  z->v32[2] = ntohl((uint32_t) tmp);		\
-                                                \
-  tmp =  htonl(x->v32[1]) + htonl(y->v32[1])	\
-       + htonl(tmp >> 32);			\
-  z->v32[1] = ntohl((uint32_t) tmp);		\
-  						\
-  tmp =  htonl(x->v32[0]) + htonl(y->v32[0])	\
-       + htonl(tmp >> 32);			\
-  z->v32[0] = ntohl((uint32_t) tmp);		\
-}
-#endif /* WORDS_BIGENDIAN */                      
-#endif /* 0 */
-
-
 #ifdef DATATYPES_USE_MACROS  /* little functions are really macros */
    
 #define v128_set_to_zero(z)       _v128_set_to_zero(z)
@@ -366,18 +298,31 @@ v128_set_bit_to(v128_t *x, int i, int y);
 #endif /* DATATYPES_USE_MACROS */
 
 /*
- * octet_string_is_eq(a,b, len) returns 1 if the length len strings a
- * and b are not equal, returns 0 otherwise
+ * octet_string_is_eq(a, b, len) returns 1 if the length len strings a
+ * and b are not equal. It returns 0 otherwise. The running time of the
+ * comparison depends only on len, making this safe to use for (e.g.)
+ * verifying authentication tags.
  */
 
 int
 octet_string_is_eq(uint8_t *a, uint8_t *b, int len);
 
+/*
+ * A portable way to zero out memory as recommended by
+ * https://cryptocoding.net/index.php/Coding_rules#Clean_memory_of_secret_data
+ * This is used to zero memory when OPENSSL_cleanse() is not available.
+ */
 void
-octet_string_set_to_zero(uint8_t *s, int len);
+srtp_cleanse(void *s, size_t len);
 
+/*
+ * Functions as a wrapper that delegates to either srtp_cleanse() or
+ * OPENSSL_cleanse() if available to zero memory.
+ */
+void
+octet_string_set_to_zero(void *s, size_t len);
 
-#ifndef SRTP_KERNEL_LINUX
+#if defined(HAVE_CONFIG_H) 
 
 /* 
  * Convert big endian integers to CPU byte order.
@@ -420,8 +365,91 @@ static inline uint64_t be64_to_cpu(uint64_t v) {
    return v;
 }
 
-#endif /* ! SRTP_KERNEL_LINUX */
+#endif 
 
 #endif /* WORDS_BIGENDIAN */
 
-#endif /* _DATATYPES_H */
+/*
+ * functions manipulating bitvector_t 
+ *
+ * A bitvector_t consists of an array of words and an integer
+ * representing the number of significant bits stored in the array.
+ * The bits are packed as follows: the least significant bit is that
+ * of word[0], while the most significant bit is the nth most
+ * significant bit of word[m], where length = bits_per_word * m + n.
+ * 
+ */
+
+#define bits_per_word  32
+#define bytes_per_word 4
+
+typedef struct {
+  uint32_t length;   
+  uint32_t *word;
+} bitvector_t;
+
+
+#define _bitvector_get_bit(v, bit_index)				\
+(									\
+ ((((v)->word[((bit_index) >> 5)]) >> ((bit_index) & 31)) & 1)		\
+)
+
+
+#define _bitvector_set_bit(v, bit_index)				\
+(									\
+ (((v)->word[((bit_index) >> 5)] |= ((uint32_t)1 << ((bit_index) & 31)))) \
+)
+
+#define _bitvector_clear_bit(v, bit_index)				\
+(									\
+ (((v)->word[((bit_index) >> 5)] &= ~((uint32_t)1 << ((bit_index) & 31)))) \
+)
+
+#define _bitvector_get_length(v)					\
+(									\
+ ((v)->length)								\
+)
+
+#ifdef DATATYPES_USE_MACROS  /* little functions are really macros */
+
+#define bitvector_get_bit(v, bit_index) _bitvector_get_bit(v, bit_index)
+#define bitvector_set_bit(v, bit_index) _bitvector_set_bit(v, bit_index)
+#define bitvector_clear_bit(v, bit_index) _bitvector_clear_bit(v, bit_index)
+#define bitvector_get_length(v) _bitvector_get_length(v)
+
+#else
+
+int
+bitvector_get_bit(const bitvector_t *v, int bit_index);
+
+void
+bitvector_set_bit(bitvector_t *v, int bit_index);
+
+void
+bitvector_clear_bit(bitvector_t *v, int bit_index);
+
+unsigned long
+bitvector_get_length(const bitvector_t *v);
+
+#endif
+
+int
+bitvector_alloc(bitvector_t *v, unsigned long length);
+
+void
+bitvector_dealloc(bitvector_t *v);
+
+void
+bitvector_set_to_zero(bitvector_t *x);
+
+void
+bitvector_left_shift(bitvector_t *x, int index);
+
+char *
+bitvector_bit_string(bitvector_t *x, char* buf, int len);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* DATATYPES_H */

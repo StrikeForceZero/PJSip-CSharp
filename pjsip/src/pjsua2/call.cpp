@@ -1,4 +1,4 @@
-/* $Id: call.cpp 4996 2015-03-18 08:25:24Z ming $ */
+/* $Id: call.cpp 5645 2017-09-06 03:44:35Z riza $ */
 /*
  * Copyright (C) 2012-2013 Teluu Inc. (http://www.teluu.com)
  *
@@ -152,9 +152,9 @@ public:
 };
 
 
-void CallAudioMedia::setPortId(int id)
+void CallAudioMedia::setPortId(int pid)
 {
-    this->id = id;
+    this->id = pid;
 }
 
 CallOpParam::CallOpParam(bool useDefaultCallSetting)
@@ -296,7 +296,7 @@ void StreamInfo::fromPj(const pjsua_stream_info &info)
         rxPt = info.info.aud.rx_pt;
         codecName = pj2Str(info.info.aud.fmt.encoding_name);
         codecClockRate = info.info.aud.fmt.clock_rate;
-        codecParam = info.info.aud.param;
+        audCodecParam.fromPj(*info.info.aud.param);
     } else if (type == PJMEDIA_TYPE_VIDEO) {
         proto = info.info.vid.proto;
         dir = info.info.vid.dir;
@@ -307,8 +307,8 @@ void StreamInfo::fromPj(const pjsua_stream_info &info)
         txPt = info.info.vid.tx_pt;
         rxPt = info.info.vid.rx_pt;
         codecName = pj2Str(info.info.vid.codec_info.encoding_name);
-        codecClockRate = info.info.vid.codec_info.clock_rate;
-        codecParam = info.info.vid.codec_param;
+        codecClockRate = info.info.vid.codec_info.clock_rate;        
+	vidCodecParam.fromPj(*info.info.vid.codec_param);
     }
 }
 
@@ -390,8 +390,13 @@ Call::~Call()
      * PJSUA library.
      */
     if (pjsua_get_state() < PJSUA_STATE_CLOSING && isActive()) {
-        CallOpParam prm;
-        hangup(prm);
+	try {
+	    CallOpParam prm;
+	    hangup(prm);
+	} catch (Error &err) {
+	    // Ignore
+	    PJ_UNUSED_ARG(err);
+	}
     }
 }
 

@@ -18,7 +18,10 @@ if test "$*" = "--help" -o "$*" = "-h"; then
   echo "             to use. By default, the compiler is deduced from the"
   echo "             SDK."
   echo "  ARCH       Optional flags to specify target architecture, e.g."
-  echo "             ARCH='-arch armv6'. Default is armv7."
+  echo "             ARCH=\"-arch armv6\". Default is armv7."
+  echo "  MIN_IOS    Optional flags to specify minimum supported iOS"
+  echo "             versions, e.g. MIN_IOS=\"-miphoneos-version-min=10.0\". "
+  echo "             Default is 7.0."
   echo ""
   exit 0
 fi
@@ -115,6 +118,15 @@ if test "${ARCH}" = ""; then
 fi
 export ARCH_VAL=`echo ${ARCH} | sed 's/\-arch //' | sed -e 's/^[ \t]*//;s/[ \t]*$//' `
 
+if test "${MIN_IOS}" = ""; then
+  MIN_IOS_VER="7.0"
+  echo "$F: MIN_IOS is not specified, choosing ${MIN_IOS_VER}"
+  MIN_IOS="-miphoneos-version-min=${MIN_IOS_VER}"
+fi
+CFLAGS="${CFLAGS} ${MIN_IOS}"
+LDFLAGS="${LDFLAGS} ${MIN_IOS}"
+
+
 # Set CXX if not set
 if test "${CXX}" = ""; then
   export CXX=`echo ${CC} | sed 's/gcc/g++/'`
@@ -135,6 +147,7 @@ export CPP="${CC} ${ARCH} -E -isysroot ${SDKPATH}"
 # Print settings
 if test "1" = "1"; then
   echo "$F: calling ./aconfigure with env vars:"
+  echo " MIN_IOS = ${MIN_IOS}"
   echo " CC = ${CC}"
   echo " CXX = ${CXX}"
   echo " SDKPATH = ${SDKPATH}"

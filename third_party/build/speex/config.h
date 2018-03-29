@@ -26,11 +26,14 @@
 #   pragma warning(disable: 4244)   // conversion from 'double ' to 'float '
 #   pragma warning(disable: 4305)   // truncation from 'const double ' to 'float '
 #   pragma warning(disable: 4018)   // signed/unsigned mismatch
+#   pragma warning(disable: 4456)   // declaration of '[var]' hides previous local declaration
+#   pragma warning(disable: 4267)   // conversion from 'size_t' to 'int', possible loss of data
 //#   pragma warning(disable: 4701)   // local variable used without initialized
 #endif
 
 #if defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 402
 #  pragma GCC diagnostic ignored "-Wpragmas"
+#  pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #  pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #endif
 

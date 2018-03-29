@@ -2,11 +2,11 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{d84b1885-db94-4ec4-aa2f-f294b69cd8b5}</UniqueIdentifier>
+      <UniqueIdentifier>{964a89b5-0309-4d55-b122-251b153fc0a2}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
     </Filter>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{0002ddda-ecdb-4a6e-b8d3-0d5feeb855b8}</UniqueIdentifier>
+      <UniqueIdentifier>{b3ec472e-1348-4a03-ac3b-19462e8c3b18}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl</Extensions>
     </Filter>
   </ItemGroup>
@@ -42,6 +42,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\pjmedia-audiodev\wmme_dev.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\pjmedia-audiodev\wasapi_dev.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

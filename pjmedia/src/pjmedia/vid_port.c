@@ -1,4 +1,4 @@
-/* $Id: vid_port.c 5149 2015-08-06 07:10:33Z nanang $ */
+/* $Id: vid_port.c 5678 2017-11-01 04:55:29Z riza $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -482,7 +482,6 @@ PJ_DEF(pj_status_t) pjmedia_vid_port_create( pj_pool_t *pool,
 {
     pjmedia_vid_port *vp;
     pjmedia_video_format_detail *vfd;
-    char dev_name[64];
     char fmt_name[5];
     pjmedia_vid_dev_cb vid_cb;
     pj_bool_t need_frame_buf = PJ_FALSE;
@@ -490,6 +489,7 @@ PJ_DEF(pj_status_t) pjmedia_vid_port_create( pj_pool_t *pool,
     unsigned ptime_usec;
     pjmedia_vid_dev_param vparam;
     pjmedia_vid_dev_info di;
+    char dev_name[sizeof(di.name) + sizeof(di.driver) + 4];
 
     PJ_ASSERT_RETURN(pool && prm && p_vid_port, PJ_EINVAL);
     PJ_ASSERT_RETURN(prm->vidparam.fmt.type == PJMEDIA_TYPE_VIDEO &&
@@ -504,6 +504,14 @@ PJ_DEF(pj_status_t) pjmedia_vid_port_create( pj_pool_t *pool,
 
     PJ_ASSERT_RETURN(vfd->fps.num, PJ_EINVAL);
 
+    /* Get device info */
+    if (prm->vidparam.dir & PJMEDIA_DIR_CAPTURE)
+        status = pjmedia_vid_dev_get_info(prm->vidparam.cap_id, &di);
+    else
+        status = pjmedia_vid_dev_get_info(prm->vidparam.rend_id, &di);
+    if (status != PJ_SUCCESS)
+        return status;
+
     /* Allocate videoport */
     vp = PJ_POOL_ZALLOC_T(pool, pjmedia_vid_port);
     vp->pool = pj_pool_create(pool->factory, "video port", 500, 500, NULL);
@@ -514,16 +522,7 @@ PJ_DEF(pj_status_t) pjmedia_vid_port_create( pj_pool_t *pool,
     vparam = prm->vidparam;
     dev_name[0] = '\0';
 
-    /* Get device info */
-    if (vp->dir & PJMEDIA_DIR_CAPTURE)
-        status = pjmedia_vid_dev_get_info(prm->vidparam.cap_id, &di);
-    else
-        status = pjmedia_vid_dev_get_info(prm->vidparam.rend_id, &di);
-    if (status != PJ_SUCCESS)
-        return status;
-
-    pj_ansi_snprintf(dev_name, sizeof(dev_name), "%s [%s]",
-                     di.name, di.driver);
+    pj_ansi_snprintf(dev_name, sizeof(dev_name), "%s [%s]", di.name, di.driver);
     pjmedia_fourcc_name(vparam.fmt.id, fmt_name);
     PJ_LOG(4,(THIS_FILE,
 	      "Opening device %s for %s: format=%s, size=%dx%d @%d:%d fps",
@@ -586,6 +585,7 @@ PJ_DEF(pj_status_t) pjmedia_vid_port_create( pj_pool_t *pool,
     if (status != PJ_SUCCESS)
 	goto on_error;
 
+    pjmedia_fourcc_name(vparam.fmt.id, fmt_name);
     PJ_LOG(4,(THIS_FILE,
 	      "Device %s opened: format=%s, size=%dx%d @%d:%d fps",
 	      dev_name, fmt_name,

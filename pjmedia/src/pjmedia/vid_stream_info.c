@@ -1,4 +1,4 @@
-/* $Id: vid_stream_info.c 4890 2014-08-19 00:54:34Z bennylp $ */
+/* $Id: vid_stream_info.c 5436 2016-09-14 19:43:18Z ming $ */
 /*
  * Copyright (C) 2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -299,9 +299,17 @@ PJ_DEF(pj_status_t) pjmedia_vid_stream_info_from_sdp(
 	return PJMEDIA_EINVALIDIP;
     }
 
-    /* Local and remote address family must match */
-    if (local_af != rem_af)
-	return PJ_EAFNOTSUP;
+    /* Local and remote address family must match, except when ICE is used
+     * by both sides (see also ticket #1952).
+     */
+    if (local_af != rem_af) {
+	const pj_str_t STR_ICE_CAND = { "candidate", 9 };
+	if (pjmedia_sdp_media_find_attr(rem_m, &STR_ICE_CAND, NULL)==NULL ||
+	    pjmedia_sdp_media_find_attr(local_m, &STR_ICE_CAND, NULL)==NULL)
+	{
+	    return PJ_EAFNOTSUP;
+	}
+    }
 
     /* Media direction: */
 

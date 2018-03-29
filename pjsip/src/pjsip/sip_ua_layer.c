@@ -1,4 +1,4 @@
-/* $Id: sip_ua_layer.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: sip_ua_layer.c 5573 2017-03-29 02:40:48Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -277,7 +277,7 @@ static struct dlg_set *alloc_dlgset_node(void)
 
 /*
  * Register new dialog. Called by pjsip_dlg_create_uac() and
- * pjsip_dlg_create_uas();
+ * pjsip_dlg_create_uas_and_inc_lock();
  */
 PJ_DEF(pj_status_t) pjsip_ua_register_dlg( pjsip_user_agent *ua,
 					   pjsip_dialog *dlg )
@@ -412,6 +412,11 @@ PJ_DEF(pjsip_dialog*) pjsip_rdata_get_dlg( pjsip_rx_data *rdata )
     return (pjsip_dialog*) rdata->endpt_info.mod_data[mod_ua.mod.id];
 }
 
+PJ_DEF(pjsip_dialog*) pjsip_tdata_get_dlg( pjsip_tx_data *tdata )
+{
+    return (pjsip_dialog*) tdata->mod_data[mod_ua.mod.id];
+}
+
 PJ_DEF(pjsip_dialog*) pjsip_tsx_get_dlg( pjsip_transaction *tsx )
 {
     return (pjsip_dialog*) tsx->mod_data[mod_ua.mod.id];
@@ -479,8 +484,14 @@ PJ_DEF(pjsip_dialog*) pjsip_ua_find_dialog(const pj_str_t *call_id,
     }
 
     /* Dialog has been found. It SHOULD have the right Call-ID!! */
-    PJ_ASSERT_ON_FAIL(pj_strcmp(&dlg->call_id->id, call_id)==0, 
-			{pj_mutex_unlock(mod_ua.mutex); return NULL;});
+    if (pj_strcmp(&dlg->call_id->id, call_id)!=0) {
+
+	PJ_LOG(6, (THIS_FILE, "Dialog not found: local and remote tags "
+		              "matched but not call id"));
+
+        pj_mutex_unlock(mod_ua.mutex);
+        return NULL;
+    }
 
     if (lock_dialog) {
 	if (pjsip_dlg_try_inc_lock(dlg) != PJ_SUCCESS) {
@@ -540,12 +551,12 @@ static struct dlg_set *find_dlg_set_for_msg( pjsip_rx_data *rdata )
 			     pjsip_get_invite_method(), rdata);
 
 	/* Lookup the INVITE transaction */
-	tsx = pjsip_tsx_layer_find_tsx(&key, PJ_TRUE);
+	tsx = pjsip_tsx_layer_find_tsx2(&key, PJ_TRUE);
 
 	/* We should find the dialog attached to the INVITE transaction */
 	if (tsx) {
 	    dlg = (pjsip_dialog*) tsx->mod_data[mod_ua.mod.id];
-	    pj_grp_lock_release(tsx->grp_lock);
+	    pj_grp_lock_dec_ref(tsx->grp_lock);
 
 	    /* Dlg may be NULL on some extreme condition
 	     * (e.g. during debugging where initially there is a dialog)

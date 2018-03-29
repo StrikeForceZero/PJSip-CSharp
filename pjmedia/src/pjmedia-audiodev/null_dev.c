@@ -1,4 +1,4 @@
-/* $Id: null_dev.c 3553 2011-05-05 06:14:19Z nanang $ */
+/* $Id: null_dev.c 5534 2017-01-19 07:41:25Z nanang $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -160,10 +160,8 @@ static pj_status_t null_factory_init(pjmedia_aud_dev_factory *f)
 static pj_status_t null_factory_destroy(pjmedia_aud_dev_factory *f)
 {
     struct null_audio_factory *nf = (struct null_audio_factory*)f;
-    pj_pool_t *pool = nf->pool;
 
-    nf->pool = NULL;
-    pj_pool_release(pool);
+    pj_pool_safe_release(&nf->pool);
 
     return PJ_SUCCESS;
 }

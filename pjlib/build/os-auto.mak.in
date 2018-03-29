@@ -32,5 +32,3 @@ export TEST_OBJS +=	@ac_main_obj@
 #
 export TARGETS	    =	$(PJLIB_LIB) $(PJLIB_SONAME)
 export TARGETS_EXE  =   $(TEST_EXE)
-
-

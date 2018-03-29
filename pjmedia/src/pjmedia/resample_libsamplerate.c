@@ -1,4 +1,4 @@
-/* $Id: resample_libsamplerate.c 3553 2011-05-05 06:14:19Z nanang $ */
+/* $Id: resample_libsamplerate.c 5300 2016-05-17 14:31:10Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -33,7 +33,7 @@
 
 #if PJMEDIA_RESAMPLE_IMP==PJMEDIA_RESAMPLE_LIBSAMPLERATE
 
-#include "../../third_party/libsamplerate/src/samplerate.h"
+#include <samplerate.h>
 
 #define THIS_FILE   "resample_libsamplerate.c"
 

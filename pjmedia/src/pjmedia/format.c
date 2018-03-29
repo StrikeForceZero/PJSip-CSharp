@@ -1,4 +1,4 @@
-/* $Id: format.c 4785 2014-03-10 09:01:18Z nanang $ */
+/* $Id: format.c 5642 2017-08-17 02:48:38Z ming $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -118,7 +118,7 @@ PJ_DEF(void) pjmedia_format_init_video( pjmedia_format *fmt,
 	    vafp.size = fmt->det.vid.size;
 	    vfi->apply_fmt(vfi, &vafp);
 
-	    bps = (pj_uint32_t)vafp.framebytes * fps_num * (pj_size_t)8 / fps_denum;
+	    bps = (pj_uint32_t)((pj_uint64_t)vafp.framebytes * fps_num * 8 / fps_denum);
 	    fmt->det.vid.avg_bps = fmt->det.vid.max_bps = bps;
         }
     }

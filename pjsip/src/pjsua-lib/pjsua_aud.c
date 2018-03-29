@@ -1,4 +1,4 @@
-/* $Id: pjsua_aud.c 4982 2015-02-11 05:15:29Z nanang $ */
+/* $Id: pjsua_aud.c 5677 2017-10-27 06:30:50Z ming $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -23,7 +23,6 @@
 #if defined(PJSUA_MEDIA_HAS_PJMEDIA) && PJSUA_MEDIA_HAS_PJMEDIA != 0
 
 #define THIS_FILE		"pjsua_aud.c"
-#define NULL_SND_DEV_ID		-99
 
 /*****************************************************************************
  *
@@ -512,7 +511,8 @@ void pjsua_aud_stop_stream(pjsua_call_media *call_med)
 	}
 
 	if ((call_med->dir & PJMEDIA_DIR_ENCODING) &&
-	    (pjmedia_stream_get_stat(strm, &stat) == PJ_SUCCESS))
+	    (pjmedia_stream_get_stat(strm, &stat) == PJ_SUCCESS) &&
+	    stat.tx.pkt)
 	{
 	    /* Save RTP timestamp & sequence, so when media session is
 	     * restarted, those values will be restored as the initial
@@ -528,6 +528,12 @@ void pjsua_aud_stop_stream(pjsua_call_media *call_med)
 	if (pjsua_var.ua_cfg.cb.on_stream_destroyed) {
 	    pjsua_var.ua_cfg.cb.on_stream_destroyed(call_med->call->index,
 	                                            strm, call_med->idx);
+	}
+
+	if (call_med->strm.a.media_port) {
+	    if (call_med->strm.a.destroy_port)
+		pjmedia_port_destroy(call_med->strm.a.media_port);
+	    call_med->strm.a.media_port = NULL;
 	}
 
 	pjmedia_stream_destroy(strm);
@@ -574,7 +580,6 @@ pj_status_t pjsua_aud_channel_update(pjsua_call_media *call_med,
 				     const pjmedia_sdp_session *remote_sdp)
 {
     pjsua_call *call = call_med->call;
-    pjmedia_port *media_port;
     unsigned strm_idx = call_med->idx;
     pj_status_t status = PJ_SUCCESS;
 
@@ -588,7 +593,7 @@ pj_status_t pjsua_aud_channel_update(pjsua_call_media *call_med,
     si->rtcp_sdes_bye_disabled = pjsua_var.media_cfg.no_rtcp_sdes_bye;
 
     /* Check if no media is active */
-    if (si->dir != PJMEDIA_DIR_NONE) {
+    if (local_sdp->media[strm_idx]->desc.port != 0) {
 
 	/* Optionally, application may modify other stream settings here
 	 * (such as jitter buffer parameters, codec ptime, etc.)
@@ -644,16 +649,30 @@ pj_status_t pjsua_aud_channel_update(pjsua_call_media *call_med,
 	/* Get the port interface of the first stream in the session.
 	 * We need the port interface to add to the conference bridge.
 	 */
-	pjmedia_stream_get_port(call_med->strm.a.stream, &media_port);
+	pjmedia_stream_get_port(call_med->strm.a.stream,
+				&call_med->strm.a.media_port);
 
 	/* Notify application about stream creation.
 	 * Note: application may modify media_port to point to different
 	 * media port
 	 */
-	if (pjsua_var.ua_cfg.cb.on_stream_created) {
-	    pjsua_var.ua_cfg.cb.on_stream_created(call->index,
+	if (pjsua_var.ua_cfg.cb.on_stream_created2) {
+	    pjsua_on_stream_created_param prm;
+	    
+	    prm.stream = call_med->strm.a.stream;
+	    prm.stream_idx = strm_idx;
+	    prm.destroy_port = PJ_FALSE;
+	    prm.port = call_med->strm.a.media_port;
+	    (*pjsua_var.ua_cfg.cb.on_stream_created2)(call->index, &prm);
+	    
+	    call_med->strm.a.destroy_port = prm.destroy_port;
+	    call_med->strm.a.media_port = prm.port;
+
+	} else if (pjsua_var.ua_cfg.cb.on_stream_created) {
+	    (*pjsua_var.ua_cfg.cb.on_stream_created)(call->index,
 						  call_med->strm.a.stream,
-						  strm_idx, &media_port);
+						  strm_idx,
+						  &call_med->strm.a.media_port);
 	}
 
 	/*
@@ -670,12 +689,12 @@ pj_status_t pjsua_aud_channel_update(pjsua_call_media *call_med,
 	    if (port_name.slen < 1) {
 		port_name = pj_str("call");
 	    }
-	    status = pjmedia_conf_add_port( pjsua_var.mconf,
-					    call->inv->pool,
-					    media_port,
-					    &port_name,
-					    (unsigned*)
-					    &call_med->strm.a.conf_slot);
+	    status = pjmedia_conf_add_port(pjsua_var.mconf,
+					   call->inv->pool,
+					   call_med->strm.a.media_port,
+					   &port_name,
+					   (unsigned*)
+					   &call_med->strm.a.conf_slot);
 	    if (status != PJ_SUCCESS) {
 		goto on_return;
 	    }
@@ -687,6 +706,12 @@ on_return:
     return status;
 }
 
+PJ_DEF(void) pjsua_snd_dev_param_default(pjsua_snd_dev_param *prm)
+{
+    pj_bzero(prm, sizeof(*prm));
+    prm->capture_dev = PJMEDIA_AUD_DEFAULT_CAPTURE_DEV;
+    prm->playback_dev = PJMEDIA_AUD_DEFAULT_PLAYBACK_DEV;
+}
 
 /*
  * Get maxinum number of conference ports.
@@ -854,7 +879,7 @@ PJ_DEF(pj_status_t) pjsua_conf_connect( pjsua_conf_port_id source,
 	}
 
 	if (need_reopen) {
-	    if (pjsua_var.cap_dev != NULL_SND_DEV_ID) {
+	    if (pjsua_var.cap_dev != PJSUA_SND_NULL_DEV) {
 		pjmedia_snd_port_param param;
 
 		pjmedia_snd_port_param_default(&param);
@@ -1696,18 +1721,23 @@ static pj_status_t open_snd_dev(pjmedia_snd_port_param *param)
 {
     pjmedia_port *conf_port;
     pj_status_t status;
+    pj_bool_t speaker_only = (pjsua_var.snd_mode & PJSUA_SND_DEV_SPEAKER_ONLY);
 
     PJ_ASSERT_RETURN(param, PJ_EINVAL);
 
     /* Check if NULL sound device is used */
-    if (NULL_SND_DEV_ID==param->base.rec_id ||
-	NULL_SND_DEV_ID==param->base.play_id)
+    if (PJSUA_SND_NULL_DEV==param->base.rec_id ||
+	PJSUA_SND_NULL_DEV==param->base.play_id)
     {
 	return pjsua_set_null_snd_dev();
     }
 
     /* Close existing sound port */
     close_snd_dev();
+
+    /* Save the device IDs */
+    pjsua_var.cap_dev = param->base.rec_id;
+    pjsua_var.play_dev = param->base.play_id;
 
     /* Notify app */
     if (pjsua_var.ua_cfg.cb.on_snd_dev_operation) {
@@ -1724,15 +1754,29 @@ static pj_status_t open_snd_dev(pjmedia_snd_port_param *param)
     if (pjsua_var.media_cfg.on_aud_prev_rec_frame)
 	param->on_rec_frame = &on_aud_prev_rec_frame;
 
-    PJ_LOG(4,(THIS_FILE, "Opening sound device %s@%d/%d/%dms",
+    PJ_LOG(4,(THIS_FILE, "Opening sound device (%s) %s@%d/%d/%dms",
+	      speaker_only?"speaker only":"speaker + mic",
 	      get_fmt_name(param->base.ext_fmt.id),
 	      param->base.clock_rate, param->base.channel_count,
 	      param->base.samples_per_frame / param->base.channel_count *
 	      1000 / param->base.clock_rate));
     pj_log_push_indent();
 
-    status = pjmedia_snd_port_create2( pjsua_var.snd_pool,
-				       param, &pjsua_var.snd_port);
+    if (speaker_only) {
+	status = pjmedia_snd_port_create_player(pjsua_var.snd_pool,
+						-1,
+						param->base.clock_rate,
+						param->base.channel_count,
+						param->base.samples_per_frame,
+						param->base.bits_per_sample, 
+						0,
+						&pjsua_var.snd_port);
+
+    } else {
+	status = pjmedia_snd_port_create2(pjsua_var.snd_pool,
+					  param, &pjsua_var.snd_port);
+    }
+
     if (status != PJ_SUCCESS)
 	goto on_error;
 
@@ -1810,10 +1854,6 @@ static pj_status_t open_snd_dev(pjmedia_snd_port_param *param)
 	pjsua_var.snd_port = NULL;
 	goto on_error;
     }
-
-    /* Save the device IDs */
-    pjsua_var.cap_dev = param->base.rec_id;
-    pjsua_var.play_dev = param->base.play_id;
 
     /* Update sound device name. */
     {
@@ -1920,27 +1960,46 @@ static void close_snd_dev(void)
 }
 
 
+PJ_DEF(pj_status_t) pjsua_set_snd_dev(int capture_dev,
+				      int playback_dev)
+{
+    pjsua_snd_dev_param param;
+
+    pjsua_snd_dev_param_default(&param);
+
+    param.capture_dev = capture_dev;
+    param.playback_dev = playback_dev;
+    /* Always open the sound device. */
+    param.mode = 0;
+
+    return pjsua_set_snd_dev2(&param);
+}
+
 /*
  * Select or change sound device. Application may call this function at
  * any time to replace current sound device.
  */
-PJ_DEF(pj_status_t) pjsua_set_snd_dev( int capture_dev,
-				       int playback_dev)
+PJ_DEF(pj_status_t) pjsua_set_snd_dev2(pjsua_snd_dev_param *snd_param)
 {
     unsigned alt_cr_cnt = 1;
     unsigned alt_cr[] = {0, 44100, 48000, 32000, 16000, 8000};
     unsigned i;
     pj_status_t status = -1;
+    unsigned orig_snd_dev_mode = pjsua_var.snd_mode;
+    pj_bool_t no_change = (pjsua_var.snd_is_on || (!pjsua_var.snd_is_on &&
+			   (snd_param->mode & 
+			    PJSUA_SND_DEV_NO_IMMEDIATE_OPEN)));
 
     PJ_LOG(4,(THIS_FILE, "Set sound device: capture=%d, playback=%d",
-	      capture_dev, playback_dev));
+	      snd_param->capture_dev, snd_param->playback_dev));
     pj_log_push_indent();
 
     PJSUA_LOCK();
 
-    if (pjsua_var.cap_dev == capture_dev &&
-	pjsua_var.play_dev == playback_dev &&
-	pjsua_var.snd_is_on)
+    if (pjsua_var.cap_dev == snd_param->capture_dev &&
+	pjsua_var.play_dev == snd_param->playback_dev &&
+	pjsua_var.snd_mode == snd_param->mode &&
+	!pjsua_var.no_snd && no_change)
     {
 	PJ_LOG(4, (THIS_FILE, "No changes in capture and playback devices"));
         PJSUA_UNLOCK();
@@ -1949,11 +2008,26 @@ PJ_DEF(pj_status_t) pjsua_set_snd_dev( int capture_dev,
     }
     
     /* Null-sound */
-    if (capture_dev==NULL_SND_DEV_ID && playback_dev==NULL_SND_DEV_ID) {
+    if (snd_param->capture_dev == PJSUA_SND_NULL_DEV && 
+	snd_param->playback_dev == PJSUA_SND_NULL_DEV) 
+    {
 	PJSUA_UNLOCK();
 	status = pjsua_set_null_snd_dev();
 	pj_log_pop_indent();
 	return status;
+    }
+
+    pjsua_var.snd_mode = snd_param->mode;
+
+    if (!pjsua_var.no_snd &&
+	(snd_param->mode & PJSUA_SND_DEV_NO_IMMEDIATE_OPEN))
+    {
+	pjsua_var.cap_dev = snd_param->capture_dev;
+	pjsua_var.play_dev = snd_param->playback_dev;
+
+	PJSUA_UNLOCK();	
+	pj_log_pop_indent();
+	return PJ_SUCCESS;
     }
 
     /* Set default clock rate */
@@ -1982,7 +2056,8 @@ PJ_DEF(pj_status_t) pjsua_set_snd_dev( int capture_dev,
 			    pjsua_var.media_cfg.channel_count / 1000;
 	pjmedia_snd_port_param_default(&param);
 	param.ec_options = pjsua_var.media_cfg.ec_options;
-	status = create_aud_param(&param.base, capture_dev, playback_dev,
+	status = create_aud_param(&param.base, snd_param->capture_dev, 
+				  snd_param->playback_dev, 
 				  alt_cr[i], pjsua_var.media_cfg.channel_count,
 				  samples_per_frame, 16);
 	if (status != PJ_SUCCESS)
@@ -2008,6 +2083,7 @@ PJ_DEF(pj_status_t) pjsua_set_snd_dev( int capture_dev,
     return PJ_SUCCESS;
 
 on_error:
+    pjsua_var.snd_mode = orig_snd_dev_mode;
     PJSUA_UNLOCK();
     pj_log_pop_indent();
     return status;
@@ -2052,6 +2128,9 @@ PJ_DEF(pj_status_t) pjsua_set_null_snd_dev(void)
     /* Close existing sound device */
     close_snd_dev();
 
+    pjsua_var.cap_dev = PJSUA_SND_NULL_DEV;
+    pjsua_var.play_dev = PJSUA_SND_NULL_DEV;
+
     /* Notify app */
     if (pjsua_var.ua_cfg.cb.on_snd_dev_operation) {
 	(*pjsua_var.ua_cfg.cb.on_snd_dev_operation)(1);
@@ -2084,9 +2163,6 @@ PJ_DEF(pj_status_t) pjsua_set_null_snd_dev(void)
     status = pjmedia_master_port_start(pjsua_var.null_snd);
     PJ_ASSERT_RETURN(status == PJ_SUCCESS, status);
 
-    pjsua_var.cap_dev = NULL_SND_DEV_ID;
-    pjsua_var.play_dev = NULL_SND_DEV_ID;
-
     pjsua_var.no_snd = PJ_FALSE;
     pjsua_var.snd_is_on = PJ_TRUE;
 
@@ -2107,6 +2183,8 @@ PJ_DEF(pjmedia_port*) pjsua_set_no_snd_dev(void)
     /* Close existing sound device */
     close_snd_dev();
     pjsua_var.no_snd = PJ_TRUE;
+    pjsua_var.cap_dev = PJSUA_SND_NO_DEV;
+    pjsua_var.play_dev = PJSUA_SND_NO_DEV;
 
     PJSUA_UNLOCK();
 

@@ -1,4 +1,4 @@
-/* $Id: turn_sock.c 4606 2013-10-01 05:00:57Z ming $ */
+/* $Id: turn_sock.c 5596 2017-05-24 01:02:07Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -217,10 +217,8 @@ static void turn_sock_on_destroy(void *comp)
     pj_turn_sock *turn_sock = (pj_turn_sock*) comp;
 
     if (turn_sock->pool) {
-	pj_pool_t *pool = turn_sock->pool;
 	PJ_LOG(4,(turn_sock->obj_name, "TURN socket destroyed"));
-	turn_sock->pool = NULL;
-	pj_pool_release(pool);
+	pj_pool_safe_release(&turn_sock->pool);
     }
 }
 
@@ -428,6 +426,14 @@ PJ_DEF(pj_status_t) pj_turn_sock_alloc(pj_turn_sock *turn_sock,
 	sess_fail(turn_sock, "Error setting TURN server", status);
 	pj_grp_lock_release(turn_sock->grp_lock);
 	return status;
+    } else if (!turn_sock->sess) {
+	/* TURN session may have been destroyed here, i.e: when DNS resolution
+	 * completed synchronously and TURN allocation failed.
+	 */
+	PJ_LOG(4,(turn_sock->obj_name, "TURN session destroyed in setting "
+				       "TURN server"));
+	pj_grp_lock_release(turn_sock->grp_lock);
+	return PJ_EGONE;
     }
 
     /* Done for now. The next work will be done when session state moved
@@ -670,11 +676,14 @@ static pj_status_t turn_on_send_pkt(pj_turn_session *sess,
 	return PJ_EINVALIDOP;
     }
 
-    PJ_UNUSED_ARG(dst_addr);
-    PJ_UNUSED_ARG(dst_addr_len);
-
-    status = pj_activesock_send(turn_sock->active_sock, &turn_sock->send_key,
-				pkt, &len, 0);
+    if (turn_sock->conn_type == PJ_TURN_TP_UDP) {
+	status = pj_activesock_sendto(turn_sock->active_sock,
+				      &turn_sock->send_key, pkt, &len, 0,
+				      dst_addr, dst_addr_len);
+    } else {
+	status = pj_activesock_send(turn_sock->active_sock,
+				    &turn_sock->send_key, pkt, &len, 0);
+    }
     if (status != PJ_SUCCESS && status != PJ_EPENDING) {
 	show_err(turn_sock, "socket send()", status);
     }
@@ -883,13 +892,22 @@ static void turn_on_state(pj_turn_session *sess,
 
 	/* Initiate non-blocking connect */
 #if PJ_HAS_TCP
-	status=pj_activesock_start_connect(turn_sock->active_sock, 
-					   turn_sock->pool,
-					   &info.server, 
-					   pj_sockaddr_get_len(&info.server));
+	if (turn_sock->conn_type != PJ_TURN_TP_UDP) {
+	    status=pj_activesock_start_connect(
+					turn_sock->active_sock, 
+					turn_sock->pool,
+					&info.server, 
+					pj_sockaddr_get_len(&info.server));
+	} else {
+	    status = PJ_SUCCESS;
+	}
 	if (status == PJ_SUCCESS) {
 	    on_connect_complete(turn_sock->active_sock, PJ_SUCCESS);
 	} else if (status != PJ_EPENDING) {
+            pj_perror(3, turn_sock->pool->obj_name, status,
+                      "Failed to connect to %s",
+                      pj_sockaddr_print(&info.server, addrtxt,
+                                        sizeof(addrtxt), 3));
 	    pj_turn_sock_destroy(turn_sock);
 	    return;
 	}

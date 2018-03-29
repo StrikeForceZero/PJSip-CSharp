@@ -1,4 +1,4 @@
-/* $Id: pjsua_im.c 4890 2014-08-19 00:54:34Z bennylp $ */
+/* $Id: pjsua_im.c 5373 2016-06-30 08:23:08Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -387,8 +387,10 @@ static void im_callback(void *token, pjsip_event *e)
 						   im_data2, &im_callback);
 		if (status == PJ_SUCCESS) {
 		    /* Done */
+		    pjsip_auth_clt_deinit(&auth);
 		    return;
 		}
+		pjsip_auth_clt_deinit(&auth);
 	    }
 	}
 
@@ -489,8 +491,10 @@ static void typing_callback(void *token, pjsip_event *e)
 						   im_data2, &typing_callback);
 		if (status == PJ_SUCCESS) {
 		    /* Done */
+		    pjsip_auth_clt_deinit(&auth);
 		    return;
 		}
+		pjsip_auth_clt_deinit(&auth);
 	    }
 	}
 

@@ -1,4 +1,4 @@
-/* $Id: hash.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: hash.c 5600 2017-06-05 07:27:45Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -76,26 +76,13 @@ PJ_DEF(pj_uint32_t) pj_hash_calc_tolower( pj_uint32_t hval,
 {
     long i;
 
-#if defined(PJ_HASH_USE_OWN_TOLOWER) && PJ_HASH_USE_OWN_TOLOWER != 0
     for (i=0; i<key->slen; ++i) {
-	pj_uint8_t c = key->ptr[i];
-        char lower;
-	if (c & 64)
-	    lower = (char)(c | 32);
-	else
-	    lower = (char)c;
+        int lower = pj_tolower(key->ptr[i]);
 	if (result)
-            result[i] = lower;
+	    result[i] = (char)lower;
+
 	hval = hval * PJ_HASH_MULTIPLIER + lower;
     }
-#else
-    for (i=0; i<key->slen; ++i) {
-        char lower = (char)pj_tolower(key->ptr[i]);
-	if (result)
-            result[i] = lower;
-	hval = hval * PJ_HASH_MULTIPLIER + lower;
-    }
-#endif
 
     return hval;
 }

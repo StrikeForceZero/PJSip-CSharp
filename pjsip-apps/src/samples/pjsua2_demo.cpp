@@ -1,4 +1,4 @@
-/* $Id: pjsua2_demo.cpp 4790 2014-03-11 07:03:22Z riza $ */
+/* $Id: pjsua2_demo.cpp 5650 2017-09-18 07:10:11Z nanang $ */
 /*
  * Copyright (C) 2008-2013 Teluu Inc. (http://www.teluu.com)
  *
@@ -18,7 +18,6 @@
  */
 #include <pjsua2.hpp>
 #include <iostream>
-#include <memory>
 #include <pj/file_access.h>
 
 #define THIS_FILE 	"pjsua2_demo.cpp"
@@ -125,10 +124,10 @@ static void mainProg1(Endpoint &ep) throw(Error)
     // Add account
     AccountConfig acc_cfg;
     acc_cfg.idUri = "sip:test1@pjsip.org";
-    acc_cfg.regConfig.registrarUri = "sip:pjsip.org";
+    acc_cfg.regConfig.registrarUri = "sip:sip.pjsip.org";
     acc_cfg.sipConfig.authCreds.push_back( AuthCredInfo("digest", "*",
                                                         "test1", 0, "test1") );
-    std::auto_ptr<MyAccount> acc(new MyAccount);
+    MyAccount *acc(new MyAccount);
     acc->create(acc_cfg);
     
     pj_thread_sleep(2000);
@@ -148,6 +147,8 @@ static void mainProg1(Endpoint &ep) throw(Error)
     
     // Destroy library
     std::cout << "*** PJSUA2 SHUTTING DOWN ***" << std::endl;
+    delete call;
+    delete acc;
 }
 
 static void mainProg2() throw(Error)
@@ -249,7 +250,7 @@ static void mainProg() throw(Error)
 	AccountConfig accCfg;
 
 	accCfg.idUri = "\"Just Test\" <sip:test@pjsip.org>";
-	accCfg.regConfig.registrarUri = "sip:pjsip.org";
+	accCfg.regConfig.registrarUri = "sip:sip.pjsip.org";
 	SipHeader h;
 	h.hName = "X-Header";
 	h.hValue = "User header";
@@ -291,6 +292,37 @@ static void mainProg() throw(Error)
     }
 }
 
+
+static void mainProg4(Endpoint &ep) throw(Error)
+{
+    // Init library
+    EpConfig ep_cfg;
+    ep.libInit( ep_cfg );
+
+    // Create transport
+    TransportConfig tcfg;
+    tcfg.port = 5060;
+    ep.transportCreate(PJSIP_TRANSPORT_UDP, tcfg);
+    ep.transportCreate(PJSIP_TRANSPORT_TCP, tcfg);
+
+    // Add account
+    AccountConfig acc_cfg;
+    acc_cfg.idUri = "sip:localhost";
+    MyAccount *acc(new MyAccount);
+    acc->create(acc_cfg);
+
+    // Start library
+    ep.libStart();
+    std::cout << "*** PJSUA2 STARTED ***" << std::endl;
+
+    // Just wait for ENTER key
+    std::cout << "Press ENTER to quit..." << std::endl;
+    std::cin.get();
+
+    delete acc;
+}
+
+
 int main()
 {
     int ret = 0;
@@ -299,7 +331,7 @@ int main()
     try {
 	ep.libCreate();
 
-	mainProg3(ep);
+	mainProg4(ep);
 	ret = PJ_SUCCESS;
     } catch (Error & err) {
 	std::cout << "Exception: " << err.info() << std::endl;

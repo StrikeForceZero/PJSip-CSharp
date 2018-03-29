@@ -1,4 +1,4 @@
-/* $Id: pjsua_vid.c 5125 2015-07-03 06:21:30Z ming $ */
+/* $Id: pjsua_vid.c 5660 2017-09-25 03:17:42Z riza $ */
 /* 
  * Copyright (C) 2011-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -75,6 +75,15 @@ pj_status_t pjsua_vid_subsys_init(void)
 	goto on_error;
     }
 
+#if PJMEDIA_HAS_VIDEO && PJMEDIA_HAS_VID_TOOLBOX_CODEC
+    status = pjmedia_codec_vid_toolbox_init(NULL, &pjsua_var.cp.factory);
+    if (status != PJ_SUCCESS) {
+	PJ_PERROR(1,(THIS_FILE, status,
+		     "Error initializing Video Toolbox codec"));
+	goto on_error;
+    }
+#endif
+
 #if PJMEDIA_HAS_VIDEO && PJMEDIA_HAS_OPENH264_CODEC
     status = pjmedia_codec_openh264_vid_init(NULL, &pjsua_var.cp.factory);
     if (status != PJ_SUCCESS) {
@@ -142,6 +151,10 @@ pj_status_t pjsua_vid_subsys_destroy(void)
 
 #if PJMEDIA_HAS_FFMPEG_VID_CODEC
     pjmedia_codec_ffmpeg_vid_deinit();
+#endif
+
+#if PJMEDIA_HAS_VIDEO && PJMEDIA_HAS_VID_TOOLBOX_CODEC
+    pjmedia_codec_vid_toolbox_deinit();
 #endif
 
 #if defined(PJMEDIA_HAS_OPENH264_CODEC) && PJMEDIA_HAS_OPENH264_CODEC != 0
@@ -911,6 +924,9 @@ pj_status_t pjsua_vid_channel_update(pjsua_call_media *call_med,
 	/* Set rate control config from account setting */
 	si->rc_cfg = acc->cfg.vid_stream_rc_cfg;
 
+	/* Set send keyframe config from account setting */
+	si->sk_cfg = acc->cfg.vid_stream_sk_cfg;
+
 #if defined(PJMEDIA_STREAM_ENABLE_KA) && PJMEDIA_STREAM_ENABLE_KA!=0
 	/* Enable/disable stream keep-alive and NAT hole punch. */
 	si->use_ka = pjsua_var.acc[call->acc_id].cfg.use_stream_ka;
@@ -1026,7 +1042,7 @@ pj_status_t pjsua_vid_channel_update(pjsua_call_media *call_med,
 	/* Setup encoding direction */
 	if (si->dir & PJMEDIA_DIR_ENCODING && !call->local_hold)
 	{
-            pjsua_acc *acc = &pjsua_var.acc[call_med->call->acc_id];
+            pjsua_acc *acc_enc = &pjsua_var.acc[call_med->call->acc_id];
 	    pjsua_vid_win *w;
 	    pjsua_vid_win_id wid;
 	    pj_bool_t just_created = PJ_FALSE;
@@ -1054,10 +1070,8 @@ pj_status_t pjsua_vid_channel_update(pjsua_call_media *call_med,
 					&media_port->info.fmt,
 					call_med->strm.v.rdr_dev,
 					call_med->strm.v.cap_dev,
-					//acc->cfg.vid_rend_dev,
-					//acc->cfg.vid_cap_dev,
 					PJSUA_HIDE_WINDOW,
-                                        acc->cfg.vid_wnd_flags,
+                                        acc_enc->cfg.vid_wnd_flags,
                                         NULL,
 					&wid);
 		if (status != PJ_SUCCESS) {
@@ -1170,7 +1184,8 @@ void pjsua_vid_stop_stream(pjsua_call_media *call_med)
     }
 
     if ((call_med->dir & PJMEDIA_DIR_ENCODING) &&
-	(pjmedia_vid_stream_get_stat(strm, &stat) == PJ_SUCCESS))
+	(pjmedia_vid_stream_get_stat(strm, &stat) == PJ_SUCCESS) &&
+	stat.tx.pkt)
     {
 	/* Save RTP timestamp & sequence, so when media session is
 	 * restarted, those values will be restored as the initial
@@ -1449,14 +1464,9 @@ PJ_DEF(pj_status_t) pjsua_vid_win_set_show( pjsua_vid_win_id wid,
     PJ_ASSERT_RETURN(wid >= 0 && wid < PJSUA_MAX_VID_WINS, PJ_EINVAL);
 
     PJSUA_LOCK();
-    w = &pjsua_var.win[wid];
-    if (w->vp_rend == NULL) {
-	/* Native window */
-	PJSUA_UNLOCK();
-	return PJ_EINVAL;
-    }
 
-    s = pjmedia_vid_port_get_stream(w->vp_rend);
+    w = &pjsua_var.win[wid];
+    s = pjmedia_vid_port_get_stream(w->vp_rend? w->vp_rend: w->vp_cap);
     if (s == NULL) {
 	PJSUA_UNLOCK();
 	return PJ_EINVAL;
@@ -1488,14 +1498,9 @@ PJ_DEF(pj_status_t) pjsua_vid_win_set_pos( pjsua_vid_win_id wid,
     PJ_ASSERT_RETURN(wid >= 0 && wid < PJSUA_MAX_VID_WINS && pos, PJ_EINVAL);
 
     PJSUA_LOCK();
-    w = &pjsua_var.win[wid];
-    if (w->vp_rend == NULL) {
-	/* Native window */
-	PJSUA_UNLOCK();
-	return PJ_EINVAL;
-    }
 
-    s = pjmedia_vid_port_get_stream(w->vp_rend);
+    w = &pjsua_var.win[wid];
+    s = pjmedia_vid_port_get_stream(w->vp_rend? w->vp_rend: w->vp_cap);
     if (s == NULL) {
 	PJSUA_UNLOCK();
 	return PJ_EINVAL;
@@ -1522,14 +1527,9 @@ PJ_DEF(pj_status_t) pjsua_vid_win_set_size( pjsua_vid_win_id wid,
     PJ_ASSERT_RETURN(wid >= 0 && wid < PJSUA_MAX_VID_WINS && size, PJ_EINVAL);
 
     PJSUA_LOCK();
-    w = &pjsua_var.win[wid];
-    if (w->vp_rend == NULL) {
-	/* Native window */
-	PJSUA_UNLOCK();
-	return PJ_EINVAL;
-    }
 
-    s = pjmedia_vid_port_get_stream(w->vp_rend);
+    w = &pjsua_var.win[wid];
+    s = pjmedia_vid_port_get_stream(w->vp_rend? w->vp_rend: w->vp_cap);
     if (s == NULL) {
 	PJSUA_UNLOCK();
 	return PJ_EINVAL;
@@ -1556,14 +1556,9 @@ PJ_DEF(pj_status_t) pjsua_vid_win_set_win( pjsua_vid_win_id wid,
     PJ_ASSERT_RETURN(wid >= 0 && wid < PJSUA_MAX_VID_WINS && win, PJ_EINVAL);
 
     PJSUA_LOCK();
-    w = &pjsua_var.win[wid];
-    if (w->vp_rend == NULL) {
-	/* Native window */
-	PJSUA_UNLOCK();
-	return PJ_EINVAL;
-    }
 
-    s = pjmedia_vid_port_get_stream(w->vp_rend);
+    w = &pjsua_var.win[wid];
+    s = pjmedia_vid_port_get_stream(w->vp_rend? w->vp_rend: w->vp_cap);
     if (s == NULL) {
 	PJSUA_UNLOCK();
 	return PJ_EINVAL;
@@ -1616,14 +1611,9 @@ PJ_DEF(pj_status_t) pjsua_vid_win_rotate( pjsua_vid_win_id wid,
     }
 
     PJSUA_LOCK();
-    w = &pjsua_var.win[wid];
-    if (w->vp_rend == NULL) {
-	/* Native window */
-	PJSUA_UNLOCK();
-	return PJ_EINVAL;
-    }
 
-    s = pjmedia_vid_port_get_stream(w->vp_rend);
+    w = &pjsua_var.win[wid];
+    s = pjmedia_vid_port_get_stream(w->vp_rend? w->vp_rend: w->vp_cap);
     if (s == NULL) {
 	PJSUA_UNLOCK();
 	return PJ_EINVAL;
@@ -1822,6 +1812,7 @@ on_error:
 	pjmedia_transport_close(call_med->tp);
 	call_med->tp = call_med->tp_orig = NULL;
     }
+    call->med_prov_cnt = 0;
 
     return status;
 }

@@ -1,4 +1,4 @@
-/* $Id: converter_libswscale.c 4076 2012-04-24 09:40:35Z bennylp $ */
+/* $Id: converter_libswscale.c 5306 2016-05-18 10:11:53Z riza $ */
 /*
  * Copyright (C) 2010-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -19,7 +19,8 @@
 #include <pjmedia/converter.h>
 #include <pj/errno.h>
 
-#if PJMEDIA_HAS_LIBSWSCALE && PJMEDIA_HAS_LIBAVUTIL
+#if defined(PJMEDIA_HAS_VIDEO) && (PJMEDIA_HAS_VIDEO != 0) && \
+    defined(PJMEDIA_HAS_LIBSWSCALE) && (PJMEDIA_HAS_LIBSWSCALE != 0)
 
 #include "ffmpeg_util.h"
 #include <libswscale/swscale.h>
@@ -66,7 +67,7 @@ static pj_status_t factory_create_converter(pjmedia_converter_factory *cf,
 					    const pjmedia_conversion_param *prm,
 					    pjmedia_converter **p_cv)
 {
-    enum PixelFormat srcFormat, dstFormat;
+    enum AVPixelFormat srcFormat, dstFormat;
     const pjmedia_video_format_detail *src_detail, *dst_detail;
     const pjmedia_video_format_info *src_fmt_info, *dst_fmt_info;
     struct SwsContext *sws_ctx;
@@ -205,4 +206,4 @@ pjmedia_libswscale_converter_shutdown(pjmedia_converter_mgr *mgr,
 #   pragma comment( lib, "swscale.lib")
 #endif
 
-#endif /* #if PJMEDIA_HAS_LIBSWSCALE && PJMEDIA_HAS_LIBAVUTIL */
+#endif /* PJMEDIA_HAS_LIBSWSCALE */

@@ -1,4 +1,4 @@
-/* $Id: sock_qos_common.c 3553 2011-05-05 06:14:19Z nanang $ */
+/* $Id: sock_qos_common.c 5445 2016-10-05 09:52:39Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -31,10 +31,11 @@ static const pj_qos_params qos_map[] =
 {
     /* flags	dscp  prio wmm_prio */
     {ALL_FLAGS, 0x00, 0,    PJ_QOS_WMM_PRIO_BULK_EFFORT},   /* BE */
-    {ALL_FLAGS, 0x08, 2,    PJ_QOS_WMM_PRIO_BULK},	    /* BK */
+    {ALL_FLAGS, 0x08, 2,    PJ_QOS_WMM_PRIO_BULK},	    /* BK */    
     {ALL_FLAGS, 0x28, 5,    PJ_QOS_WMM_PRIO_VIDEO},	    /* VI */
     {ALL_FLAGS, 0x30, 6,    PJ_QOS_WMM_PRIO_VOICE},	    /* VO */
-    {ALL_FLAGS, 0x38, 7,    PJ_QOS_WMM_PRIO_VOICE}	    /* CO */
+    {ALL_FLAGS, 0x38, 7,    PJ_QOS_WMM_PRIO_VOICE},	    /* CO */
+    {ALL_FLAGS, 0x28, 5,    PJ_QOS_WMM_PRIO_VIDEO}	    /* SIG */
 };
 
 

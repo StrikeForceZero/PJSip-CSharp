@@ -2,57 +2,57 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{63ffd6fa-d4e8-4379-a39c-263ec6a4e68e}</UniqueIdentifier>
+      <UniqueIdentifier>{01ac843c-8657-45e4-8c9c-aa8ab906fdc8}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
     </Filter>
     <Filter Include="Source Files\Base %28.c%29">
-      <UniqueIdentifier>{d4511624-3078-4f42-a372-112777d3bb01}</UniqueIdentifier>
+      <UniqueIdentifier>{391bfdc9-02b9-41eb-b2c5-2f0124c59b35}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Messaging and Parsing %28.c%29">
-      <UniqueIdentifier>{c6cc5083-4334-4bb3-bdd8-a95d79967d7c}</UniqueIdentifier>
+      <UniqueIdentifier>{23d61d47-dd86-4aa4-863e-0cd599a70000}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Core %28.c%29">
-      <UniqueIdentifier>{8f34a8f9-8793-4b15-9a9a-85453df19c99}</UniqueIdentifier>
+      <UniqueIdentifier>{c5cb5819-1a9a-476b-b0db-1ba96b757673}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Transport Layer %28.c%29">
-      <UniqueIdentifier>{1bd05345-380d-4da4-b52e-a1ea02b0d1cb}</UniqueIdentifier>
+      <UniqueIdentifier>{2138e275-95d4-4fd4-a58c-afd0d1ddaa33}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Authentication %28.c%29">
-      <UniqueIdentifier>{642ccbbf-29f7-4b01-8cb9-a66de411e452}</UniqueIdentifier>
+      <UniqueIdentifier>{6f88bcbd-02a7-4694-a659-1735e740079d}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Transaction Layer %28.c%29">
-      <UniqueIdentifier>{f6910159-ac11-4498-890a-9fe916764717}</UniqueIdentifier>
+      <UniqueIdentifier>{816fe75a-ef48-4688-a552-99e617e88452}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\UA Layer %28.c%29">
-      <UniqueIdentifier>{263b6e3a-06e3-4cea-97a7-6cd176af8d7a}</UniqueIdentifier>
+      <UniqueIdentifier>{2f75cad5-aa9f-4858-b5ff-aaacddd38811}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{c956643f-114a-4d7f-b80d-6a2e87285b54}</UniqueIdentifier>
+      <UniqueIdentifier>{dafdeb57-3823-46a8-9594-e1ba24ffbce3}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl</Extensions>
     </Filter>
     <Filter Include="Header Files\Base Types %28.h%29">
-      <UniqueIdentifier>{705531d1-9bd6-4720-8045-5463f56568cb}</UniqueIdentifier>
+      <UniqueIdentifier>{237fd024-84bd-47ab-bc96-fb9fecdc1079}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Messaging and Parsing %28.h%29">
-      <UniqueIdentifier>{ad6ba69e-5542-413e-88ef-425abd7902d2}</UniqueIdentifier>
+      <UniqueIdentifier>{2c99449b-0ca0-4545-af73-14e1fcb47562}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Core %28.h%29">
-      <UniqueIdentifier>{a0a7f690-9646-48eb-b1b8-c9fdfb4ec5a8}</UniqueIdentifier>
+      <UniqueIdentifier>{ddaf32b8-43e3-4a29-9e61-8026eb48783b}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Transport Layer %28.h%29">
-      <UniqueIdentifier>{054bf2dd-f85a-4ce5-b68c-be2a8c370eab}</UniqueIdentifier>
+      <UniqueIdentifier>{d491258b-3b88-450d-b581-2e57a1e7e392}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Authentication %28.h%29">
-      <UniqueIdentifier>{82fc097a-dfaa-4755-94c9-d0f2dc5d74bb}</UniqueIdentifier>
+      <UniqueIdentifier>{1c9b6fe8-c507-4ee5-b034-b0bb4d5a7a9e}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Transaction Layer %28.h%29">
-      <UniqueIdentifier>{055a6f14-f235-49b4-8d50-77a7179d4d58}</UniqueIdentifier>
+      <UniqueIdentifier>{b282631d-0d6b-4d6c-bfa3-2d3398de3c7d}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\UA Layer %28.h%29">
-      <UniqueIdentifier>{8b5495a4-d612-43ef-ae6b-68a8495bf7c0}</UniqueIdentifier>
+      <UniqueIdentifier>{998075b6-2c7b-48d7-b06e-b97923224db7}</UniqueIdentifier>
     </Filter>
     <Filter Include="Inline Files">
-      <UniqueIdentifier>{0de7159d-53dc-48e2-9034-f1218188cc0c}</UniqueIdentifier>
+      <UniqueIdentifier>{713f540e-5d52-4740-a8ab-7ebf6c2f8f3c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

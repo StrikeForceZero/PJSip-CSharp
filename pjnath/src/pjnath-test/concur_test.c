@@ -1,4 +1,4 @@
-/* $Id: concur_test.c 4898 2014-08-21 03:43:11Z nanang $ */
+/* $Id: concur_test.c 5535 2017-01-19 10:31:38Z riza $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -26,7 +26,7 @@
 /****************************************************************************/
 #define WORKER_THREAD_CNT	4
 #define SERVER_THREAD_CNT	4
-#define MAX_SOCK_CLIENTS	80
+#define MAX_SOCK_CLIENTS	(PJ_IOQUEUE_MAX_HANDLES/2)
 
 struct stun_test_session
 {
@@ -219,6 +219,9 @@ static int stun_destroy_test_session(struct stun_test_session *test_sess)
 	}
     }
 
+    /* Give some time to ioqueue to free sockets */
+    pj_thread_sleep(PJ_IOQUEUE_KEY_FREE_DELAY);
+
     return 0;
 }
 
@@ -260,6 +263,9 @@ static int stun_destroy_test(void)
     status = pj_sock_bind(test_sess.server_sock, &bind_addr, pj_sockaddr_get_len(&bind_addr));
     pj_assert(status == PJ_SUCCESS);
 
+    /* Set socket to nonblocking to avoid stuck in recv/recvfrom() on concurrent events */
+    app_set_sock_nb(test_sess.server_sock);
+
     addr_len = sizeof(bind_addr);
     status = pj_sock_getsockname(test_sess.server_sock, &bind_addr, &addr_len);
     pj_assert(status == PJ_SUCCESS);
@@ -282,6 +288,7 @@ static int stun_destroy_test(void)
 	                          0, 0, &test_sess.worker_threads[i]);
 	pj_assert(status == PJ_SUCCESS);
     }
+    PJ_UNUSED_ARG(status);
 
     /* Test 1: Main thread calls destroy while callback is processing response */
     PJ_LOG(3,(THIS_FILE, "    Destroy in main thread while callback is running"));

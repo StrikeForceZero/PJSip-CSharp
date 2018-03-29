@@ -1,4 +1,4 @@
-/* $Id: activesock.c 5119 2015-06-25 08:53:02Z ming $ */
+/* $Id: activesock.c 5680 2017-11-03 06:54:54Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -296,17 +296,28 @@ PJ_DEF(pj_status_t) pj_activesock_create_udp( pj_pool_t *pool,
 
 PJ_DEF(pj_status_t) pj_activesock_close(pj_activesock_t *asock)
 {
+    pj_ioqueue_key_t *key;
+    pj_bool_t unregister = PJ_FALSE;
+
     PJ_ASSERT_RETURN(asock, PJ_EINVAL);
     asock->shutdown = SHUT_RX | SHUT_TX;
-    if (asock->key) {
-	pj_ioqueue_unregister(asock->key);
+
+    /* Avoid double unregistration on the key */
+    key = asock->key;
+    if (key) {
+	pj_ioqueue_lock_key(key);
+	unregister = (asock->key != NULL);
+	asock->key = NULL;
+	pj_ioqueue_unlock_key(key);
+    }
+
+    if (unregister) {
+	pj_ioqueue_unregister(key);
 
 #if defined(PJ_IPHONE_OS_HAS_MULTITASKING_SUPPORT) && \
     PJ_IPHONE_OS_HAS_MULTITASKING_SUPPORT!=0
 	activesock_destroy_iphone_os_stream(asock);
 #endif	
-
-	asock->key = NULL;
     }
     return PJ_SUCCESS;
 }

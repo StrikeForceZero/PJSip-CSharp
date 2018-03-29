@@ -1,4 +1,4 @@
-/* $Id: stun_msg.c 4895 2014-08-20 10:35:29Z bennylp $ */
+/* $Id: stun_msg.c 5527 2017-01-18 03:50:32Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -343,8 +343,8 @@ static struct attr_desc mandatory_attr_desc[] =
 	&clone_sockaddr_attr
     },
     {
-	/* PJ_STUN_ATTR_REQUESTED_ADDR_TYPE, */
-	"REQUESTED-ADDRESS-TYPE",
+	/* PJ_STUN_ATTR_REQUESTED_ADDR_FAMILY, */
+	"REQUESTED-ADDRESS-FAMILY",
 	&decode_uint_attr,
 	&encode_uint_attr,
 	&clone_uint_attr

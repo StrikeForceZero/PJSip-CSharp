@@ -1,4 +1,4 @@
-/* $Id: ioqueue_select.c 4991 2015-03-06 06:04:21Z ming $ */
+/* $Id: ioqueue_select.c 5680 2017-11-03 06:54:54Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -334,6 +334,17 @@ PJ_DEF(pj_status_t) pj_ioqueue_register_sock2(pj_pool_t *pool,
     PJ_ASSERT_RETURN(pool && ioqueue && sock != PJ_INVALID_SOCKET &&
                      cb && p_key, PJ_EINVAL);
 
+    /* On platforms with fd_set containing fd bitmap such as *nix family,
+     * avoid potential memory corruption caused by select() when given
+     * an fd that is higher than FD_SETSIZE.
+     */
+    if (sizeof(fd_set) < FD_SETSIZE && sock >= FD_SETSIZE) {
+	PJ_LOG(4, ("pjlib", "Failed to register socket to ioqueue because "
+		   	    "socket fd is too big (fd=%d/FD_SETSIZE=%d)",
+		   	    sock, FD_SETSIZE));
+    	return PJ_ETOOBIG;
+    }
+
     pj_lock_acquire(ioqueue->lock);
 
     if (ioqueue->count >= ioqueue->max) {
@@ -467,11 +478,26 @@ PJ_DEF(pj_status_t) pj_ioqueue_unregister( pj_ioqueue_key_t *key)
      */
     pj_ioqueue_lock_key(key);
 
+    /* Best effort to avoid double key-unregistration */
+    if (IS_CLOSING(key)) {
+	pj_ioqueue_unlock_key(key);
+	return PJ_SUCCESS;
+    }
+
     /* Also lock ioqueue */
     pj_lock_acquire(ioqueue->lock);
 
-    pj_assert(ioqueue->count > 0);
-    --ioqueue->count;
+    /* Avoid "negative" ioqueue count */
+    if (ioqueue->count > 0) {
+	--ioqueue->count;
+    } else {
+	/* If this happens, very likely there is double unregistration
+	 * of a key.
+	 */
+	pj_assert(!"Bad ioqueue count in key unregistration!");
+	PJ_LOG(1,(THIS_FILE, "Bad ioqueue count in key unregistration!"));
+    }
+
 #if !PJ_IOQUEUE_HAS_SAFE_UNREG
     /* Ticket #520, key will be erased more than once */
     pj_list_erase(key);
@@ -831,13 +857,14 @@ PJ_DEF(int) pj_ioqueue_poll( pj_ioqueue_t *ioqueue, const pj_time_val *timeout)
 {
     pj_fd_set_t rfdset, wfdset, xfdset;
     int nfds;
-    int count, i, counter;
+    int i, count, event_cnt, processed_cnt;
     pj_ioqueue_key_t *h;
+    enum { MAX_EVENTS = PJ_IOQUEUE_MAX_CAND_EVENTS };
     struct event
     {
         pj_ioqueue_key_t	*key;
         enum ioqueue_event_type  event_type;
-    } event[PJ_IOQUEUE_MAX_EVENTS_IN_SINGLE_POLL];
+    } event[MAX_EVENTS];
 
     PJ_ASSERT_RETURN(ioqueue, -PJ_EINVAL);
 
@@ -882,15 +909,26 @@ PJ_DEF(int) pj_ioqueue_poll( pj_ioqueue_t *ioqueue, const pj_time_val *timeout)
     /* Unlock ioqueue before select(). */
     pj_lock_release(ioqueue->lock);
 
+#if defined(PJ_WIN32_WINPHONE8) && PJ_WIN32_WINPHONE8
+    count = 0;
+    __try {
+#endif
+
     count = pj_sock_select(nfds+1, &rfdset, &wfdset, &xfdset, 
 			   timeout);
+
+#if defined(PJ_WIN32_WINPHONE8) && PJ_WIN32_WINPHONE8
+    /* Ignore Invalid Handle Exception raised by select().*/
+    }
+    __except (GetExceptionCode() == STATUS_INVALID_HANDLE ?
+	      EXCEPTION_CONTINUE_EXECUTION : EXCEPTION_CONTINUE_SEARCH) {
+    }
+#endif    
     
     if (count == 0)
 	return 0;
     else if (count < 0)
 	return -pj_get_netos_error();
-    else if (count > PJ_IOQUEUE_MAX_EVENTS_IN_SINGLE_POLL)
-        count = PJ_IOQUEUE_MAX_EVENTS_IN_SINGLE_POLL;
 
     /* Scan descriptor sets for event and add the events in the event
      * array to be processed later in this function. We do this so that
@@ -898,13 +936,15 @@ PJ_DEF(int) pj_ioqueue_poll( pj_ioqueue_t *ioqueue, const pj_time_val *timeout)
      */
     pj_lock_acquire(ioqueue->lock);
 
-    counter = 0;
+    event_cnt = 0;
 
     /* Scan for writable sockets first to handle piggy-back data
      * coming with accept().
      */
-    h = ioqueue->active_list.next;
-    for ( ; h!=&ioqueue->active_list && counter<count; h = h->next) {
+    for (h = ioqueue->active_list.next;
+	 h != &ioqueue->active_list && event_cnt < MAX_EVENTS;
+	 h = h->next)
+    {
 
 	if ( (key_has_pending_write(h) || key_has_pending_connect(h))
 	     && PJ_FD_ISSET(h->fd, &wfdset) && !IS_CLOSING(h))
@@ -912,39 +952,39 @@ PJ_DEF(int) pj_ioqueue_poll( pj_ioqueue_t *ioqueue, const pj_time_val *timeout)
 #if PJ_IOQUEUE_HAS_SAFE_UNREG
 	    increment_counter(h);
 #endif
-            event[counter].key = h;
-            event[counter].event_type = WRITEABLE_EVENT;
-            ++counter;
+            event[event_cnt].key = h;
+            event[event_cnt].event_type = WRITEABLE_EVENT;
+            ++event_cnt;
         }
 
         /* Scan for readable socket. */
 	if ((key_has_pending_read(h) || key_has_pending_accept(h))
             && PJ_FD_ISSET(h->fd, &rfdset) && !IS_CLOSING(h) &&
-	    counter<count)
+	    event_cnt < MAX_EVENTS)
         {
 #if PJ_IOQUEUE_HAS_SAFE_UNREG
 	    increment_counter(h);
 #endif
-            event[counter].key = h;
-            event[counter].event_type = READABLE_EVENT;
-            ++counter;
+            event[event_cnt].key = h;
+            event[event_cnt].event_type = READABLE_EVENT;
+            ++event_cnt;
 	}
 
 #if PJ_HAS_TCP
         if (key_has_pending_connect(h) && PJ_FD_ISSET(h->fd, &xfdset) &&
-	    !IS_CLOSING(h) && counter<count) 
+	    !IS_CLOSING(h) && event_cnt < MAX_EVENTS)
 	{
 #if PJ_IOQUEUE_HAS_SAFE_UNREG
 	    increment_counter(h);
 #endif
-            event[counter].key = h;
-            event[counter].event_type = EXCEPTION_EVENT;
-            ++counter;
+            event[event_cnt].key = h;
+            event[event_cnt].event_type = EXCEPTION_EVENT;
+            ++event_cnt;
         }
 #endif
     }
 
-    for (i=0; i<counter; ++i) {
+    for (i=0; i<event_cnt; ++i) {
 	if (event[i].key->grp_lock)
 	    pj_grp_lock_add_ref_dbg(event[i].key->grp_lock, "ioqueue", 0);
     }
@@ -955,37 +995,46 @@ PJ_DEF(int) pj_ioqueue_poll( pj_ioqueue_t *ioqueue, const pj_time_val *timeout)
 
     PJ_RACE_ME(5);
 
-    count = counter;
+    processed_cnt = 0;
 
     /* Now process all events. The dispatch functions will take care
      * of locking in each of the key
      */
-    for (counter=0; counter<count; ++counter) {
-        switch (event[counter].event_type) {
-        case READABLE_EVENT:
-            ioqueue_dispatch_read_event(ioqueue, event[counter].key);
-            break;
-        case WRITEABLE_EVENT:
-            ioqueue_dispatch_write_event(ioqueue, event[counter].key);
-            break;
-        case EXCEPTION_EVENT:
-            ioqueue_dispatch_exception_event(ioqueue, event[counter].key);
-            break;
-        case NO_EVENT:
-            pj_assert(!"Invalid event!");
-            break;
-        }
+    for (i=0; i<event_cnt; ++i) {
+
+	/* Just do not exceed PJ_IOQUEUE_MAX_EVENTS_IN_SINGLE_POLL */
+	if (processed_cnt < PJ_IOQUEUE_MAX_EVENTS_IN_SINGLE_POLL) {
+	    switch (event[i].event_type) {
+	    case READABLE_EVENT:
+		if (ioqueue_dispatch_read_event(ioqueue, event[i].key))
+		    ++processed_cnt;
+		break;
+	    case WRITEABLE_EVENT:
+		if (ioqueue_dispatch_write_event(ioqueue, event[i].key))
+		    ++processed_cnt;
+		break;
+	    case EXCEPTION_EVENT:
+		if (ioqueue_dispatch_exception_event(ioqueue, event[i].key))
+		    ++processed_cnt;
+		break;
+	    case NO_EVENT:
+		pj_assert(!"Invalid event!");
+		break;
+	    }
+	}
 
 #if PJ_IOQUEUE_HAS_SAFE_UNREG
-	decrement_counter(event[counter].key);
+	decrement_counter(event[i].key);
 #endif
 
-	if (event[counter].key->grp_lock)
-	    pj_grp_lock_dec_ref_dbg(event[counter].key->grp_lock,
+	if (event[i].key->grp_lock)
+	    pj_grp_lock_dec_ref_dbg(event[i].key->grp_lock,
 	                            "ioqueue", 0);
     }
 
+    TRACE__((THIS_FILE, "     poll: count=%d events=%d processed=%d",
+	     count, event_cnt, processed_cnt));
 
-    return count;
+    return processed_cnt;
 }
 

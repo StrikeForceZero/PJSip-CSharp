@@ -1,4 +1,4 @@
-/* $Id: legacy_dev.c 3553 2011-05-05 06:14:19Z nanang $ */
+/* $Id: legacy_dev.c 5534 2017-01-19 07:41:25Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -141,9 +141,7 @@ static pj_status_t factory_destroy(pjmedia_aud_dev_factory *f)
     status = pjmedia_snd_deinit();
 
     if (status == PJ_SUCCESS) {
-	pj_pool_t *pool = wf->pool;
-	wf->pool = NULL;
-	pj_pool_release(pool);
+	pj_pool_safe_release(&wf->pool);
     }
 
     return status;
@@ -455,10 +453,7 @@ static pj_status_t stream_destroy(pjmedia_aud_stream *s)
     status = pjmedia_snd_stream_close(strm->snd_strm);
 
     if (status == PJ_SUCCESS) {
-	pj_pool_t *pool = strm->pool;
-
-	strm->pool = NULL;
-	pj_pool_release(pool);
+	pj_pool_safe_release(&strm->pool);
     }
 
     return status;

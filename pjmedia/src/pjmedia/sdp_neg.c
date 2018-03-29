@@ -1,4 +1,4 @@
-/* $Id: sdp_neg.c 5129 2015-07-08 10:17:26Z nanang $ */
+/* $Id: sdp_neg.c 5619 2017-07-05 03:57:53Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -334,7 +334,7 @@ PJ_DEF(pj_status_t) pjmedia_sdp_neg_modify_local_offer2(
      */
     pj_strdup(pool, &new_offer->origin.user, &old_offer->origin.user);
     new_offer->origin.id = old_offer->origin.id;
-    new_offer->origin.version = old_offer->origin.version + 1;
+
     pj_strdup(pool, &new_offer->origin.net_type, &old_offer->origin.net_type);
     pj_strdup(pool, &new_offer->origin.addr_type,&old_offer->origin.addr_type);
     pj_strdup(pool, &new_offer->origin.addr, &old_offer->origin.addr);
@@ -399,6 +399,17 @@ PJ_DEF(pj_status_t) pjmedia_sdp_neg_modify_local_offer2(
     }
 
     /* New_offer fixed */
+#if PJMEDIA_SDP_NEG_COMPARE_BEFORE_INC_VERSION
+    new_offer->origin.version = old_offer->origin.version;
+
+    if (pjmedia_sdp_session_cmp(new_offer, neg->initial_sdp, 0) != PJ_SUCCESS)
+    {
+	++new_offer->origin.version;
+    }    
+#else
+    new_offer->origin.version = old_offer->origin.version + 1;
+#endif
+    
     neg->initial_sdp_tmp = neg->initial_sdp;
     neg->initial_sdp = new_offer;
     neg->neg_local_sdp = pjmedia_sdp_session_clone(pool, new_offer);
@@ -1176,18 +1187,18 @@ static pj_status_t match_offer(pj_pool_t *pool,
 			{
 			    /* Match! */
 			    if (is_codec) {
-				pjmedia_sdp_media *o, *a;
+				pjmedia_sdp_media *o_med, *a_med;
 				unsigned o_fmt_idx, a_fmt_idx;
 
-				o = (pjmedia_sdp_media*)offer;
-				a = (pjmedia_sdp_media*)preanswer;
+				o_med = (pjmedia_sdp_media*)offer;
+				a_med = (pjmedia_sdp_media*)preanswer;
 				o_fmt_idx = prefer_remote_codec_order? i:j;
 				a_fmt_idx = prefer_remote_codec_order? j:i;
 
 				/* Call custom format matching callbacks */
 				if (custom_fmt_match(pool, &or_.enc_name,
-						     o, o_fmt_idx,
-						     a, a_fmt_idx,
+						     o_med, o_fmt_idx,
+						     a_med, a_fmt_idx,
 						     ALLOW_MODIFY_ANSWER) !=
 				    PJ_SUCCESS)
 				{
@@ -1474,12 +1485,21 @@ PJ_DEF(pj_status_t) pjmedia_sdp_neg_negotiate( pj_pool_t *pool,
 	    else
 		active_ver = neg->initial_sdp->origin.version;
 
+#if PJMEDIA_SDP_NEG_COMPARE_BEFORE_INC_VERSION
+	    answer->origin.version = active_ver;
+
+	    if ((neg->active_local_sdp == NULL) || 
+		(pjmedia_sdp_session_cmp(answer, neg->active_local_sdp, 0) 
+								!= PJ_SUCCESS))
+	    {
+		++answer->origin.version;
+	    }
+#else
+	    answer->origin.version = active_ver + 1;
+#endif	    
 	    /* Only update active SDPs when negotiation is successfull */
 	    neg->active_local_sdp = answer;
 	    neg->active_remote_sdp = neg->neg_remote_sdp;
-
-	    /* Increment SDP version */
-	    neg->active_local_sdp->origin.version = ++active_ver;
 	}
     }
 

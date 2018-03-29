@@ -1,4 +1,4 @@
-# $Id: setup.py 4756 2014-02-21 07:49:37Z nanang $
+# $Id: setup.py 5638 2017-08-02 09:45:09Z riza $
 #
 # pjsua2 Setup script.
 #
@@ -29,60 +29,65 @@ pj_version_major=""
 pj_version_minor=""
 pj_version_rev=""
 pj_version_suffix=""
+write=sys.stdout.write
 f = open('../../../../version.mak', 'r')
 for line in f:
+    tokens=""
     if line.find("export PJ_VERSION_MAJOR") != -1:
-    	tokens=line.split("=")
-	if len(tokens)>1:
-		pj_version_major= tokens[1].strip()
+        tokens=line.split("=")
+    if len(tokens)>1:
+        pj_version_major= tokens[1].strip()
     elif line.find("export PJ_VERSION_MINOR") != -1:
-    	tokens=line.split("=")
-	if len(tokens)>1:
-		pj_version_minor= line.split("=")[1].strip()
+        tokens=line.split("=")
+    if len(tokens)>1:
+        pj_version_minor= line.split("=")[1].strip()
     elif line.find("export PJ_VERSION_REV") != -1:
-    	tokens=line.split("=")
-	if len(tokens)>1:
-		pj_version_rev= line.split("=")[1].strip()
+        tokens=line.split("=")
+    if len(tokens)>1:
+        pj_version_rev= line.split("=")[1].strip()
     elif line.find("export PJ_VERSION_SUFFIX") != -1:
-    	tokens=line.split("=")
-	if len(tokens)>1:
-		pj_version_suffix= line.split("=")[1].strip()
+        tokens=line.split("=")
+    if len(tokens)>1:
+        pj_version_suffix= line.split("=")[1].strip()
 
 f.close()
 if not pj_version_major:
-    print 'Unable to get PJ_VERSION_MAJOR'
+    write("Unable to get PJ_VERSION_MAJOR" + "\r\n")
     sys.exit(1)
 
 pj_version = pj_version_major + "." + pj_version_minor
 if pj_version_rev:
-	pj_version += "." + pj_version_rev
+    pj_version += "." + pj_version_rev
 if pj_version_suffix:
-	pj_version += "-" + pj_version_suffix
+    pj_version += "-" + pj_version_suffix
 
 #print 'PJ_VERSION = "'+ pj_version + '"'
 
+# Get 'make' from environment variable if any
+MAKE = os.environ.get('MAKE') or "make"
+
 # Get targetname
-f = os.popen("make --no-print-directory -f helper.mak target_name")
+f = os.popen("%s --no-print-directory -f helper.mak target_name" % MAKE)
 pj_target_name = f.read().rstrip("\r\n")
 f.close()
 
 # Fill in extra_compile_args
 extra_compile_args = []
-f = os.popen("make --no-print-directory -f helper.mak cflags")
+f = os.popen("%s --no-print-directory -f helper.mak cflags" % MAKE)
 for line in f:
     extra_compile_args.append(line.rstrip("\r\n"))
 f.close()
 
 # Fill in libraries
 libraries = []
-f = os.popen("make --no-print-directory -f helper.mak libs")
+f = os.popen("%s --no-print-directory -f helper.mak libs" % MAKE)
 for line in f:
     libraries.append(line.rstrip("\r\n"))
 f.close()
 
 # Fill in extra_link_args
 extra_link_args = []
-f = os.popen("make --no-print-directory -f helper.mak ldflags")
+f = os.popen("%s --no-print-directory -f helper.mak ldflags" % MAKE)
 for line in f:
     extra_link_args.append(line.rstrip("\r\n"))
 f.close()

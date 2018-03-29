@@ -1,4 +1,4 @@
-/* $Id: sip_inv.c 5109 2015-06-17 06:18:07Z nanang $ */
+/* $Id: sip_inv.c 5641 2017-08-16 04:53:44Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -195,6 +195,65 @@ static pj_status_t mod_inv_unload(void)
 }
 
 /*
+ * Add reference to INVITE session.
+ */
+PJ_DEF(pj_status_t) pjsip_inv_add_ref( pjsip_inv_session *inv )
+{
+    PJ_ASSERT_RETURN(inv && inv->ref_cnt, PJ_EINVAL);
+
+    pj_atomic_inc(inv->ref_cnt);
+
+    return PJ_SUCCESS;
+}
+
+static void inv_session_destroy(pjsip_inv_session *inv)
+{
+    if (inv->last_ack) {
+	pjsip_tx_data_dec_ref(inv->last_ack);
+	inv->last_ack = NULL;
+    }
+    if (inv->invite_req) {
+	pjsip_tx_data_dec_ref(inv->invite_req);
+	inv->invite_req = NULL;
+    }
+    if (inv->pending_bye) {
+	pjsip_tx_data_dec_ref(inv->pending_bye);
+	inv->pending_bye = NULL;
+    }
+    pjsip_100rel_end_session(inv);
+    pjsip_timer_end_session(inv);
+    pjsip_dlg_dec_session(inv->dlg, &mod_inv.mod);
+
+    /* Release the flip-flop pools */
+    pj_pool_release(inv->pool_prov);
+    inv->pool_prov = NULL;
+    pj_pool_release(inv->pool_active);
+    inv->pool_active = NULL;
+
+    pj_atomic_destroy(inv->ref_cnt);
+    inv->ref_cnt = NULL;
+}
+
+/*
+ * Decrease INVITE session reference, destroy it when the reference count
+ * reaches zero.
+ */
+PJ_DEF(pj_status_t) pjsip_inv_dec_ref( pjsip_inv_session *inv )
+{
+    pj_atomic_value_t ref_cnt;
+
+    PJ_ASSERT_RETURN(inv && inv->ref_cnt, PJ_EINVAL);
+
+    ref_cnt = pj_atomic_dec_and_get(inv->ref_cnt);
+    pj_assert( ref_cnt >= 0);
+    if (ref_cnt == 0) {
+        inv_session_destroy(inv);
+        return PJ_EGONE;
+    } 
+    return PJ_SUCCESS;    
+}
+
+/*
  * Set session state.
  */
 static void inv_set_state(pjsip_inv_session *inv, pjsip_inv_state state,
@@ -225,8 +284,9 @@ static void inv_set_state(pjsip_inv_session *inv, pjsip_inv_state state,
 			   inv->invite_tsx->mod_data[mod_inv.mod.id];
 	}
 
-	if (pjmedia_sdp_neg_get_state(inv->neg)!=PJMEDIA_SDP_NEG_STATE_DONE &&
-	    (tsx_inv_data && !tsx_inv_data->sdp_done) )
+	if ((tsx_inv_data && !tsx_inv_data->sdp_done) &&
+	    (!inv->neg || pjmedia_sdp_neg_get_state(inv->neg)!=
+						PJMEDIA_SDP_NEG_STATE_DONE))
 	{
 	    pjsip_tx_data *bye;
 
@@ -260,27 +320,7 @@ static void inv_set_state(pjsip_inv_session *inv, pjsip_inv_state state,
     if (inv->state == PJSIP_INV_STATE_DISCONNECTED &&
 	prev_state != PJSIP_INV_STATE_DISCONNECTED) 
     {
-	if (inv->last_ack) {
-	    pjsip_tx_data_dec_ref(inv->last_ack);
-	    inv->last_ack = NULL;
-	}
-	if (inv->invite_req) {
-	    pjsip_tx_data_dec_ref(inv->invite_req);
-	    inv->invite_req = NULL;
-	}
-	if (inv->pending_bye) {
-	    pjsip_tx_data_dec_ref(inv->pending_bye);
-	    inv->pending_bye = NULL;
-	}
-	pjsip_100rel_end_session(inv);
-	pjsip_timer_end_session(inv);
-	pjsip_dlg_dec_session(inv->dlg, &mod_inv.mod);
-
-	/* Release the flip-flop pools */
-	pj_pool_release(inv->pool_prov);
-	inv->pool_prov = NULL;
-	pj_pool_release(inv->pool_active);
-	inv->pool_active = NULL;
+	pjsip_inv_dec_ref(inv);
     }
 }
 
@@ -837,6 +877,12 @@ PJ_DEF(pj_status_t) pjsip_inv_create_uac( pjsip_dialog *dlg,
     inv = PJ_POOL_ZALLOC_T(dlg->pool, pjsip_inv_session);
     pj_assert(inv != NULL);
 
+    status = pj_atomic_create(dlg->pool, 0, &inv->ref_cnt);
+    if (status != PJ_SUCCESS) {
+	pjsip_dlg_dec_lock(dlg);
+	return status;
+    }
+
     inv->pool = dlg->pool;
     inv->role = PJSIP_ROLE_UAC;
     inv->state = PJSIP_INV_STATE_NULL;
@@ -880,6 +926,7 @@ PJ_DEF(pj_status_t) pjsip_inv_create_uac( pjsip_dialog *dlg,
     pjsip_100rel_attach(inv);
 
     /* Done */
+    pjsip_inv_add_ref(inv);
     *p_inv = inv;
 
     pjsip_dlg_dec_lock(dlg);
@@ -1190,7 +1237,7 @@ PJ_DEF(pj_status_t) pjsip_inv_verify_request3(pjsip_rx_data *rdata,
 
 	if (i != allow->count) {
 	    /* UPDATE is present in Allow */
-	    rem_option |= PJSIP_INV_SUPPORT_UPDATE;
+	    *options |= PJSIP_INV_SUPPORT_UPDATE;
 	}
 
     }
@@ -1470,6 +1517,12 @@ PJ_DEF(pj_status_t) pjsip_inv_create_uas( pjsip_dialog *dlg,
     inv = PJ_POOL_ZALLOC_T(dlg->pool, pjsip_inv_session);
     pj_assert(inv != NULL);
 
+    status = pj_atomic_create(dlg->pool, 0, &inv->ref_cnt);
+    if (status != PJ_SUCCESS) {
+	pjsip_dlg_dec_lock(dlg);
+	return status;
+    }
+
     inv->pool = dlg->pool;
     inv->role = PJSIP_ROLE_UAS;
     inv->state = PJSIP_INV_STATE_NULL;
@@ -1539,6 +1592,7 @@ PJ_DEF(pj_status_t) pjsip_inv_create_uas( pjsip_dialog *dlg,
     }
 
     /* Done */
+    pjsip_inv_add_ref(inv);
     pjsip_dlg_dec_lock(dlg);
     *p_inv = inv;
 
@@ -2049,10 +2103,14 @@ static pj_status_t inv_check_sdp_in_incoming_msg( pjsip_inv_session *inv,
 	}
 
 	/* Inform application about remote offer. */
-	if (mod_inv.cb.on_rx_offer && inv->notify) {
+	if (mod_inv.cb.on_rx_offer2 && inv->notify) {
+	    struct pjsip_inv_on_rx_offer_cb_param param;
 
-	    (*mod_inv.cb.on_rx_offer)(inv, sdp_info->sdp);
-
+	    param.offer = sdp_info->sdp;
+	    param.rdata = rdata;
+            (*mod_inv.cb.on_rx_offer2)(inv, &param);
+	} else if (mod_inv.cb.on_rx_offer && inv->notify) {
+            (*mod_inv.cb.on_rx_offer)(inv, sdp_info->sdp);
 	}
 
 	/* application must have supplied an answer at this point. */
@@ -2743,7 +2801,7 @@ PJ_DEF(pj_status_t) pjsip_inv_process_redirect( pjsip_inv_session *inv,
 	    if (op == PJSIP_REDIRECT_ACCEPT_REPLACE) {
 		pjsip_to_hdr *to;
 		pjsip_dialog *dlg = inv->dlg;
-		enum { TMP_LEN = 128 };
+		enum { TMP_LEN = PJSIP_MAX_URL_SIZE };
 		char tmp[TMP_LEN];
 		int len;
 
@@ -3221,7 +3279,7 @@ static void inv_respond_incoming_cancel(pjsip_inv_session *inv,
 
     pjsip_tsx_create_key(rdata->tp_info.pool, &key, PJSIP_ROLE_UAS,
 			 pjsip_get_invite_method(), rdata);
-    invite_tsx = pjsip_tsx_layer_find_tsx(&key, PJ_TRUE);
+    invite_tsx = pjsip_tsx_layer_find_tsx2(&key, PJ_TRUE);
 
     if (invite_tsx == NULL) {
 
@@ -3270,7 +3328,7 @@ static void inv_respond_incoming_cancel(pjsip_inv_session *inv,
     }
 
     if (invite_tsx)
-	pj_grp_lock_release(invite_tsx->grp_lock);
+	pj_grp_lock_dec_ref(invite_tsx->grp_lock);
 }
 
 

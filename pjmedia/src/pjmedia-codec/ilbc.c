@@ -1,4 +1,4 @@
-/* $Id: ilbc.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: ilbc.c 5674 2017-10-16 10:20:18Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -177,6 +177,11 @@ PJ_DEF(pj_status_t) pjmedia_codec_ilbc_init( pjmedia_endpt *endpt,
     PJ_ASSERT_RETURN(endpt != NULL, PJ_EINVAL);
     PJ_ASSERT_RETURN(mode==0 || mode==20 || mode==30, PJ_EINVAL);
 
+    if (ilbc_factory.endpt != NULL) {
+	/* Already initialized. */
+	return PJ_SUCCESS;
+    }
+
     /* Create iLBC codec factory. */
     ilbc_factory.base.op = &ilbc_factory_op;
     ilbc_factory.base.factory_data = NULL;
@@ -188,22 +193,25 @@ PJ_DEF(pj_status_t) pjmedia_codec_ilbc_init( pjmedia_endpt *endpt,
     ilbc_factory.mode = mode;
 
     if (mode == 20) {
-	ilbc_factory.bps = 15200;	
+	ilbc_factory.bps = 15200;
     } else {
 	ilbc_factory.bps = 13333;
     }
 
     /* Get the codec manager. */
     codec_mgr = pjmedia_endpt_get_codec_mgr(endpt);
-    if (!codec_mgr)
+    if (!codec_mgr) {
+	ilbc_factory.endpt = NULL;
 	return PJ_EINVALIDOP;
+    }
 
     /* Register codec factory to endpoint. */
     status = pjmedia_codec_mgr_register_factory(codec_mgr, 
 						&ilbc_factory.base);
-    if (status != PJ_SUCCESS)
+    if (status != PJ_SUCCESS) {
+	ilbc_factory.endpt = NULL;
 	return status;
-
+    }
 
     /* Done. */
     return PJ_SUCCESS;
@@ -220,6 +228,10 @@ PJ_DEF(pj_status_t) pjmedia_codec_ilbc_deinit(void)
     pjmedia_codec_mgr *codec_mgr;
     pj_status_t status;
 
+    if (ilbc_factory.endpt == NULL) {
+	/* Not registered. */
+	return PJ_SUCCESS;
+    }
 
     /* Get the codec manager. */
     codec_mgr = pjmedia_endpt_get_codec_mgr(ilbc_factory.endpt);
@@ -229,7 +241,8 @@ PJ_DEF(pj_status_t) pjmedia_codec_ilbc_deinit(void)
     /* Unregister iLBC codec factory. */
     status = pjmedia_codec_mgr_unregister_factory(codec_mgr,
 						  &ilbc_factory.base);
-    
+    ilbc_factory.endpt = NULL;
+
     return status;
 }
 
@@ -527,7 +540,7 @@ static pj_status_t ilbc_codec_open(pjmedia_codec *codec,
      */
     pj_set_timestamp32(&ilbc_codec->last_tx, 0, 0);
 
-    PJ_LOG(5,(ilbc_codec->obj_name, 
+    PJ_LOG(4,(ilbc_codec->obj_name, 
 	      "iLBC codec opened, mode=%d", dec_fmtp_mode));
 
     return PJ_SUCCESS;
@@ -669,11 +682,6 @@ static pj_status_t ilbc_codec_encode(pjmedia_codec *codec,
     struct ilbc_codec *ilbc_codec = (struct ilbc_codec*)codec;
     pj_int16_t *pcm_in;
     pj_size_t nsamples;
-#if defined(PJMEDIA_ILBC_CODEC_USE_COREAUDIO)&& PJMEDIA_ILBC_CODEC_USE_COREAUDIO
-    UInt32 npackets;
-    OSStatus err;
-    AudioBufferList theABL;
-#endif
 
     pj_assert(ilbc_codec && input && output);
 
@@ -714,41 +722,44 @@ static pj_status_t ilbc_codec_encode(pjmedia_codec *codec,
 
     /* Encode */
     output->size = 0;
-#if defined(PJMEDIA_ILBC_CODEC_USE_COREAUDIO)&& PJMEDIA_ILBC_CODEC_USE_COREAUDIO
-    npackets = nsamples / ilbc_codec->enc_samples_per_frame;
-
-    theABL.mNumberBuffers = 1;
-    theABL.mBuffers[0].mNumberChannels = 1;
-    theABL.mBuffers[0].mDataByteSize = output_buf_len;
-    theABL.mBuffers[0].mData = output->buf;
-
-    ilbc_codec->enc_total_packets = npackets;
-    ilbc_codec->enc_buffer = (char *)input->buf;
-    ilbc_codec->enc_buffer_offset = 0;
-
-    err = AudioConverterFillComplexBuffer(ilbc_codec->enc, encodeDataProc,
-					  ilbc_codec, &npackets,
-					  &theABL, NULL);
-    if (err == noErr) {
-	output->size = npackets * ilbc_codec->enc_frame_size;
-    }
-#else
     while (nsamples >= ilbc_codec->enc_samples_per_frame) {
-	unsigned i;
-	
-	/* Convert to float */
-	for (i=0; i<ilbc_codec->enc_samples_per_frame; ++i) {
-	    ilbc_codec->enc_block[i] = (float) (*pcm_in++);
-	}
+#if defined(PJMEDIA_ILBC_CODEC_USE_COREAUDIO)&& PJMEDIA_ILBC_CODEC_USE_COREAUDIO
+        OSStatus err;
+        AudioBufferList theABL;
+        UInt32 npackets = 1;
+        
+        theABL.mNumberBuffers = 1;
+        theABL.mBuffers[0].mNumberChannels = 1;
+        theABL.mBuffers[0].mDataByteSize = output_buf_len;
+        theABL.mBuffers[0].mData = output->buf + output->size;
+        
+        ilbc_codec->enc_total_packets = 1;
+        ilbc_codec->enc_buffer = (char *)input->buf;
+        ilbc_codec->enc_buffer_offset = input->size - (nsamples << 1);
+        
+        err = AudioConverterFillComplexBuffer(ilbc_codec->enc, encodeDataProc,
+                                              ilbc_codec, &npackets,
+                                              &theABL, NULL);
+        if (err == noErr && npackets) {
+            output->size += npackets * ilbc_codec->enc_frame_size;
+        }
+#else
+        unsigned i;
+        
+        /* Convert to float */
+        for (i=0; i<ilbc_codec->enc_samples_per_frame; ++i) {
+            ilbc_codec->enc_block[i] = (float) (*pcm_in++);
+        }
+        
+        iLBC_encode((unsigned char *)output->buf + output->size,
+                    ilbc_codec->enc_block,
+                    &ilbc_codec->enc);
+        
+        output->size += ilbc_codec->enc.no_of_bytes;
+#endif
 
-	iLBC_encode((unsigned char *)output->buf + output->size, 
-		    ilbc_codec->enc_block, 
-		    &ilbc_codec->enc);
-
-	output->size += ilbc_codec->enc.no_of_bytes;
 	nsamples -= ilbc_codec->enc_samples_per_frame;
     }
-#endif
 
     output->type = PJMEDIA_FRAME_TYPE_AUDIO;
     output->timestamp = input->timestamp;

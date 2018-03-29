@@ -1,4 +1,4 @@
-/* $Id: ffmpeg_vid_codecs.c 4987 2015-03-03 02:41:27Z ming $ */
+/* $Id: ffmpeg_vid_codecs.c 5305 2016-05-18 07:50:15Z riza $ */
 /* 
  * Copyright (C) 2010-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -194,7 +194,7 @@ typedef struct ffmpeg_private
     /* The ffmpeg decoder cannot set the output format, so format conversion
      * may be needed for post-decoding.
      */
-    enum PixelFormat		     expected_dec_fmt;
+    enum AVPixelFormat		     expected_dec_fmt;
 						/**< Expected output format of 
 						     ffmpeg decoder	    */
 
@@ -673,7 +673,7 @@ PJ_DEF(pj_status_t) pjmedia_codec_ffmpeg_vid_init(pjmedia_vid_codec_mgr *mgr,
 	    pjmedia_format_id raw_fmt[PJMEDIA_VID_CODEC_MAX_DEC_FMT_CNT];
 	    unsigned raw_fmt_cnt = 0;
 	    unsigned raw_fmt_cnt_should_be = 0;
-	    const enum PixelFormat *p = c->pix_fmts;
+	    const enum AVPixelFormat *p = c->pix_fmts;
 
 	    for(;(p && *p != -1) &&
 		 (raw_fmt_cnt < PJMEDIA_VID_CODEC_MAX_DEC_FMT_CNT);
@@ -1096,7 +1096,7 @@ static void print_ffmpeg_err(int err)
 static pj_status_t open_ffmpeg_codec(ffmpeg_private *ff,
                                      pj_mutex_t *ff_mutex)
 {
-    enum PixelFormat pix_fmt;
+    enum AVPixelFormat pix_fmt;
     pjmedia_video_format_detail *vfd;
     pj_bool_t enc_opened = PJ_FALSE, dec_opened = PJ_FALSE;
     pj_status_t status;
@@ -1429,7 +1429,12 @@ static pj_status_t ffmpeg_codec_encode_whole(pjmedia_vid_codec *codec,
     /* Check if encoder has been opened */
     PJ_ASSERT_RETURN(ff->enc_ctx, PJ_EINVALIDOP);
 
+#ifdef PJMEDIA_USE_OLD_FFMPEG
     avcodec_get_frame_defaults(&avframe);
+#else
+    pj_bzero(&avframe, sizeof(avframe));
+    av_frame_unref(&avframe);
+#endif
 
     // Let ffmpeg manage the timestamps
     /*
@@ -1471,10 +1476,17 @@ static pj_status_t ffmpeg_codec_encode_whole(pjmedia_vid_codec *codec,
         print_ffmpeg_err(err);
         return PJMEDIA_CODEC_EFAILED;
     } else {
+        pj_bool_t has_key_frame = PJ_FALSE;
         output->size = err;
 	output->bit_info = 0;
-	if (ff->enc_ctx->coded_frame->key_frame)
-	    output->bit_info |= PJMEDIA_VID_FRM_KEYFRAME;
+
+#if LIBAVCODEC_VER_AT_LEAST(54,15)
+        has_key_frame = (avpacket.flags & AV_PKT_FLAG_KEY);
+#else
+	has_key_frame = ff->enc_ctx->coded_frame->key_frame;	    
+#endif
+        if (has_key_frame)    
+            output->bit_info |= PJMEDIA_VID_FRM_KEYFRAME;
     }
 
     return PJ_SUCCESS;
@@ -1679,7 +1691,12 @@ static pj_status_t ffmpeg_codec_decode_whole(pjmedia_vid_codec *codec,
      * whole decoding session, and seems to be freed when the codec context
      * closed).
      */
+#ifdef PJMEDIA_USE_OLD_FFMPEG
     avcodec_get_frame_defaults(&avframe);
+#else
+    pj_bzero(&avframe, sizeof(avframe));
+    av_frame_unref(&avframe);
+#endif
 
     /* Init packet, the container of the encoded data */
     av_init_packet(&avpacket);

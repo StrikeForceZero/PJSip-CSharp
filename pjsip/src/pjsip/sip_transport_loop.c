@@ -1,4 +1,4 @@
-/* $Id: sip_transport_loop.c 5024 2015-03-26 02:51:19Z nanang $ */
+/* $Id: sip_transport_loop.c 5535 2017-01-19 10:31:38Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -190,6 +190,7 @@ static pj_status_t loop_send_msg( pjsip_transport *tp,
 	size_eaten = pjsip_tpmgr_receive_packet( loop->base.tpmgr, 
 						 &recv_pkt->rdata);
 	pj_assert(size_eaten == recv_pkt->rdata.pkt_info.len);
+	PJ_UNUSED_ARG(size_eaten);
 
 	pjsip_endpt_release_pool(loop->base.endpt, 
 				 recv_pkt->rdata.tp_info.pool);
@@ -336,6 +337,7 @@ static int loop_transport_worker_thread(void *arg)
 
 	    /* Must "eat" all the packets. */
 	    pj_assert(size_eaten == node->rdata.pkt_info.len);
+	    PJ_UNUSED_ARG(size_eaten);
 
 	    /* Done. */
 	    pjsip_endpt_release_pool(loop->base.endpt,

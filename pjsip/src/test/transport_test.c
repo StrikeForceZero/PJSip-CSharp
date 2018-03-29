@@ -1,4 +1,4 @@
-/* $Id: transport_test.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: transport_test.c 5311 2016-05-20 04:17:00Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -37,8 +37,9 @@ int generic_transport_test(pjsip_transport *tp)
     {
 	struct pj_in_addr addr;
 
-	/* Note: inet_aton() returns non-zero if addr is valid! */
-	if (pj_inet_aton(&tp->local_name.host, &addr) != 0) {
+	if (pj_inet_pton(pj_AF_INET(), &tp->local_name.host,
+			 &addr) == PJ_SUCCESS)
+	{
 	    if (addr.s_addr==PJ_INADDR_ANY || addr.s_addr==PJ_INADDR_NONE) {
 		PJ_LOG(3,(THIS_FILE, "   Error: invalid address name"));
 		return -420;

@@ -1,4 +1,4 @@
-/* $Id: auddemo.c 3664 2011-07-19 03:42:28Z nanang $ */
+/* $Id: auddemo.c 5535 2017-01-19 10:31:38Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -296,6 +296,7 @@ static void record(unsigned rec_index, const char *filename)
 
     PJ_LOG(3,(THIS_FILE, "Recording started, press ENTER to stop"));
     dummy = fgets(line, sizeof(line), stdin);
+    PJ_UNUSED_ARG(dummy);
 
 on_return:
     if (strm) {
@@ -363,6 +364,7 @@ static void play_file(unsigned play_index, const char *filename)
 
     PJ_LOG(3,(THIS_FILE, "Playback started, press ENTER to stop"));
     dummy = fgets(line, sizeof(line), stdin);
+    PJ_UNUSED_ARG(dummy);
 
 on_return:
     if (strm) {

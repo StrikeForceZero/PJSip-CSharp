@@ -1,4 +1,4 @@
-/* $Id: colorbar_dev.c 5050 2015-04-07 11:23:41Z nanang $ */
+/* $Id: colorbar_dev.c 5659 2017-09-25 02:58:42Z riza $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -252,10 +252,8 @@ static pj_status_t cbar_factory_init(pjmedia_vid_dev_factory *f)
 static pj_status_t cbar_factory_destroy(pjmedia_vid_dev_factory *f)
 {
     struct cbar_factory *cf = (struct cbar_factory*)f;
-    pj_pool_t *pool = cf->pool;
 
-    cf->pool = NULL;
-    pj_pool_release(pool);
+    pj_pool_safe_release(&cf->pool);
 
     return PJ_SUCCESS;
 }
@@ -601,7 +599,6 @@ static pj_status_t spectrum_run(struct cbar_stream *d, pj_uint8_t *p,
 
         if (d->vfi->plane_cnt == 1) {
             for (i = 0; i < 3; ++i) {
-                pj_uint8_t *ptr;
                 unsigned j, k, inc_ptr;
                 pj_size_t dot_size = DOT_SIZE;
 
@@ -623,7 +620,7 @@ static pj_status_t spectrum_run(struct cbar_stream *d, pj_uint8_t *p,
             pj_size_t offset_p = 0;
 
             for (i = 0; i < 3; ++i) {
-                pj_uint8_t *ptr, c;
+                pj_uint8_t c;
                 unsigned j;
                 pj_size_t dot_size = DOT_SIZE;
 

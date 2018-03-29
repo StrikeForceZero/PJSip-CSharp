@@ -1,4 +1,4 @@
-/* $Id: config.h 5125 2015-07-03 06:21:30Z ming $ */
+/* $Id: config.h 5524 2017-01-17 00:50:09Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -45,14 +45,16 @@ PJ_BEGIN_DECL
  * This setting controls the maximum number of formats that can be
  * supported by a video device.
  *
- * Default: 64
+ * Default: 128 (for Android), 64 (for others)
  */
 #ifndef PJMEDIA_VID_DEV_INFO_FMT_CNT
-#   define PJMEDIA_VID_DEV_INFO_FMT_CNT 64
+#   if defined(PJ_ANDROID) && PJ_ANDROID != 0
+#       define PJMEDIA_VID_DEV_INFO_FMT_CNT 128
+#   else
+#       define PJMEDIA_VID_DEV_INFO_FMT_CNT 64
+#   endif
 #endif
 
-
-#if defined(PJMEDIA_HAS_VIDEO) && (PJMEDIA_HAS_VIDEO != 0)
 
 /**
  * This setting controls the maximum number of supported video device drivers.
@@ -72,6 +74,8 @@ PJ_BEGIN_DECL
 #   define PJMEDIA_VID_DEV_MAX_DEVS 16
 #endif
 
+
+#if defined(PJMEDIA_HAS_VIDEO) && (PJMEDIA_HAS_VIDEO != 0)
 
 /**
  * This setting controls whether OpenGL for iOS should be included.
@@ -122,12 +126,20 @@ PJ_BEGIN_DECL
 
 
 /**
- * This setting controls whether OpenGL support should be included.
+ * This setting controls whether OpenGL support should be included. Note that as
+ * currently only OpenGLES is supported, when PJMEDIA_VIDEO_DEV_HAS_OPENGL_ES is
+ * unset, PJMEDIA_VIDEO_DEV_HAS_OPENGL will automatically also be unset.
  *
  * Default: 0 (or detected by configure)
  */
 #ifndef PJMEDIA_VIDEO_DEV_HAS_OPENGL
 #   define PJMEDIA_VIDEO_DEV_HAS_OPENGL		0
+#else
+#  if defined(PJMEDIA_VIDEO_DEV_HAS_OPENGL_ES) && \
+	      PJMEDIA_VIDEO_DEV_HAS_OPENGL_ES == 0
+#    undef  PJMEDIA_VIDEO_DEV_HAS_OPENGL
+#    define PJMEDIA_VIDEO_DEV_HAS_OPENGL	0
+#  endif
 #endif
 
 
@@ -138,6 +150,15 @@ PJ_BEGIN_DECL
  */
 #ifndef PJMEDIA_VIDEO_DEV_HAS_SDL
 #   define PJMEDIA_VIDEO_DEV_HAS_SDL		0
+#endif
+
+
+/**
+ * This setting controls whether SDL with OPENGL support should be included.
+ *
+ * Default: 0
+ */
+#ifndef PJMEDIA_VIDEO_DEV_SDL_HAS_OPENGL
 #   define PJMEDIA_VIDEO_DEV_SDL_HAS_OPENGL	0
 #endif
 

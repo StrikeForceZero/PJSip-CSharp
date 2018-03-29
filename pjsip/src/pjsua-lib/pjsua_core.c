@@ -1,4 +1,4 @@
-/* $Id: pjsua_core.c 5133 2015-07-14 01:18:19Z ming $ */
+/* $Id: pjsua_core.c 5649 2017-09-15 05:32:08Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -277,6 +277,7 @@ PJ_DEF(void) pjsua_acc_config_default(pjsua_acc_config *cfg)
     cfg->vid_rend_dev = PJMEDIA_VID_DEFAULT_RENDER_DEV;
 #if PJMEDIA_HAS_VIDEO
     pjmedia_vid_stream_rc_config_default(&cfg->vid_stream_rc_cfg);
+    pjmedia_vid_stream_sk_config_default(&cfg->vid_stream_sk_cfg);
 #endif
     pjsua_transport_config_default(&cfg->rtp_cfg);
 
@@ -302,6 +303,13 @@ PJ_DEF(void) pjsua_acc_config_default(pjsua_acc_config *cfg)
     cfg->call_hold_type = PJSUA_CALL_HOLD_TYPE_DEFAULT;
     cfg->register_on_acc_add = PJ_TRUE;
     cfg->mwi_expires = PJSIP_MWI_DEFAULT_EXPIRES;
+
+    cfg->media_stun_use = PJSUA_STUN_RETRY_ON_FAILURE;
+    cfg->ip_change_cfg.shutdown_tp = PJ_TRUE;
+    cfg->ip_change_cfg.hangup_calls = PJ_FALSE;
+    cfg->ip_change_cfg.reinvite_flags = PJSUA_CALL_REINIT_MEDIA |
+					PJSUA_CALL_UPDATE_CONTACT |
+					PJSUA_CALL_UPDATE_VIA;
 }
 
 PJ_DEF(void) pjsua_buddy_config_default(pjsua_buddy_config *cfg)
@@ -906,7 +914,7 @@ PJ_DEF(pj_status_t) pjsua_init( const pjsua_config *ua_cfg,
      */
     if (ua_cfg->nameserver_count) {
 #if PJSIP_HAS_RESOLVER
-	unsigned i;
+	unsigned ii;
 
 	/* Create DNS resolver */
 	status = pjsip_endpt_create_resolver(pjsua_var.endpt, 
@@ -933,10 +941,10 @@ PJ_DEF(pj_status_t) pjsua_init( const pjsua_config *ua_cfg,
 	}
 
 	/* Print nameservers */
-	for (i=0; i<ua_cfg->nameserver_count; ++i) {
+	for (ii=0; ii<ua_cfg->nameserver_count; ++ii) {
 	    PJ_LOG(4,(THIS_FILE, "Nameserver %.*s added",
-		      (int)ua_cfg->nameserver[i].slen,
-		      ua_cfg->nameserver[i].ptr));
+		      (int)ua_cfg->nameserver[ii].slen,
+		      ua_cfg->nameserver[ii].ptr));
 	}
 #else
 	PJ_LOG(2,(THIS_FILE, 
@@ -1049,7 +1057,7 @@ PJ_DEF(pj_status_t) pjsua_init( const pjsua_config *ua_cfg,
     }
 
     /* Start resolving STUN server */
-    status = resolve_stun_server(PJ_FALSE);
+    status = resolve_stun_server(PJ_FALSE, PJ_FALSE);
     if (status != PJ_SUCCESS && status != PJ_EPENDING) {
 	pjsua_perror(THIS_FILE, "Error resolving STUN server", status);
 	goto on_error;
@@ -1099,14 +1107,16 @@ PJ_DEF(pj_status_t) pjsua_init( const pjsua_config *ua_cfg,
 
     /* Start worker thread if needed. */
     if (pjsua_var.ua_cfg.thread_cnt) {
-	unsigned i;
+	unsigned ii;
 
 	if (pjsua_var.ua_cfg.thread_cnt > PJ_ARRAY_SIZE(pjsua_var.thread))
 	    pjsua_var.ua_cfg.thread_cnt = PJ_ARRAY_SIZE(pjsua_var.thread);
 
-	for (i=0; i<pjsua_var.ua_cfg.thread_cnt; ++i) {
-	    status = pj_thread_create(pjsua_var.pool, "pjsua", &worker_thread,
-				      NULL, 0, 0, &pjsua_var.thread[i]);
+	for (ii=0; ii<pjsua_var.ua_cfg.thread_cnt; ++ii) {
+	    char thread_name[16];
+	    pj_ansi_snprintf(thread_name, 16, "pjsua_%d", ii);
+	    status = pj_thread_create(pjsua_var.pool, thread_name, &worker_thread,
+				      NULL, 0, 0, &pjsua_var.thread[ii]);
 	    if (status != PJ_SUCCESS)
 		goto on_error;
 	}
@@ -1154,13 +1164,40 @@ static void stun_resolve_add_ref(pjsua_stun_resolve *sess)
     ++sess->ref_cnt;
 }
 
-static void destroy_stun_resolve(pjsua_stun_resolve *sess)
+
+static void destroy_stun_resolve_cb(pj_timer_heap_t *t, pj_timer_entry *e)
 {
-    sess->destroy_flag = PJ_TRUE;
-    if (sess->ref_cnt > 0)
-	return;
+    pjsua_stun_resolve *sess = (pjsua_stun_resolve*)e->user_data;
+    PJ_UNUSED_ARG(t);
 
     PJSUA_LOCK();
+    pj_list_erase(sess);
+    PJSUA_UNLOCK();
+
+    pj_assert(sess->stun_sock==NULL);
+    pj_pool_release(sess->pool);
+}
+
+
+static void destroy_stun_resolve(pjsua_stun_resolve *sess)
+{
+    pj_time_val timeout = {0, 0};
+
+    sess->destroy_flag = PJ_TRUE;
+
+    /* If the STUN resolution session is blocking, only the waiting thread
+     * is allowed to destroy the session, otherwise it may cause deadlock.
+     */
+    if (sess->blocking) {
+	if (sess->waiter != pj_thread_this())
+	    return;
+
+	/* Before destroying, make sure ref count is zero. */
+	while (sess->ref_cnt > 0)
+	    pj_thread_sleep(10);
+
+    } else if (sess->ref_cnt > 0)
+	return;
 
     if (sess->stun_sock) {
         pj_stun_sock_destroy(sess->stun_sock);
@@ -1173,12 +1210,14 @@ static void destroy_stun_resolve(pjsua_stun_resolve *sess)
         pjsua_var.stun_status = PJNATH_ESTUNDESTROYED;
     }
     
-    pj_list_erase(sess);
-
-    PJSUA_UNLOCK();
-
-    pj_assert(sess->stun_sock==NULL);
-    pj_pool_release(sess->pool);
+    /* Schedule session clean up, it needs PJSUA lock and locking it here
+     * may cause deadlock as this function may be called by STUN socket
+     * while holding STUN socket lock, while application may wait for STUN
+     * resolution while holding PJSUA lock.
+     */
+    pj_timer_entry_init(&sess->timer, 0, (void*)sess,
+			&destroy_stun_resolve_cb);
+    pjsua_schedule_timer(&sess->timer, &timeout);
 }
 
 static void stun_resolve_dec_ref(pjsua_stun_resolve *sess)
@@ -1203,6 +1242,7 @@ static void stun_resolve_complete(pjsua_stun_resolve *sess)
     result.token = sess->token;
     result.status = sess->status;
     result.name = sess->srv[sess->idx];
+    result.index = sess->idx;
     pj_memcpy(&result.addr, &sess->addr, sizeof(result.addr));
     sess->has_result = PJ_TRUE;
 
@@ -1220,9 +1260,7 @@ static void stun_resolve_complete(pjsua_stun_resolve *sess)
 	PJ_LOG(1,(THIS_FILE, "STUN resolution failed: %s", errmsg));
     }
 
-    stun_resolve_add_ref(sess);
     sess->cb(&result);
-    stun_resolve_dec_ref(sess);
 
 on_return:
     if (!sess->blocking) {
@@ -1251,14 +1289,31 @@ static pj_bool_t test_stun_on_status(pj_stun_sock *stun_sock,
 		  (int)sess->srv[sess->idx].slen,
 		  sess->srv[sess->idx].ptr, errmsg));
 
+	if (op == PJ_STUN_SOCK_BINDING_OP && !sess->async_wait) {
+	    /* Just return here, we will destroy the STUN socket and
+	     * continue the STUN resolution later in resolve_stun_entry().
+	     * For more details, please refer to ticket #1962.
+	     */
+            return PJ_FALSE;
+	}
+
 	pj_stun_sock_destroy(stun_sock);
 	sess->stun_sock = NULL;
 
-	++sess->idx;
-	if (sess->idx >= sess->count)
-            sess->status = status;
+	stun_resolve_add_ref(sess);
+
+	if (pjsua_var.ua_cfg.stun_try_ipv6 && sess->af == pj_AF_INET()) {
+	    sess->af = pj_AF_INET6();
+	} else {
+	    ++sess->idx;
+	    sess->af = pj_AF_INET();
+	    if (sess->idx >= sess->count)
+                sess->status = status;
+        }
 
 	resolve_stun_entry(sess);
+
+	stun_resolve_dec_ref(sess);
 
 	return PJ_FALSE;
 
@@ -1268,11 +1323,15 @@ static pj_bool_t test_stun_on_status(pj_stun_sock *stun_sock,
 	pj_stun_sock_get_info(stun_sock, &ssi);
 	pj_memcpy(&sess->addr, &ssi.srv_addr, sizeof(sess->addr));
 
+	stun_resolve_add_ref(sess);
+
 	sess->status = PJ_SUCCESS;
 	pj_stun_sock_destroy(stun_sock);
 	sess->stun_sock = NULL;
 
 	stun_resolve_complete(sess);
+
+	stun_resolve_dec_ref(sess);
 
 	return PJ_FALSE;
 
@@ -1289,11 +1348,12 @@ static void resolve_stun_entry(pjsua_stun_resolve *sess)
 {
     pj_status_t status = PJ_EUNKNOWN;
 
-    stun_resolve_add_ref(sess);
-
     /* Loop while we have entry to try */
-    for (; sess->idx < sess->count; ++sess->idx) {
-	const int af = pj_AF_INET();
+    for (; sess->idx < sess->count;
+    	 (pjsua_var.ua_cfg.stun_try_ipv6 && sess->af == pj_AF_INET())?
+	 sess->af = pj_AF_INET6(): (++sess->idx, sess->af = pj_AF_INET()))
+    {
+	int af;
 	char target[64];
 	pj_str_t hostpart;
 	pj_uint16_t port;
@@ -1306,8 +1366,8 @@ static void resolve_stun_entry(pjsua_stun_resolve *sess)
 			 sess->srv[sess->idx].ptr);
 
 	/* Parse the server entry into host:port */
-	status = pj_sockaddr_parse2(af, 0, &sess->srv[sess->idx],
-					  &hostpart, &port, NULL);
+	status = pj_sockaddr_parse2(pj_AF_UNSPEC(), 0, &sess->srv[sess->idx],
+				    &hostpart, &port, &af);
 	if (status != PJ_SUCCESS) {
     	    PJ_LOG(2,(THIS_FILE, "Invalid STUN server entry %s", target));
 	    continue;
@@ -1319,15 +1379,17 @@ static void resolve_stun_entry(pjsua_stun_resolve *sess)
 
 	pj_assert(sess->stun_sock == NULL);
 
-	PJ_LOG(4,(THIS_FILE, "Trying STUN server %s (%d of %d)..",
-		  target, sess->idx+1, sess->count));
+	PJ_LOG(4,(THIS_FILE, "Trying STUN server %s %s (%d of %d)..",
+		  target, (sess->af == pj_AF_INET()? "IPv4": "IPv6"),
+		  sess->idx+1, sess->count));
 
 	/* Use STUN_sock to test this entry */
 	pj_bzero(&stun_sock_cb, sizeof(stun_sock_cb));
 	stun_sock_cb.on_status = &test_stun_on_status;
+	sess->async_wait = PJ_FALSE;
 	status = pj_stun_sock_create(&pjsua_var.stun_cfg, "stunresolve",
-					   pj_AF_INET(), &stun_sock_cb,
-					   NULL, sess, &sess->stun_sock);
+				     sess->af, &stun_sock_cb,
+				     NULL, sess, &sess->stun_sock);
 	if (status != PJ_SUCCESS) {
 	    char errmsg[PJ_ERR_MSG_SIZE];
 	    pj_strerror(status, errmsg, sizeof(errmsg));
@@ -1338,8 +1400,8 @@ static void resolve_stun_entry(pjsua_stun_resolve *sess)
 	    continue;
 	}
 
-	status = pj_stun_sock_start(sess->stun_sock, &hostpart,
-					  port, pjsua_var.resolver);
+	status = pj_stun_sock_start(sess->stun_sock, &hostpart, port,
+				    pjsua_var.resolver);
 	if (status != PJ_SUCCESS) {
 	    char errmsg[PJ_ERR_MSG_SIZE];
 	    pj_strerror(status, errmsg, sizeof(errmsg));
@@ -1357,19 +1419,49 @@ static void resolve_stun_entry(pjsua_stun_resolve *sess)
 	/* Done for now, testing will resume/complete asynchronously in
 	 * stun_sock_cb()
 	 */
-	goto on_return;
+	sess->async_wait = PJ_TRUE;
+	return;
     }
 
     if (sess->idx >= sess->count) {
 	/* No more entries to try */
+	stun_resolve_add_ref(sess);
 	pj_assert(status != PJ_SUCCESS || sess->status != PJ_EPENDING);
         if (sess->status == PJ_EPENDING)
             sess->status = status;
 	stun_resolve_complete(sess);
+	stun_resolve_dec_ref(sess);
     }
+}
 
-on_return:
-    stun_resolve_dec_ref(sess);
+
+/*
+ * Update STUN servers.
+ */
+PJ_DEF(pj_status_t) pjsua_update_stun_servers(unsigned count, pj_str_t srv[],
+					      pj_bool_t wait)
+{
+    unsigned i;
+    pj_status_t status;
+
+    PJ_ASSERT_RETURN(count && srv, PJ_EINVAL);
+    
+    PJSUA_LOCK();
+
+    pjsua_var.ua_cfg.stun_srv_cnt = count;
+    for (i = 0; i < count; i++) {
+        if (pj_strcmp(&pjsua_var.ua_cfg.stun_srv[i], &srv[i]))
+            pj_strdup(pjsua_var.pool, &pjsua_var.ua_cfg.stun_srv[i], &srv[i]);
+    }
+    pjsua_var.stun_status = PJ_EUNKNOWN;
+
+    PJSUA_UNLOCK();
+    
+    status = resolve_stun_server(wait, PJ_FALSE);
+    if (wait == PJ_FALSE && status == PJ_EPENDING)
+        status = PJ_SUCCESS;
+
+    return status;
 }
 
 
@@ -1385,7 +1477,8 @@ PJ_DEF(pj_status_t) pjsua_resolve_stun_servers( unsigned count,
     pj_pool_t *pool;
     pjsua_stun_resolve *sess;
     pj_status_t status;
-    unsigned i;
+    unsigned i, max_wait_ms;
+    pj_timestamp start, now;
 
     PJ_ASSERT_RETURN(count && srv && cb, PJ_EINVAL);
 
@@ -1399,7 +1492,9 @@ PJ_DEF(pj_status_t) pjsua_resolve_stun_servers( unsigned count,
     sess->cb = cb;
     sess->count = count;
     sess->blocking = wait;
+    sess->waiter = pj_thread_this();
     sess->status = PJ_EPENDING;
+    sess->af = pj_AF_INET();
     sess->srv = (pj_str_t*) pj_pool_calloc(pool, count, sizeof(pj_str_t));
     for (i=0; i<count; ++i) {
 	pj_strdup(pool, &sess->srv[i], &srv[i]);
@@ -1414,6 +1509,13 @@ PJ_DEF(pj_status_t) pjsua_resolve_stun_servers( unsigned count,
     if (!wait)
 	return PJ_SUCCESS;
 
+    /* Should limit the wait time to avoid deadlock. For example,
+     * if app holds dlg/tsx lock, pjsua worker thread will block on
+     * any dlg/tsx state change.
+     */
+    max_wait_ms = count * pjsua_var.stun_cfg.rto_msec * (1 << 7);
+    pj_get_timestamp(&start);
+
     while (sess->status == PJ_EPENDING) {
         /* If there is no worker thread or
          * the function is called from the only worker thread,
@@ -1427,6 +1529,10 @@ PJ_DEF(pj_status_t) pjsua_resolve_stun_servers( unsigned count,
         } else {
             pj_thread_sleep(20);
         }
+
+	pj_get_timestamp(&now);
+	if (pj_elapsed_msec(&start, &now) > max_wait_ms)
+	    sess->status = PJ_ETIMEDOUT;
     }
 
     status = sess->status;
@@ -1476,9 +1582,11 @@ static void internal_stun_resolve_cb(const pj_stun_resolve_result *result)
     pjsua_var.stun_status = result->status;
     if ((result->status == PJ_SUCCESS) && (pjsua_var.ua_cfg.stun_srv_cnt>0)) {
 	pj_memcpy(&pjsua_var.stun_srv, &result->addr, sizeof(result->addr));
+	pjsua_var.stun_srv_idx = result->index;
 
 	/* Perform NAT type detection if not yet */
 	if (pjsua_var.nat_type == PJ_STUN_NAT_TYPE_UNKNOWN &&
+	    !pjsua_var.nat_in_progress &&
 	    pjsua_var.ua_cfg.nat_type_in_sdp)
 	{
 	    pjsua_detect_nat_type();
@@ -1492,8 +1600,16 @@ static void internal_stun_resolve_cb(const pj_stun_resolve_result *result)
 /*
  * Resolve STUN server.
  */
-pj_status_t resolve_stun_server(pj_bool_t wait)
+pj_status_t resolve_stun_server(pj_bool_t wait, pj_bool_t retry_if_cur_error)
 {
+    /* Retry resolving if currently the STUN status is error */
+    if (pjsua_var.stun_status != PJ_EPENDING &&
+	pjsua_var.stun_status != PJ_SUCCESS &&
+	retry_if_cur_error)
+    {
+	pjsua_var.stun_status = PJ_EUNKNOWN;
+    }
+
     if (pjsua_var.stun_status == PJ_EUNKNOWN) {
 	pj_status_t status;
 
@@ -1521,7 +1637,18 @@ pj_status_t resolve_stun_server(pj_bool_t wait)
 	 * result.
 	 */
 	if (wait) {
-	    while (pjsua_var.stun_status == PJ_EPENDING) {
+	    unsigned max_wait_ms;
+	    pj_timestamp start, now;
+
+	    /* Should limit the wait time to avoid deadlock. For example,
+	     * if app holds dlg/tsx lock, pjsua worker thread will block on
+	     * any dlg/tsx state change.
+	     */
+	    max_wait_ms = pjsua_var.ua_cfg.stun_srv_cnt *
+			  pjsua_var.stun_cfg.rto_msec * (1 << 7);
+	    pj_get_timestamp(&start);
+
+	    while (pjsua_var.stun_status == PJ_EPENDING) {		
                 /* If there is no worker thread or
                  * the function is called from the only worker thread,
                  * we have to handle the events here.
@@ -1534,6 +1661,10 @@ pj_status_t resolve_stun_server(pj_bool_t wait)
                 } else {
 		    pj_thread_sleep(10);
                 }
+
+		pj_get_timestamp(&now);
+		if (pj_elapsed_msec(&start, &now) > max_wait_ms)
+		    return PJ_ETIMEDOUT;
 	    }
 	}
     }
@@ -1544,7 +1675,8 @@ pj_status_t resolve_stun_server(pj_bool_t wait)
     {
 	PJ_LOG(2,(THIS_FILE, 
 		  "Ignoring STUN resolution failure (by setting)"));
-	pjsua_var.stun_status = PJ_SUCCESS;
+	//pjsua_var.stun_status = PJ_SUCCESS;
+	return PJ_SUCCESS;
     }
 
     return pjsua_var.stun_status;
@@ -1955,7 +2087,7 @@ static pj_status_t create_sip_udp_sock(int af,
     pj_status_t status;
 
     /* Make sure STUN server resolution has completed */
-    status = resolve_stun_server(PJ_TRUE);
+    status = resolve_stun_server(PJ_TRUE, PJ_TRUE);
     if (status != PJ_SUCCESS) {
 	pjsua_perror(THIS_FILE, "Error resolving STUN server", status);
 	return status;
@@ -2014,7 +2146,8 @@ static pj_status_t create_sip_udp_sock(int af,
     }
 
     if (pjsua_var.stun_srv.addr.sa_family != 0) {
-	pj_ansi_strcpy(stun_ip_addr,pj_inet_ntoa(pjsua_var.stun_srv.ipv4.sin_addr));
+    	pj_sockaddr_print(&pjsua_var.stun_srv,
+    		     	  stun_ip_addr, sizeof(stun_ip_addr), 0);
 	stun_srv = pj_str(stun_ip_addr);
     } else {
 	stun_srv.slen = 0;
@@ -2031,32 +2164,46 @@ static pj_status_t create_sip_udp_sock(int af,
 	if (pj_sockaddr_get_port(p_pub_addr) == 0)
 	    pj_sockaddr_set_port(p_pub_addr, (pj_uint16_t)port);
 
-    } else if (stun_srv.slen) {
+    } else if (stun_srv.slen &&
+               (af == pj_AF_INET() || pjsua_var.ua_cfg.stun_try_ipv6))
+    {
 	pjstun_setting stun_opt;
 
 	/*
 	 * STUN is specified, resolve the address with STUN.
+	 * Currently, this is only to get IPv4 mapped address
+	 * (does IPv6 still need a mapped address?).
 	 */
-	if (af != pj_AF_INET()) {
-	    pjsua_perror(THIS_FILE, "Cannot use STUN", PJ_EAFNOTSUP);
-	    pj_sock_close(sock);
-	    return PJ_EAFNOTSUP;
-	}
-
 	pj_bzero(&stun_opt, sizeof(stun_opt));
 	stun_opt.use_stun2 = pjsua_var.ua_cfg.stun_map_use_stun2;
+	stun_opt.af = pjsua_var.stun_srv.addr.sa_family;
 	stun_opt.srv1  = stun_opt.srv2  = stun_srv;
 	stun_opt.port1 = stun_opt.port2 = 
-			 pj_ntohs(pjsua_var.stun_srv.ipv4.sin_port);
+			 pj_sockaddr_get_port(&pjsua_var.stun_srv);
 	status = pjstun_get_mapped_addr2(&pjsua_var.cp.factory, &stun_opt,
 					 1, &sock, &p_pub_addr->ipv4);
 	if (status != PJ_SUCCESS) {
+	    /* Failed getting mapped address via STUN */
 	    pjsua_perror(THIS_FILE, "Error contacting STUN server", status);
-	    pj_sock_close(sock);
-	    return status;
+	    
+	    /* Return error if configured to not ignore STUN failure */
+	    if (!pjsua_var.ua_cfg.stun_ignore_failure) {
+		pj_sock_close(sock);
+		return status;
+	    }
+
+	    /* Otherwise, just use host IP */
+	    pj_sockaddr_init(af, p_pub_addr, NULL, (pj_uint16_t)port);
+	    status = pj_gethostip(af, p_pub_addr);
+	    if (status != PJ_SUCCESS) {
+		pjsua_perror(THIS_FILE, "Unable to get local host IP", status);
+		pj_sock_close(sock);
+		return status;
+	    }
 	}
 
     } else {
+
 	pj_bzero(p_pub_addr, sizeof(pj_sockaddr));
 
 	if (pj_sockaddr_has_addr(&bind_addr)) {
@@ -2072,6 +2219,15 @@ static pj_status_t create_sip_udp_sock(int af,
 
 	p_pub_addr->addr.sa_family = (pj_uint16_t)af;
 	pj_sockaddr_set_port(p_pub_addr, (pj_uint16_t)port);
+
+	if (stun_srv.slen && af != pj_AF_INET()) {
+	    /* STUN is specified, but it is not IPv4, just print warning */
+	    PJ_PERROR(2, (THIS_FILE, PJ_EAFNOTSUP,
+		          "Cannot use STUN for SIP UDP socket %s:%d",
+		          addr_string(p_pub_addr),
+		          (int)pj_sockaddr_get_port(p_pub_addr)));
+	}
+
     }
 
     *p_sock = sock;
@@ -2216,7 +2372,7 @@ PJ_DEF(pj_status_t) pjsua_transport_create( pjsip_transport_type_e type,
 	/* Copy the sockopt */
 	pj_memcpy(&tcp_cfg.sockopt_params, &cfg->sockopt_params,
 		  sizeof(tcp_cfg.sockopt_params));
-	
+
 	/* Create the TCP transport */
 	status = pjsip_tcp_transport_start3(pjsua_var.endpt, &tcp_cfg, &tcp);
 
@@ -2274,8 +2430,7 @@ PJ_DEF(pj_status_t) pjsua_transport_create( pjsip_transport_type_e type,
 	if (cfg->public_addr.slen)
 	    a_name.host = cfg->public_addr;
 
-	status = pjsip_tls_transport_start2(pjsua_var.endpt,
-					    &cfg->tls_setting,
+	status = pjsip_tls_transport_start2(pjsua_var.endpt, &cfg->tls_setting,
 					    &local_addr, &a_name, 1, &tls);
 	if (status != PJ_SUCCESS) {
 	    pjsua_perror(THIS_FILE, "Error creating SIP TLS listener", 
@@ -2405,7 +2560,7 @@ PJ_DEF(pj_status_t) pjsua_transport_get_info( pjsua_transport_id id,
 
     PJSUA_LOCK();
 
-    if (t->type == PJSIP_TRANSPORT_UDP) {
+    if ((t->type & ~PJSIP_TRANSPORT_IPV6) == PJSIP_TRANSPORT_UDP) {
 
 	pjsip_transport *tp = t->data.tp;
 
@@ -2426,8 +2581,8 @@ PJ_DEF(pj_status_t) pjsua_transport_get_info( pjsua_transport_id id,
 
 	status = PJ_SUCCESS;
 
-    } else if (t->type == PJSIP_TRANSPORT_TCP ||
-	       t->type == PJSIP_TRANSPORT_TLS)
+    } else if ((t->type & ~PJSIP_TRANSPORT_IPV6) == PJSIP_TRANSPORT_TCP ||
+	       (t->type & ~PJSIP_TRANSPORT_IPV6) == PJSIP_TRANSPORT_TLS)
     {
 
 	pjsip_tpfactory *factory = t->data.factory;
@@ -2439,10 +2594,8 @@ PJ_DEF(pj_status_t) pjsua_transport_get_info( pjsua_transport_id id,
     
 	info->id = id;
 	info->type = t->type;
-	info->type_name = (t->type==PJSIP_TRANSPORT_TCP)? pj_str("TCP"):
-							  pj_str("TLS");
-	info->info = (t->type==PJSIP_TRANSPORT_TCP)? pj_str("TCP transport"):
-						     pj_str("TLS transport");
+	info->type_name = pj_str(factory->type_name);
+	info->info = pj_str(factory->info);
 	info->flag = factory->flag;
 	info->addr_len = sizeof(factory->local_addr);
 	info->local_addr = factory->local_addr;
@@ -2492,6 +2645,7 @@ PJ_DEF(pj_status_t) pjsua_transport_close( pjsua_transport_id id,
 					   pj_bool_t force )
 {
     pj_status_t status;
+    pjsip_transport_type_e tp_type;
 
     /* Make sure id is in range. */
     PJ_ASSERT_RETURN(id>=0 && id<(int)PJ_ARRAY_SIZE(pjsua_var.tpdata), 
@@ -2500,11 +2654,13 @@ PJ_DEF(pj_status_t) pjsua_transport_close( pjsua_transport_id id,
     /* Make sure that transport exists */
     PJ_ASSERT_RETURN(pjsua_var.tpdata[id].data.ptr != NULL, PJ_EINVAL);
 
+    tp_type = pjsua_var.tpdata[id].type & ~PJSIP_TRANSPORT_IPV6;
+
     /* Note: destroy() may not work if there are objects still referencing
      *	     the transport.
      */
     if (force) {
-	switch (pjsua_var.tpdata[id].type) {
+	switch (tp_type) {
 	case PJSIP_TRANSPORT_UDP:
 	    status = pjsip_transport_shutdown(pjsua_var.tpdata[id].data.tp);
 	    if (status  != PJ_SUCCESS)
@@ -2537,7 +2693,7 @@ PJ_DEF(pj_status_t) pjsua_transport_close( pjsua_transport_id id,
 	 * transport is closed thus it can't cleanup PJSUA transport
 	 * descriptor.
 	 */
-	switch (pjsua_var.tpdata[id].type) {
+	switch (tp_type) {
 	case PJSIP_TRANSPORT_UDP:
 	    return pjsip_transport_shutdown(pjsua_var.tpdata[id].data.tp);
 	case PJSIP_TRANSPORT_TLS:
@@ -2556,6 +2712,66 @@ PJ_DEF(pj_status_t) pjsua_transport_close( pjsua_transport_id id,
     }
 
     return PJ_SUCCESS;
+}
+
+
+PJ_DEF(pj_status_t) pjsua_transport_lis_start(pjsua_transport_id id,
+					     const pjsua_transport_config *cfg)
+{
+    pj_status_t status = PJ_SUCCESS;
+    pjsip_transport_type_e tp_type;
+
+    /* Make sure id is in range. */
+    PJ_ASSERT_RETURN(id>=0 && id<(int)PJ_ARRAY_SIZE(pjsua_var.tpdata), 
+		     PJ_EINVAL);
+
+    /* Make sure that transport exists */
+    PJ_ASSERT_RETURN(pjsua_var.tpdata[id].data.ptr != NULL, PJ_EINVAL);
+
+    tp_type = pjsua_var.tpdata[id].type & ~PJSIP_TRANSPORT_IPV6;
+ 
+    if ((tp_type == PJSIP_TRANSPORT_TLS) || (tp_type == PJSIP_TRANSPORT_TCP)) {
+	pj_sockaddr bind_addr;
+	pjsip_host_port addr_name;
+	pjsip_tpfactory *factory = pjsua_var.tpdata[id].data.factory;
+	
+        int af = pjsip_transport_type_get_af(factory->type);
+
+	if (cfg->port)
+	    pj_sockaddr_set_port(&bind_addr, (pj_uint16_t)cfg->port);
+
+	if (cfg->bound_addr.slen) {
+	    status = pj_sockaddr_set_str_addr(af, 
+					      &bind_addr,
+					      &cfg->bound_addr);
+	    if (status != PJ_SUCCESS) {
+		pjsua_perror(THIS_FILE, 
+			     "Unable to resolve transport bound address", 
+			     status);
+		return status;
+	    }
+	}
+
+	/* Set published name */
+	if (cfg->public_addr.slen)
+	    addr_name.host = cfg->public_addr;
+
+	if (tp_type == PJSIP_TRANSPORT_TCP) {
+	    status = pjsip_tcp_transport_lis_start(factory, &bind_addr,
+						   &addr_name);
+	}
+#if defined(PJSIP_HAS_TLS_TRANSPORT) && PJSIP_HAS_TLS_TRANSPORT!=0
+	else {
+	    status = pjsip_tls_transport_lis_start(factory, &bind_addr,
+						   &addr_name);	
+	}
+#endif	
+    } else if (tp_type == PJSIP_TRANSPORT_UDP) {
+	status = PJ_SUCCESS;
+    } else {
+	status = PJ_EINVAL;
+    }
+    return status;
 }
 
 
@@ -2713,6 +2929,14 @@ void pjsua_init_tpselector(pjsua_transport_id tp_id,
 }
 
 
+PJ_DEF(void) pjsua_ip_change_param_default(pjsua_ip_change_param *param)
+{
+    pj_bzero(param, sizeof(*param));
+    param->restart_listener = PJ_TRUE;
+    param->restart_lis_delay = PJSUA_TRANSPORT_RESTART_DELAY_TIME;
+}
+
+
 /* Callback upon NAT detection completion */
 static void nat_detect_cb(void *user_data, 
 			  const pj_stun_nat_detect_result *res)
@@ -2740,7 +2964,7 @@ PJ_DEF(pj_status_t) pjsua_detect_nat_type()
 	return PJ_SUCCESS;
 
     /* Make sure STUN server resolution has completed */
-    status = resolve_stun_server(PJ_TRUE);
+    status = resolve_stun_server(PJ_TRUE, PJ_TRUE);
     if (status != PJ_SUCCESS) {
 	pjsua_var.nat_status = status;
 	pjsua_var.nat_type = PJ_STUN_NAT_TYPE_ERR_UNKNOWN;
@@ -2748,14 +2972,14 @@ PJ_DEF(pj_status_t) pjsua_detect_nat_type()
     }
 
     /* Make sure we have STUN */
-    if (pjsua_var.stun_srv.ipv4.sin_family == 0) {
+    if (pjsua_var.stun_srv.addr.sa_family == 0) {
 	pjsua_var.nat_status = PJNATH_ESTUNINSERVER;
 	return PJNATH_ESTUNINSERVER;
     }
 
-    status = pj_stun_detect_nat_type(&pjsua_var.stun_srv.ipv4, 
-				     &pjsua_var.stun_cfg, 
-				     NULL, &nat_detect_cb);
+    status = pj_stun_detect_nat_type2(&pjsua_var.stun_srv, 
+				      &pjsua_var.stun_cfg, 
+				      NULL, &nat_detect_cb);
 
     if (status != PJ_SUCCESS) {
 	pjsua_var.nat_status = status;
@@ -3119,3 +3343,244 @@ PJ_DEF(void) pjsua_dump(pj_bool_t detail)
     PJ_LOG(3,(THIS_FILE, "Dump complete"));
 }
 
+
+/* Forward declaration. */
+static void restart_listener_cb(void *user_data);
+
+
+static pj_status_t handle_ip_change_on_acc()
+{
+    int i = 0;
+    pj_status_t status = PJ_SUCCESS;
+    pj_bool_t acc_done[PJSUA_MAX_ACC];
+
+    /* Reset ip_change_active flag. */
+    for (; i < (int)PJ_ARRAY_SIZE(pjsua_var.acc); ++i) {
+	pjsua_var.acc[i].ip_change_op = PJSUA_IP_CHANGE_OP_NULL;
+	acc_done[i] = PJ_FALSE;
+    }    
+    
+    for (i = 0; i < (int)PJ_ARRAY_SIZE(pjsua_var.acc); ++i) {
+	pj_bool_t shutdown_transport = PJ_FALSE;
+	pjsip_regc_info regc_info;
+	char acc_id[PJSUA_MAX_ACC * 4];
+	pjsua_acc *acc = &pjsua_var.acc[i];
+	pjsip_transport *transport = NULL;
+	pjsua_acc_id shut_acc_ids[PJSUA_MAX_ACC];
+	unsigned shut_acc_cnt = 0;
+
+	if (!acc->valid || (acc_done[i]))
+	    continue;
+
+	if (acc->regc) {	    	    
+	    pjsip_regc_get_info(acc->regc, &regc_info);
+	    if ((regc_info.transport) &&
+		((regc_info.transport->flag & PJSIP_TRANSPORT_DATAGRAM) == 0))
+	    {
+		transport = regc_info.transport;
+		shutdown_transport = acc->cfg.ip_change_cfg.shutdown_tp;
+		shut_acc_ids[shut_acc_cnt++] = acc->index;
+	    }	
+	} else if (acc->reg_last_code != PJSIP_SC_BAD_GATEWAY &&
+		   acc->reg_last_code != PJSIP_SC_REQUEST_TIMEOUT &&
+		   acc->reg_last_code != PJSIP_SC_INTERNAL_SERVER_ERROR &&
+		   acc->reg_last_code != PJSIP_SC_BAD_GATEWAY &&
+		   acc->reg_last_code != PJSIP_SC_SERVICE_UNAVAILABLE &&
+		   acc->reg_last_code != PJSIP_SC_SERVER_TIMEOUT &&
+		   acc->reg_last_code != PJSIP_SC_TEMPORARILY_UNAVAILABLE) 
+	{
+	    continue;
+	} 
+	pj_ansi_snprintf(acc_id, sizeof(acc_id), "#%d", i);	
+
+	if (transport) {
+	    unsigned j = i + 1;
+
+	    /* Find other account that uses the same transport. */
+	    for (; j < (int)PJ_ARRAY_SIZE(pjsua_var.acc); ++j) {
+		pjsip_regc_info tmp_regc_info;
+		pjsua_acc *next_acc = &pjsua_var.acc[j];
+
+		if (!next_acc->valid || !next_acc->regc ||
+		    (next_acc->ip_change_op > PJSUA_IP_CHANGE_OP_NULL)) 
+		{
+		    continue;
+		}
+
+		pjsip_regc_get_info(next_acc->regc, &tmp_regc_info);
+		if (transport == tmp_regc_info.transport) {
+                    char tmp_buf[PJSUA_MAX_ACC * 4];
+
+                    pj_ansi_strncpy(tmp_buf, acc_id, sizeof(acc_id));
+		    pj_ansi_snprintf(acc_id, sizeof(acc_id), "%s #%d", 
+				     tmp_buf, j);
+		    shut_acc_ids[shut_acc_cnt++] = j;
+		    if (!shutdown_transport) {
+			shutdown_transport =
+				    next_acc->cfg.ip_change_cfg.shutdown_tp;			    
+		    }
+		}
+	    }
+	}
+
+	if (shutdown_transport) {
+	    unsigned j;
+	    /* Shutdown the transport. */	    
+	    PJ_LOG(3, (THIS_FILE, "Shutdown transport %s used by account %s "
+		       "triggered by IP change", transport->obj_name, acc_id));
+
+	    for (j = 0; j < shut_acc_cnt; ++j) {
+		pjsua_acc *tmp_acc = &pjsua_var.acc[shut_acc_ids[j]];
+		tmp_acc->ip_change_op = PJSUA_IP_CHANGE_OP_ACC_SHUTDOWN_TP;
+		acc_done[shut_acc_ids[j]] = PJ_TRUE;
+	    }
+
+	    status = pjsip_transport_shutdown2(transport, PJ_TRUE);
+
+	    /* Report progress to each acc which uses the same transport. */
+	    for (j = 0; j < shut_acc_cnt; ++j) {
+		pjsua_acc *tmp_acc = &pjsua_var.acc[shut_acc_ids[j]];
+
+		if (pjsua_var.ua_cfg.cb.on_ip_change_progress) {
+		    pjsua_ip_change_op_info info;
+
+		    pj_bzero(&info, sizeof(info));
+		    info.acc_shutdown_tp.acc_id = tmp_acc->index;
+
+		    pjsua_var.ua_cfg.cb.on_ip_change_progress(
+							 tmp_acc->ip_change_op,
+							 status,
+							 &info);
+		}
+
+	    }
+	} else {
+	    acc_done[i] = PJ_TRUE;
+	    if (acc->cfg.allow_contact_rewrite) {
+		status = pjsua_acc_update_contact_on_ip_change(acc);
+	    } else {
+		status = pjsua_acc_handle_call_on_ip_change(acc);
+	    }
+	}
+    }
+    return status;
+}
+
+
+static pj_status_t restart_listener(pjsua_transport_id id, 
+				    unsigned restart_lis_delay)
+{
+    pj_sockaddr bind_addr;
+    pjsua_transport_info tp_info;
+    pj_status_t status;    
+
+    pjsua_transport_get_info(id, &tp_info);        
+    pj_sockaddr_init(pjsip_transport_type_get_af(tp_info.type),
+		     &bind_addr,
+		     NULL,
+		     pj_sockaddr_get_port(&tp_info.local_addr));
+    
+    switch (tp_info.type) {
+    case PJSIP_TRANSPORT_UDP:
+    case PJSIP_TRANSPORT_UDP6:
+	status = pjsip_udp_transport_restart2(
+				       pjsua_var.tpdata[id].data.tp,
+				       PJSIP_UDP_TRANSPORT_DESTROY_SOCKET,
+				       PJ_INVALID_SOCKET,
+				       &bind_addr,
+				       NULL);
+	break;
+
+#if defined(PJSIP_HAS_TLS_TRANSPORT) && PJSIP_HAS_TLS_TRANSPORT!=0
+    case PJSIP_TRANSPORT_TLS:
+    case PJSIP_TRANSPORT_TLS6:
+	status = pjsip_tls_transport_restart(
+					pjsua_var.tpdata[id].data.factory,
+					&bind_addr,
+					NULL);
+	break;
+#endif
+    case PJSIP_TRANSPORT_TCP:
+    case PJSIP_TRANSPORT_TCP6:
+	status = pjsip_tcp_transport_restart(
+					pjsua_var.tpdata[id].data.factory,
+					&bind_addr,
+					NULL);
+	break;
+
+    default:
+	status = PJ_EINVAL;
+    }
+    if (status != PJ_SUCCESS && (restart_lis_delay > 0)) {
+	/* Try restarting again, with delay. */
+	pjsua_schedule_timer2(&restart_listener_cb, 
+			      (void*)(pj_size_t)id, 
+			      restart_lis_delay);
+    } else {
+	int i = 0;
+	pj_bool_t all_done = PJ_TRUE;
+
+	pjsua_var.tpdata[id].is_restarting = PJ_FALSE;	
+	if (pjsua_var.ua_cfg.cb.on_ip_change_progress) {
+	    pjsua_ip_change_op_info info;
+
+	    pj_bzero(&info, sizeof(info));
+	    info.lis_restart.transport_id = id;
+	    pjsua_var.ua_cfg.cb.on_ip_change_progress(
+						PJSUA_IP_CHANGE_OP_RESTART_LIS, 
+						status, 
+						&info);
+	}
+
+	/* Move forward if all listener has been restarted. */
+	for (; i < PJ_ARRAY_SIZE(pjsua_var.tpdata); ++i) {
+	    if (pjsua_var.tpdata[i].data.ptr != NULL && 
+		pjsua_var.tpdata[i].is_restarting) 
+	    {
+		all_done = PJ_FALSE;
+		break;
+	    }
+	}
+	if (all_done)
+	    status = handle_ip_change_on_acc();
+    }
+    return status;
+}
+
+
+static void restart_listener_cb(void *user_data)
+{
+    pjsua_transport_id transport_id = (pjsua_transport_id)(pj_size_t)user_data;
+    restart_listener(transport_id, 0);
+}
+
+
+PJ_DEF(pj_status_t) pjsua_handle_ip_change(const pjsua_ip_change_param *param)
+{
+    pj_status_t status = PJ_SUCCESS;
+    int i = 0;
+
+    PJ_ASSERT_RETURN(param, PJ_EINVAL);
+
+    PJ_LOG(3, (THIS_FILE, "Start handling IP address change"));
+    
+    if (param->restart_listener) {
+	/* Restart listener/transport, handle_ip_change_on_acc() will
+	 * be called after listener restart is completed successfully.
+	 */
+	for (i = 0; i < PJ_ARRAY_SIZE(pjsua_var.tpdata); ++i) {
+	    if (pjsua_var.tpdata[i].data.ptr != NULL) {
+		pjsua_var.tpdata[i].is_restarting = PJ_TRUE;
+	    }
+	}
+	for (i = 0; i < PJ_ARRAY_SIZE(pjsua_var.tpdata); ++i) {
+	    if (pjsua_var.tpdata[i].data.ptr != NULL) {		
+		status = restart_listener(i, param->restart_lis_delay);
+	    }
+	}
+    } else {
+	status = handle_ip_change_on_acc();
+    }
+
+    return status;
+}

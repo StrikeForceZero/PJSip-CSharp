@@ -1,4 +1,4 @@
-/* $Id: pjsua.h 5131 2015-07-13 07:56:19Z ming $ */
+/* $Id: pjsua.h 5677 2017-10-27 06:30:50Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -487,6 +487,42 @@ typedef struct pjsua_reg_info
 } pjsua_reg_info;
 
 
+/**
+ * Structure to be passed to on stream created callback.
+ * See #on_stream_created2().
+ */
+typedef struct pjsua_on_stream_created_param
+{
+    /**
+     * The media stream, read-only.
+     */
+    pjmedia_stream 	*stream;
+
+    /**
+     * Stream index in the media session, read-only.
+     */
+    unsigned 		 stream_idx;
+
+    /**
+     * Specify if PJSUA should take ownership of the port returned in
+     * the port parameter below. If set to PJ_TRUE,
+     * pjmedia_port_destroy() will be called on the port when it is
+     * no longer needed.
+     *
+     * Default: PJ_FALSE
+     */
+    pj_bool_t 		 destroy_port;
+
+    /**
+     * On input, it specifies the media port of the stream. Application
+     * may modify this pointer to point to different media port to be
+     * registered to the conference bridge.
+     */
+    pjmedia_port        *port;
+
+} pjsua_on_stream_created_param;
+
+
 /** 
  * Enumeration of media transport state types.
  */
@@ -619,6 +655,88 @@ typedef enum pjsua_contact_rewrite_method
 
 
 /**
+ * This enumeration specifies the operation when handling IP change.
+ */
+typedef enum pjsua_ip_change_op {
+    /**
+     * Hasn't start ip change process.
+     */
+    PJSUA_IP_CHANGE_OP_NULL,
+
+    /**
+     * The restart listener process.
+     */
+    PJSUA_IP_CHANGE_OP_RESTART_LIS,
+
+    /**
+     * The shutdown transport process.
+     */
+    PJSUA_IP_CHANGE_OP_ACC_SHUTDOWN_TP,
+
+    /**
+     * The update contact process.
+     */
+    PJSUA_IP_CHANGE_OP_ACC_UPDATE_CONTACT,
+
+    /**
+     * The hanging up call process.
+     */
+    PJSUA_IP_CHANGE_OP_ACC_HANGUP_CALLS,
+
+    /**
+     * The re-INVITE call process.
+     */
+    PJSUA_IP_CHANGE_OP_ACC_REINVITE_CALLS
+
+} pjsua_ip_change_op;
+
+
+/**
+ * This will contain the information of the callback \a on_ip_change_progress.
+ */
+typedef union pjsua_ip_change_op_info {
+    /**
+     * The information from listener restart operation.
+     */
+    struct {
+	int transport_id;
+    } lis_restart;
+
+    /**
+     * The information from shutdown transport.
+     */
+    struct {
+	int acc_id;
+    } acc_shutdown_tp;
+
+    /**
+     * The information from updating contact.
+     */
+    struct {
+	pjsua_acc_id acc_id;
+	pj_bool_t is_register;	/**< SIP Register if PJ_TRUE.	    */
+	int code;		/**< SIP status code received.	    */
+    } acc_update_contact;
+
+    /**
+     * The information from hanging up call operation.
+     */
+    struct {
+	pjsua_acc_id acc_id;
+	pjsua_call_id call_id;
+    } acc_hangup_calls;
+
+    /**
+     * The information from re-Invite call operation.
+     */
+    struct {
+	pjsua_acc_id acc_id;
+	pjsua_call_id call_id;
+    } acc_reinvite_calls;
+} pjsua_ip_change_op_info;
+
+
+/**
  * Call settings.
  */
 typedef struct pjsua_call_setting
@@ -706,7 +824,8 @@ typedef struct pjsua_callback
      * Normal application would need to implement this callback, e.g.
      * to connect the call's media to sound device. When ICE is used,
      * this callback will also be called to report ICE negotiation
-     * failure.
+     * failure. When DTLS-SRTP is used, this callback will also be called
+     * to report DTLS negotiation failure.
      *
      * @param call_id	The call index.
      */
@@ -738,6 +857,9 @@ typedef struct pjsua_callback
      * media port if it has added media processing port to the stream. This
      * media port then will be added to the conference bridge instead.
      *
+     * Note: if implemented, #on_stream_created2() callback will be called
+     * instead of this one. 
+     *
      * @param call_id	    Call identification.
      * @param strm	    Media stream.
      * @param stream_idx    Stream index in the media session.
@@ -750,6 +872,18 @@ typedef struct pjsua_callback
 			      pjmedia_stream *strm,
                               unsigned stream_idx,
 			      pjmedia_port **p_port);
+
+    /**
+     * Notify application when media session is created and before it is
+     * registered to the conference bridge. Application may return different
+     * media port if it has added media processing port to the stream. This
+     * media port then will be added to the conference bridge instead.
+     *
+     * @param call_id	    Call identification.
+     * @param param	    The on stream created callback parameter.
+     */
+    void (*on_stream_created2)(pjsua_call_id call_id,
+			       pjsua_on_stream_created_param *param);
 
     /**
      * Notify application when media session has been unregistered from the
@@ -909,6 +1043,31 @@ typedef struct pjsua_callback
 			     void *reserved,
 			     pjsip_status_code *code,
 			     pjsua_call_setting *opt);
+
+
+    /**
+    * Notify application when call has received INVITE with no SDP offer.
+    * Application can update the call setting (e.g: add audio/video), or
+    * enable/disable codecs, or update other media session settings from
+    * within the callback, however, as mandated by the standard (RFC3261
+    * section 14.2), it must ensure that the update overlaps with the
+    * existing media session (in codecs, transports, or other parameters)
+    * that require support from the peer, this is to avoid the need for
+    * the peer to reject the offer.
+    *
+    * When this callback is not defined, the default behavior is to send
+    * SDP offer using current active media session (with all enabled codecs
+    * on each media type).
+    *
+    * @param call_id	The call index.
+    * @param reserved	Reserved param, currently not used.
+    * @param opt	The current call setting, application can update
+    *			this setting for generating the offer.
+    */
+    void (*on_call_tx_offer)(pjsua_call_id call_id,
+			     void *reserved,
+			     pjsua_call_setting *opt);
+
 
     /**
      * Notify application when registration or unregistration has been
@@ -1287,7 +1446,10 @@ typedef struct pjsua_callback
      * This callback will be called even when null sound device or no
      * sound device is configured by the application (i.e. the
      * #pjsua_set_null_snd_dev() and #pjsua_set_no_snd_dev() APIs).
-     * This API is mostly useful when the application wants to manage
+     * Application can use the API #pjsua_get_snd_dev() to get the info
+     * about which sound device is going to be opened/closed.
+     *
+     * This callback is mostly useful when the application wants to manage
      * the sound device by itself (i.e. with #pjsua_set_no_snd_dev()),
      * to get notified when it should open or close the sound device.
      *
@@ -1341,6 +1503,23 @@ typedef struct pjsua_callback
                                                     unsigned flags);
 
     /**
+     * This callback is called when SRTP media transport is created.
+     * Application can modify the SRTP setting \a srtp_opt to specify
+     * the cryptos and keys which are going to be used. Note that
+     * application should not modify the field
+     * \a pjmedia_srtp_setting.close_member_tp and can only modify
+     * the field \a pjmedia_srtp_setting.use for initial INVITE.
+     *
+     * @param call_id       Call ID
+     * @param media_idx     The media index in the SDP for which this SRTP
+     * 			    media transport will be used.
+     * @param srtp_opt      The SRTP setting. Application can modify this.
+     */
+    void (*on_create_media_transport_srtp)(pjsua_call_id call_id,
+                                           unsigned media_idx,
+                                           pjmedia_srtp_setting *srtp_opt);
+
+    /**
      * This callback can be used by application to override the account
      * to be used to handle an incoming message. Initially, the account to
      * be used will be calculated automatically by the library. This initial
@@ -1372,6 +1551,19 @@ typedef struct pjsua_callback
      * See also #pj_stun_resolve_cb.
      */
     pj_stun_resolve_cb on_stun_resolution_complete;
+
+    /** 
+     * Calling #pjsua_handle_ip_change() may involve different operation. This 
+     * callback is called to report the progress of each enabled operation.
+     *
+     * @param op	The operation.
+     * @param status	The status of operation.
+     * @param info	The info from the operation
+     * 
+     */
+    void (*on_ip_change_progress)(pjsua_ip_change_op op,
+				  pj_status_t status,
+				  const pjsua_ip_change_op_info *info);
 
 } pjsua_callback;
 
@@ -1552,9 +1744,23 @@ typedef struct pjsua_config
     pj_str_t	    stun_srv[8];
 
     /**
-     * This specifies if the library startup should ignore failure with the
+     * This specifies if the library should try to do an IPv6 resolution of
+     * the STUN servers if the IPv4 resolution fails. It can be useful
+     * in an IPv6-only environment, including on NAT64.
+     *
+     * Default: PJ_FALSE
+     */
+    pj_bool_t	    stun_try_ipv6;
+
+    /**
+     * This specifies if the library should ignore failure with the
      * STUN servers. If this is set to PJ_FALSE, the library will refuse to
      * start if it fails to resolve or contact any of the STUN servers.
+     *
+     * This setting will also determine what happens if STUN servers are
+     * unavailable during runtime (if set to PJ_FALSE, calls will
+     * directly fail, otherwise (if PJ_TRUE) call medias will
+     * fallback to proceed as though not using STUN servers.
      *
      * Default: PJ_TRUE
      */
@@ -2018,7 +2224,79 @@ struct pj_stun_resolve_result
      */
     pj_sockaddr	     addr;
 
+    /**
+     * The index of the usable STUN server.
+     */
+    unsigned	     index;
 };
+
+
+/**
+ * This structure describe the parameter passed to #pjsua_handle_ip_change().
+ */
+typedef struct pjsua_ip_change_param
+{
+    /**
+     * If set to PJ_TRUE, this will restart the transport listener.
+     * 
+     * Default : PJ_TRUE
+     */
+    pj_bool_t	    restart_listener;
+
+    /** 
+     * If \a restart listener is set to PJ_TRUE, some delay might be needed 
+     * for the listener to be restarted. Use this to set the delay.
+     * 
+     * Default : PJSUA_TRANSPORT_RESTART_DELAY_TIME
+     */
+    unsigned	    restart_lis_delay;
+
+} pjsua_ip_change_param;
+
+
+/**
+ * This structure describe the account config specific to IP address change.
+ */
+typedef struct pjsua_ip_change_acc_cfg
+{    
+    /**
+     * Shutdown the transport used for account registration. If this is set to
+     * PJ_TRUE, the transport will be shutdown altough it's used by multiple
+     * account. Shutdown transport will be followed by re-Registration if
+     * pjsua_acc_config.allow_contact_rewrite is enabled.
+     *
+     * Default: PJ_TRUE
+     */
+    pj_bool_t		shutdown_tp;
+
+    /**
+     * Hangup active calls associated with the account. If this is set to 
+     * PJ_TRUE, then the calls will be hang up.
+     *
+     * Default: PJ_FALSE
+     */
+    pj_bool_t		hangup_calls;
+
+    /**
+     * Specify the call flags used in the re-INVITE when \a hangup_calls is set 
+     * to PJ_FALSE. If this is set to 0, no re-INVITE will be sent. The 
+     * re-INVITE will be sent after re-Registration is finished.
+     *
+     * Default: PJSUA_CALL_REINIT_MEDIA | PJSUA_CALL_UPDATE_CONTACT |
+     *          PJSUA_CALL_UPDATE_VIA
+     */
+    unsigned		reinvite_flags;
+    
+} pjsua_ip_change_acc_cfg;
+
+
+/**
+ * Call this function to initialize \a pjsua_ip_change_param with default 
+ * values.
+ *
+ * @param param	    The IP change param to be initialized.
+ */
+PJ_DECL(void) pjsua_ip_change_param_default(pjsua_ip_change_param *param);
 
 
 /**
@@ -2057,6 +2335,30 @@ PJ_DECL(pj_status_t) pjsua_detect_nat_type(void);
  * @see pjsua_call_get_rem_nat_type()
  */
 PJ_DECL(pj_status_t) pjsua_get_nat_type(pj_stun_nat_type *type);
+
+
+/**
+ * Update the STUN servers list. The #pjsua_init() must have been called
+ * before calling this function.
+ *
+ * @param count		Number of STUN server entries.
+ * @param srv		Array of STUN server entries to try. Please see
+ *			the \a stun_srv field in the #pjsua_config 
+ *			documentation about the format of this entry.
+ * @param wait		Specify non-zero to make the function block until
+ *			it gets the result. In this case, the function
+ *			will block while the resolution is being done,
+ *			and the callback will be called before this function
+ *			returns.
+ *
+ * @return		If \a wait parameter is non-zero, this will return
+ *			PJ_SUCCESS if one usable STUN server is found.
+ *			Otherwise it will always return PJ_SUCCESS, and
+ *			application will be notified about the result in
+ *			the callback #on_stun_resolution_complete.
+ */
+PJ_DECL(pj_status_t) pjsua_update_stun_servers(unsigned count, pj_str_t srv[],
+					       pj_bool_t wait);
 
 
 /**
@@ -2216,6 +2518,31 @@ PJ_DECL(void) pjsua_perror(const char *sender, const char *title,
  *			SIP transactions) when non-zero.
  */
 PJ_DECL(void) pjsua_dump(pj_bool_t detail);
+
+
+/**
+ * Inform the stack that IP address change event was detected. 
+ * The stack will:
+ * 1. Restart the listener (this step is configurable via 
+ *    \a pjsua_ip_change_param.restart_listener).
+ * 2. Shutdown the transport used by account registration (this step is 
+ *    configurable via \a pjsua_acc_config.ip_change_cfg.shutdown_tp).
+ * 3. Update contact URI by sending re-Registration (this step is configurable 
+ *    via a\ pjsua_acc_config.allow_contact_rewrite and 
+ *    a\ pjsua_acc_config.contact_rewrite_method)
+ * 4. Hangup active calls (this step is configurable via 
+ *    a\ pjsua_acc_config.ip_change_cfg.hangup_calls) or 
+ *    continue the call by sending re-INVITE 
+ *    (configurable via \a pjsua_acc_config.ip_change_cfg.reinvite_flags).
+ *
+ * @param param		The IP change parameter, have a look at 
+ *			#pjsua_ip_change_param.
+ *
+ * @return		PJ_SUCCESS on success, other on error.
+ */
+PJ_DECL(pj_status_t) pjsua_handle_ip_change(
+					   const pjsua_ip_change_param *param);
+
 
 /**
  * @}
@@ -2492,6 +2819,22 @@ PJ_DECL(pj_status_t) pjsua_transport_set_enable(pjsua_transport_id id,
 PJ_DECL(pj_status_t) pjsua_transport_close( pjsua_transport_id id,
 					    pj_bool_t force );
 
+
+/**
+ * Start the listener of the transport. This is useful when listener is not 
+ * automatically started when creating the transport.
+ *
+ * @param id		Transport ID.
+ * @param cfg		The new transport config used by the listener. 
+ *			Only port, public_addr and bound_addr are used at the 
+ *			moment.
+ *
+ * @return		PJ_SUCCESS on success, or the appropriate error code.
+ */
+PJ_DECL(pj_status_t) pjsua_transport_lis_start( pjsua_transport_id id,
+					    const pjsua_transport_config *cfg);
+
+
 /**
  * @}
  */
@@ -2697,7 +3040,16 @@ typedef enum pjsua_stun_use
      * Disable STUN. If STUN is not enabled in the global \a pjsua_config,
      * this setting has no effect.
      */
-    PJSUA_STUN_USE_DISABLED
+    PJSUA_STUN_USE_DISABLED,
+    
+    /**
+     * Retry other STUN servers if the STUN server selected during
+     * startup (#pjsua_init()) or after calling #pjsua_update_stun_servers()
+     * is unavailable during runtime. This setting is valid only for
+     * account's media STUN setting and if the call is using UDP media
+     * transport.
+     */
+    PJSUA_STUN_RETRY_ON_FAILURE
 
 } pjsua_stun_use;
 
@@ -2825,6 +3177,23 @@ typedef enum pjsua_ipv6_use
 } pjsua_ipv6_use;
 
 /**
+ * Specify NAT64 options to be used in account config.
+ */
+typedef enum pjsua_nat64_opt
+{
+    /**
+     * NAT64 is not used.
+     */
+    PJSUA_NAT64_DISABLED,
+
+    /**
+     * NAT64 is enabled.
+     */
+    PJSUA_NAT64_ENABLED
+    
+} pjsua_nat64_opt;
+
+/**
  * This structure describes account configuration to be specified when
  * adding a new account with #pjsua_acc_add(). Application MUST initialize
  * this structure first by calling #pjsua_acc_config_default().
@@ -2868,6 +3237,17 @@ typedef struct pjsua_acc_config
      * request.
      */
     pjsip_hdr	    reg_hdr_list;
+
+    /**
+     * Additional parameters that will be appended in the Contact header
+     * for this account. This will only affect REGISTER requests and
+     * will be appended after \a contact_params;
+     *
+     * The parameters should be preceeded by semicolon, and all strings must
+     * be properly escaped. Example:
+     *	 ";my-param=X;another-param=Hi%20there"
+     */
+    pj_str_t	    reg_contact_params;
 
     /** 
      * The optional custom SIP headers to be put in the presence
@@ -3239,9 +3619,23 @@ typedef struct pjsua_acc_config
     pjmedia_vid_stream_rc_config vid_stream_rc_cfg;
 
     /**
+     * Specify the send keyframe config for video stream.
+     *
+     * Default: see #pjmedia_vid_stream_sk_config
+     */
+    pjmedia_vid_stream_sk_config vid_stream_sk_cfg;
+
+    /**
      * Media transport config.
      */
     pjsua_transport_config rtp_cfg;
+
+    /**
+     * Specify NAT64 options.
+     *
+     * Default: PJSUA_NAT64_DISABLED
+     */
+    pjsua_nat64_opt 		nat64_opt;
 
     /**
      * Specify whether IPv6 should be used on media.
@@ -3258,7 +3652,7 @@ typedef struct pjsua_acc_config
     /**
      * Control the use of STUN for the media transports.
      *
-     * Default: PJSUA_STUN_USE_DEFAULT
+     * Default: PJSUA_STUN_RETRY_ON_FAILURE
      */
     pjsua_stun_use 		media_stun_use;
 
@@ -3318,14 +3712,19 @@ typedef struct pjsua_acc_config
     pj_bool_t	     srtp_optional_dup_offer;
 
     /**
-     * Specify interval of auto registration retry upon registration failure
-     * (including caused by transport problem), in second. Set to 0 to
-     * disable auto re-registration. Note that if the registration retry
-     * occurs because of transport failure, the first retry will be done
-     * after \a reg_first_retry_interval seconds instead. Also note that
-     * the interval will be randomized slightly by some seconds (specified
-     * in \a reg_retry_random_interval) to avoid all clients re-registering
-     * at the same time.
+     * Specify interval of auto registration retry upon registration failure,
+     * in seconds. Set to 0 to disable auto re-registration. Note that
+     * registration will only be automatically retried for temporal failures
+     * considered to be recoverable in relatively short term, such as:
+     * 408 (Request Timeout), 480 (Temporarily Unavailable),
+     * 500 (Internal Server Error), 502 (Bad Gateway),
+     * 503 (Service Unavailable), 504 (Server Timeout),
+     * 6xx (global failure), and failure caused by transport problem.
+     * For registration retry caused by transport failure, the first retry
+     * will be done after \a reg_first_retry_interval seconds instead.
+     * Note that the interval will be randomized slightly by some seconds
+     * (specified in \a reg_retry_random_interval) to avoid all clients
+     * re-registering at the same time.
      *
      * See also \a reg_first_retry_interval setting.
      *
@@ -3405,7 +3804,13 @@ typedef struct pjsua_acc_config
      *
      * Default: PJ_TRUE
      */
-    pj_bool_t         register_on_acc_add;
+    pj_bool_t		register_on_acc_add;
+
+    /**
+     * Specify account configuration specific to IP address change used when
+     * calling #pjsua_handle_ip_change().
+     */
+    pjsua_ip_change_acc_cfg ip_change_cfg;
 
 } pjsua_acc_config;
 
@@ -4129,10 +4534,10 @@ typedef struct pjsua_call_info
 
     /** Internal */
     struct {
-	char	local_info[128];
-	char	local_contact[128];
-	char	remote_info[128];
-	char	remote_contact[128];
+	char	local_info[PJSIP_MAX_URL_SIZE];
+	char	local_contact[PJSIP_MAX_URL_SIZE];
+	char	remote_info[PJSIP_MAX_URL_SIZE];
+	char	remote_contact[PJSIP_MAX_URL_SIZE];
 	char	call_id[128];
 	char	last_status_text[128];
     } buf_;
@@ -4182,7 +4587,30 @@ typedef enum pjsua_call_flag
      * #pjsua_call_update()/update2(). For re-invite/update, specifying
      * PJSUA_CALL_UNHOLD will take precedence over this flag.
      */
-    PJSUA_CALL_NO_SDP_OFFER = 8
+    PJSUA_CALL_NO_SDP_OFFER = 8,
+
+    /**
+     * Deinitialize and recreate media, including media transport. This flag
+     * is useful in IP address change situation, if the media transport
+     * address (or address family) changes, for example during IPv4/IPv6
+     * network handover.
+     * This flag is only valid for #pjsua_call_reinvite()/reinvite2(), or
+     * #pjsua_call_update()/update2().
+     *
+     * Warning: If the re-INVITE/UPDATE fails, the old media will not be
+     * reverted.
+     */
+    PJSUA_CALL_REINIT_MEDIA = 16,
+    
+    /**
+     * Update the local invite session's Via with the via address from
+     * the account. This flag is only valid for #pjsua_call_set_hold2(),
+     * #pjsua_call_reinvite() and #pjsua_call_update(). Similar to
+     * the flag PJSUA_CALL_UPDATE_CONTACT above, this flag is useful
+     * in IP address change situation, after the local account's Via has
+     * been updated (typically with re-registration).
+     */
+    PJSUA_CALL_UPDATE_VIA = 32
 
 } pjsua_call_flag;
 
@@ -4786,11 +5214,12 @@ PJ_DECL(pj_status_t) pjsua_call_xfer_replaces(pjsua_call_id call_id,
 					      const pjsua_msg_data *msg_data);
 
 /**
- * Send DTMF digits to remote using RFC 2833 payload formats. 
+ * Send DTMF digits to remote using RFC 2833 payload formats.
  *
  * @param call_id	Call identification.
  * @param digits	DTMF string digits to be sent as described on RFC 2833 
- *			section 3.10. Character 'R' is used to represent the 
+ *			section 3.10. If PJMEDIA_HAS_DTMF_FLASH is enabled, 
+ *			character 'R' is used to represent the 
  *			event type 16 (flash) as stated in RFC 4730.
  *
  * @return		PJ_SUCCESS on success, or the appropriate error code.
@@ -5568,6 +5997,15 @@ PJ_DECL(pj_status_t) pjsua_im_typing(pjsua_acc_id acc_id,
 
 
 /**
+ * Specify the delay needed when restarting the transport/listener.
+ * e.g: 10 msec on Linux or Android, and 0 on the other platforms.
+ */
+#ifndef PJSUA_TRANSPORT_RESTART_DELAY_TIME
+#   define PJSUA_TRANSPORT_RESTART_DELAY_TIME	10
+#endif
+
+
+/**
  * This structure describes media configuration, which will be specified
  * when calling #pjsua_init(). Application MUST initialize this structure
  * by calling #pjsua_media_config_default().
@@ -5973,6 +6411,90 @@ typedef struct pjsua_media_transport
 
 
 /**
+ * Sound device index constants.
+ */
+typedef enum pjsua_snd_dev_id
+{
+    /** 
+     * Constant to denote default capture device.
+     */
+    PJSUA_SND_DEFAULT_CAPTURE_DEV = PJMEDIA_AUD_DEFAULT_CAPTURE_DEV,
+
+    /** 
+     * Constant to denote default playback device.
+     */
+    PJSUA_SND_DEFAULT_PLAYBACK_DEV = PJMEDIA_AUD_DEFAULT_PLAYBACK_DEV,
+
+    /**
+     * Constant to denote that no sound device is being used.
+     */
+    PJSUA_SND_NO_DEV = PJMEDIA_AUD_INVALID_DEV,
+
+    /**
+     * Constant to denote null sound device.
+     */
+    PJSUA_SND_NULL_DEV = -99
+
+} pjsua_snd_dev_id;
+
+/**
+ * This enumeration specifies the sound device mode.
+ */
+typedef enum pjsua_snd_dev_mode
+{
+    /**
+     * Open sound device without mic (speaker only).
+     */
+    PJSUA_SND_DEV_SPEAKER_ONLY = 1,
+
+    /**
+     * Do not open sound device, after setting the sound device.
+     */
+    PJSUA_SND_DEV_NO_IMMEDIATE_OPEN  = 2
+
+} pjsua_snd_dev_mode;
+
+
+/**
+ * This structure specifies the parameters to set the sound device.
+ * Use pjsua_snd_dev_param_default() to initialize this structure with
+ * default values.
+ */
+typedef struct pjsua_snd_dev_param
+{
+    /*
+     * Capture dev id.
+     *
+     * Default: PJMEDIA_AUD_DEFAULT_CAPTURE_DEV
+     */
+    int			capture_dev;
+
+    /*
+     * Playback dev id.
+     *
+     * Default: PJMEDIA_AUD_DEFAULT_PLAYBACK_DEV
+     */
+    int			playback_dev;
+
+    /*
+     * Sound device mode, refer to #pjsua_snd_dev_mode.
+     *
+     * Default: 0
+     */
+    unsigned		mode;
+
+} pjsua_snd_dev_param;
+
+
+/**
+ * Initialize pjsua_snd_dev_param with default values.
+ *
+ * @param prm		The parameter.
+ */
+PJ_DECL(void) pjsua_snd_dev_param_default(pjsua_snd_dev_param *prm);
+
+
+/**
  * Get maxinum number of conference ports.
  *
  * @return		Maximum number of ports in the conference bridge.
@@ -6334,6 +6856,7 @@ PJ_DECL(pj_status_t) pjsua_enum_snd_devs(pjmedia_snd_dev_info info[],
  * Get currently active sound devices. If sound devices has not been created
  * (for example when pjsua_start() is not called), it is possible that
  * the function returns PJ_SUCCESS with -1 as device IDs.
+ * See also #pjsua_snd_dev_id constants.
  *
  * @param capture_dev   On return it will be filled with device ID of the 
  *			capture device.
@@ -6357,6 +6880,15 @@ PJ_DECL(pj_status_t) pjsua_get_snd_dev(int *capture_dev,
  */
 PJ_DECL(pj_status_t) pjsua_set_snd_dev(int capture_dev,
 				       int playback_dev);
+
+/**
+ * Select or change sound device according to the specified param.
+ *
+ * @param snd_param	Sound device param. 
+ *
+ * @return		PJ_SUCCESS on success, or the appropriate error code.
+ */
+PJ_DECL(pj_status_t) pjsua_set_snd_dev2(pjsua_snd_dev_param *snd_param);
 
 
 /**

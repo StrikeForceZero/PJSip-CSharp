@@ -1,4 +1,4 @@
-/* $Id: sip_endpoint.c 5055 2015-04-08 10:10:44Z riza $ */
+/* $Id: sip_endpoint.c 5668 2017-09-29 02:43:05Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -34,6 +34,7 @@
 #include <pj/assert.h>
 #include <pj/errno.h>
 #include <pj/lock.h>
+#include <pj/math.h>
 
 #define PJSIP_EX_NO_MEMORY  pj_NO_MEMORY_EXCEPTION()
 #define THIS_FILE	    "sip_endpoint.c"
@@ -371,6 +372,7 @@ PJ_DEF(pj_status_t) pjsip_endpt_add_capability( pjsip_endpoint *endpt,
 
     /* Check arguments. */
     PJ_ASSERT_RETURN(endpt!=NULL && count>0 && tags, PJ_EINVAL);
+    PJ_ASSERT_RETURN(count <= PJSIP_GENERIC_ARRAY_MAX_COUNT, PJ_ETOOMANY);
     PJ_ASSERT_RETURN(htype==PJSIP_H_ACCEPT || 
 		     htype==PJSIP_H_ALLOW ||
 		     htype==PJSIP_H_SUPPORTED,
@@ -698,6 +700,7 @@ PJ_DEF(pj_status_t) pjsip_endpt_handle_events2(pjsip_endpoint *endpt,
 					       const pj_time_val *max_timeout,
 					       unsigned *p_count)
 {
+    enum { MAX_TIMEOUT_ON_ERR = 10 };
     /* timeout is 'out' var. This just to make compiler happy. */
     pj_time_val timeout = { 0, 0};
     unsigned count = 0, net_event_count = 0;
@@ -741,7 +744,11 @@ PJ_DEF(pj_status_t) pjsip_endpt_handle_events2(pjsip_endpoint *endpt,
 	c = pj_ioqueue_poll( endpt->ioqueue, &timeout);
 	if (c < 0) {
 	    pj_status_t err = pj_get_netos_error();
-	    pj_thread_sleep(PJ_TIME_VAL_MSEC(timeout));
+#if PJSIP_HANDLE_EVENTS_HAS_SLEEP_ON_ERR
+	    unsigned msec = PJ_TIME_VAL_MSEC(timeout);
+	    pj_thread_sleep(PJ_MIN(msec, MAX_TIMEOUT_ON_ERR));
+#endif
+
 	    if (p_count)
 		*p_count = count;
 	    return err;

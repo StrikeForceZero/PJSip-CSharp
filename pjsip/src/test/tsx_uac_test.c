@@ -1,4 +1,4 @@
-/* $Id: tsx_uac_test.c 4420 2013-03-05 11:59:54Z bennylp $ */
+/* $Id: tsx_uac_test.c 5535 2017-01-19 10:31:38Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -777,8 +777,7 @@ static pj_bool_t msg_receiver_on_rx_request(pjsip_rx_data *rdata)
 	timer.entry.user_data = r;
 	pjsip_endpt_schedule_timer(endpt, &timer.entry, &delay);
 
-	return PJ_TRUE;
-
+	return (status == PJ_SUCCESS);
 
     } else
     if (pj_stricmp2(&rdata->msg_info.via->branch_param, TEST8_BRANCH_ID) == 0) {
@@ -850,7 +849,7 @@ static pj_bool_t msg_receiver_on_rx_request(pjsip_rx_data *rdata)
 	 * provisional response.
 	 */
 	pjsip_method *method;
-	pj_status_t status;
+	pj_status_t status = PJ_SUCCESS;
 
 	method = &rdata->msg_info.msg->line.req.method;
 
@@ -933,7 +932,7 @@ static pj_bool_t msg_receiver_on_rx_request(pjsip_rx_data *rdata)
 
 	}
 
-	return PJ_TRUE;
+	return (status == PJ_SUCCESS);
 
     }
 

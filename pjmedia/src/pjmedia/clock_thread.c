@@ -1,4 +1,4 @@
-/* $Id: clock_thread.c 4160 2012-06-07 04:10:22Z nanang $ */
+/* $Id: clock_thread.c 5534 2017-01-19 07:41:25Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -415,11 +415,8 @@ PJ_DEF(pj_status_t) pjmedia_clock_destroy(pjmedia_clock *clock)
 	clock->lock = NULL;
     }
 
-    if (clock->pool) {
-	pj_pool_t *pool = clock->pool;
-	clock->pool = NULL;
-	pj_pool_release(pool);
-    }
+    pj_pool_safe_release(&clock->pool);
+
     return PJ_SUCCESS;
 }
 

@@ -1,4 +1,4 @@
-/* $Id: wav_player.c 4793 2014-03-14 04:09:50Z bennylp $ */
+/* $Id: wav_player.c 5635 2017-08-01 07:49:34Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -455,7 +455,7 @@ PJ_DEF(pj_status_t) pjmedia_wav_player_get_info(
 	return PJ_ENOTSUP;
     }
 
-    info->size_bytes = pjmedia_wav_player_get_len(port);
+    info->size_bytes = (pj_uint32_t)pjmedia_wav_player_get_len(port);
     info->size_samples = info->size_bytes /
 			 (info->payload_bits_per_sample / 8);
 
@@ -580,15 +580,13 @@ static pj_status_t file_get_frame(pjmedia_port *this_port,
 {
     struct file_reader_port *fport = (struct file_reader_port*)this_port;
     pj_size_t frame_size;
-    pj_status_t status;
+    pj_status_t status = PJ_SUCCESS;
 
     pj_assert(fport->base.info.signature == SIGNATURE);
     pj_assert(frame->size <= fport->bufsize);
 
     /* EOF is set and readpos already passed the eofpos */
     if (fport->eof && fport->readpos >= fport->eofpos) {
-	pj_status_t status = PJ_SUCCESS;
-
 	PJ_LOG(5,(THIS_FILE, "File port %.*s EOF",
 		  (int)fport->base.info.name.slen,
 		  fport->base.info.name.ptr));

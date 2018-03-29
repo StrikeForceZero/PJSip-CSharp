@@ -2,21 +2,27 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{fa26a4c1-f532-4086-9842-acc962a39138}</UniqueIdentifier>
+      <UniqueIdentifier>{c8a8e8d9-1fbe-477c-91c9-5f4c495a2ad1}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
     </Filter>
     <Filter Include="Source Files\Other Targets">
-      <UniqueIdentifier>{0202d24c-1f61-45d5-a8fe-620c2d1b3a44}</UniqueIdentifier>
+      <UniqueIdentifier>{366d56a2-30a3-409b-9bd6-14ddc94069e0}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{a9478038-70d9-45e1-8ed0-5c32a9407992}</UniqueIdentifier>
+      <UniqueIdentifier>{77df8652-bc15-4733-a454-bbf8f16f93f1}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl</Extensions>
     </Filter>
     <Filter Include="Header Files\compat">
-      <UniqueIdentifier>{26baf312-1a7a-44bb-904a-ab2f6131eae3}</UniqueIdentifier>
+      <UniqueIdentifier>{3e7b3f2e-8699-43c9-801e-2c54e3f07023}</UniqueIdentifier>
     </Filter>
     <Filter Include="Inline Files">
-      <UniqueIdentifier>{c24969fa-655b-4bc0-83d7-5343c440b08f}</UniqueIdentifier>
+      <UniqueIdentifier>{4befc994-9aa4-47c8-99e7-5a51301220dd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\winrt">
+      <UniqueIdentifier>{4a92fce6-2308-44cf-aa66-00ccd5b333bd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\winrt">
+      <UniqueIdentifier>{3550aa38-c59d-4d5f-b458-1f93e0b16bbd}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -179,9 +185,6 @@
     <ClCompile Include="..\src\pj\ioqueue_epoll.c">
       <Filter>Source Files\Other Targets</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\pj\ip_helper_generic.c">
-      <Filter>Source Files\Other Targets</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\pj\log_writer_printk.c">
       <Filter>Source Files\Other Targets</Filter>
     </ClCompile>
@@ -215,6 +218,18 @@
     <ClCompile Include="..\src\pj\symbols.c">
       <Filter>Source Files\Other Targets</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\third_party\threademulation\src\ThreadEmulation.cpp">
+      <Filter>Source Files\winrt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\pj\ip_helper_winphone8.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\pj\ip_helper_generic.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\pj\ip_helper_generic.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\pj\ioqueue_common_abs.h">
@@ -245,9 +260,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\pj\doxygen.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\pj\equeue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\pj\errno.h">
@@ -409,9 +421,6 @@
     <ClInclude Include="..\include\pj\compat\time.h">
       <Filter>Header Files\compat</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\pj\compat\vsprintf.h">
-      <Filter>Header Files\compat</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\pj\list_i.h">
       <Filter>Inline Files</Filter>
     </ClInclude>
@@ -420,6 +429,21 @@
     </ClInclude>
     <ClInclude Include="..\include\pj\string_i.h">
       <Filter>Inline Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\pj\compat\os_winphone8.h">
+      <Filter>Header Files\compat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\threademulation\include\ThreadEmulation.h">
+      <Filter>Header Files\winrt</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\pj\compat\os_winuwp.h">
+      <Filter>Header Files\compat</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\pj\limits.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\pj\compat\limits.h">
+      <Filter>Header Files\compat</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

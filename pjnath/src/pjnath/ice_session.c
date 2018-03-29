@@ -1,4 +1,4 @@
-/* $Id: ice_session.c 5070 2015-04-15 00:38:54Z nanang $ */
+/* $Id: ice_session.c 5665 2017-09-28 03:44:53Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -396,7 +396,7 @@ PJ_DEF(pj_status_t) pj_ice_sess_create(pj_stun_config *stun_cfg,
 
     /* Initialize transport datas */
     for (i=0; i<PJ_ARRAY_SIZE(ice->tp_data); ++i) {
-	ice->tp_data[i].transport_id = i;
+	ice->tp_data[i].transport_id = 0;
 	ice->tp_data[i].has_req_data = PJ_FALSE;
     }
 
@@ -461,11 +461,8 @@ static void ice_on_destroy(void *obj)
 {
     pj_ice_sess *ice = (pj_ice_sess*) obj;
 
-    if (ice->pool) {
-	pj_pool_t *pool = ice->pool;
-	ice->pool = NULL;
-	pj_pool_release(pool);
-    }
+    pj_pool_safe_release(&ice->pool);
+
     LOG4((THIS_FILE, "ICE session %p destroyed", ice));
 }
 
@@ -723,6 +720,7 @@ PJ_DEF(pj_status_t) pj_ice_sess_add_cand(pj_ice_sess *ice,
     pj_ice_sess_cand *lcand;
     pj_status_t status = PJ_SUCCESS;
     char address[PJ_INET6_ADDRSTRLEN];
+    unsigned i;
 
     PJ_ASSERT_RETURN(ice && comp_id && 
 		     foundation && addr && base_addr && addr_len,
@@ -747,6 +745,21 @@ PJ_DEF(pj_status_t) pj_ice_sess_add_cand(pj_ice_sess *ice,
     if (rel_addr == NULL)
 	rel_addr = base_addr;
     pj_memcpy(&lcand->rel_addr, rel_addr, addr_len);
+
+    /* Update transport data */
+    for (i = 0; i < PJ_ARRAY_SIZE(ice->tp_data); ++i) {
+	/* Check if this transport has been registered */
+	if (ice->tp_data[i].transport_id == transport_id)
+	    break;
+
+	if (ice->tp_data[i].transport_id == 0) {
+	    /* Found an empty slot, register this transport here */
+	    ice->tp_data[i].transport_id = transport_id;
+	    break;
+	}
+    }
+    pj_assert(i < PJ_ARRAY_SIZE(ice->tp_data) &&
+	      ice->tp_data[i].transport_id == transport_id);
 
     pj_ansi_strcpy(ice->tmp.txt, pj_sockaddr_print(&lcand->addr, address,
                                                    sizeof(address), 0));
@@ -1204,10 +1217,12 @@ static void ice_keep_alive(pj_ice_sess *ice, pj_bool_t send_now)
 	msg_data = PJ_POOL_ZALLOC_T(tdata->pool, pj_ice_msg_data);
 	msg_data->transport_id = the_check->lcand->transport_id;
 
-	/* Temporarily disable FINGERPRINT. The Binding Indication 
-	 * SHOULD NOT contain any attributes.
+	/* RFC 5245 Section 10:
+	 * The Binding Indication SHOULD contain the FINGERPRINT attribute
+	 * to aid in demultiplexing, but SHOULD NOT contain any other
+	 * attributes.
 	 */
-	saved = pj_stun_session_use_fingerprint(comp->stun_sess, PJ_FALSE);
+	saved = pj_stun_session_use_fingerprint(comp->stun_sess, PJ_TRUE);
 
 	/* Send to session */
 	addr_len = pj_sockaddr_get_len(&the_check->rcand->addr);
@@ -1600,8 +1615,8 @@ PJ_DEF(pj_status_t) pj_ice_sess_create_check_list(
 			      pj_ice_sess *ice,
 			      const pj_str_t *rem_ufrag,
 			      const pj_str_t *rem_passwd,
-			      unsigned rcand_cnt,
-			      const pj_ice_sess_cand rcand[])
+			      unsigned rem_cand_cnt,
+			      const pj_ice_sess_cand rem_cand[])
 {
     pj_ice_sess_checklist *clist;
     char buf[128];
@@ -1611,9 +1626,9 @@ PJ_DEF(pj_status_t) pj_ice_sess_create_check_list(
     unsigned highest_comp = 0;
     pj_status_t status;
 
-    PJ_ASSERT_RETURN(ice && rem_ufrag && rem_passwd && rcand_cnt && rcand,
-		     PJ_EINVAL);
-    PJ_ASSERT_RETURN(rcand_cnt + ice->rcand_cnt <= PJ_ICE_MAX_CAND, 
+    PJ_ASSERT_RETURN(ice && rem_ufrag && rem_passwd && rem_cand_cnt &&
+		     rem_cand, PJ_EINVAL);
+    PJ_ASSERT_RETURN(rem_cand_cnt + ice->rcand_cnt <= PJ_ICE_MAX_CAND,
 		     PJ_ETOOMANY);
 
     pj_grp_lock_acquire(ice->grp_lock);
@@ -1638,19 +1653,19 @@ PJ_DEF(pj_status_t) pj_ice_sess_create_check_list(
 
     /* Save remote candidates */
     ice->rcand_cnt = 0;
-    for (i=0; i<rcand_cnt; ++i) {
+    for (i=0; i<rem_cand_cnt; ++i) {
 	pj_ice_sess_cand *cn = &ice->rcand[ice->rcand_cnt];
 
 	/* Ignore candidate which has no matching component ID */
-	if (rcand[i].comp_id==0 || rcand[i].comp_id > ice->comp_cnt) {
+	if (rem_cand[i].comp_id==0 || rem_cand[i].comp_id > ice->comp_cnt) {
 	    continue;
 	}
 
-	if (rcand[i].comp_id > highest_comp)
-	    highest_comp = rcand[i].comp_id;
+	if (rem_cand[i].comp_id > highest_comp)
+	    highest_comp = rem_cand[i].comp_id;
 
-	pj_memcpy(cn, &rcand[i], sizeof(pj_ice_sess_cand));
-	pj_strdup(ice->pool, &cn->foundation, &rcand[i].foundation);
+	pj_memcpy(cn, &rem_cand[i], sizeof(pj_ice_sess_cand));
+	pj_strdup(ice->pool, &cn->foundation, &rem_cand[i].foundation);
 	ice->rcand_cnt++;
     }
 
@@ -1661,12 +1676,14 @@ PJ_DEF(pj_status_t) pj_ice_sess_create_check_list(
 
 	    pj_ice_sess_cand *lcand = &ice->lcand[i];
 	    pj_ice_sess_cand *rcand = &ice->rcand[j];
-	    pj_ice_sess_check *chk = &clist->checks[clist->count];
+	    pj_ice_sess_check *chk = NULL;
 
 	    if (clist->count >= PJ_ICE_MAX_CHECKS) {
 		pj_grp_lock_release(ice->grp_lock);
 		return PJ_ETOOMANY;
 	    } 
+
+           chk = &clist->checks[clist->count];
 
 	    /* A local candidate is paired with a remote candidate if
 	     * and only if the two candidates have the same component ID 
@@ -1874,9 +1891,9 @@ static pj_status_t start_periodic_check(pj_timer_heap_t *th,
 	if (check->state == PJ_ICE_SESS_CHECK_STATE_WAITING) {
 	    status = perform_check(ice, clist, i, ice->is_nominating);
 	    if (status != PJ_SUCCESS) {
-		pj_grp_lock_release(ice->grp_lock);
-		pj_log_pop_indent();
-		return status;
+		check_set_state(ice, check, PJ_ICE_SESS_CHECK_STATE_FAILED,
+				status);
+		on_check_complete(ice, check);
 	    }
 
 	    ++start_count;
@@ -1894,9 +1911,9 @@ static pj_status_t start_periodic_check(pj_timer_heap_t *th,
 	    if (check->state == PJ_ICE_SESS_CHECK_STATE_FROZEN) {
 		status = perform_check(ice, clist, i, ice->is_nominating);
 		if (status != PJ_SUCCESS) {
-		    pj_grp_lock_release(ice->grp_lock);
-		    pj_log_pop_indent();
-		    return status;
+		    check_set_state(ice, check,
+		    		    PJ_ICE_SESS_CHECK_STATE_FAILED, status);
+		    on_check_complete(ice, check);
 		}
 
 		++start_count;
@@ -2170,6 +2187,7 @@ static void on_stun_request_complete(pj_stun_session *stun_sess,
     pj_ice_sess_cand *lcand;
     pj_ice_sess_checklist *clist;
     pj_stun_xor_mapped_addr_attr *xaddr;
+    const pj_sockaddr_t *source_addr = src_addr;
     unsigned i;
 
     PJ_UNUSED_ARG(stun_sess);
@@ -2271,8 +2289,25 @@ static void on_stun_request_complete(pj_stun_session *stun_sess,
      * the response match the source IP address and port that the Binding
      * Request was sent from.
      */
-    if (pj_sockaddr_cmp(&check->rcand->addr, (const pj_sockaddr*)src_addr)!=0)
+    if (check->rcand->addr.addr.sa_family == pj_AF_INET() &&
+        ((pj_sockaddr *)src_addr)->addr.sa_family == pj_AF_INET6())
     {
+        /* If the address family is different, we need to check
+         * whether the two addresses are equivalent (i.e. the IPv6
+         * is synthesized from IPv4).
+         */
+        pj_sockaddr synth_addr;
+    	
+    	status = pj_sockaddr_synthesize(pj_AF_INET6(), &synth_addr,
+    					&check->rcand->addr);
+    	if (status == PJ_SUCCESS &&
+    	    pj_sockaddr_cmp(&synth_addr, src_addr) == 0)
+    	{
+    	    source_addr = &check->rcand->addr;
+    	}
+    }
+
+    if (pj_sockaddr_cmp(&check->rcand->addr, source_addr) != 0) {
 	status = PJNATH_EICEINSRCADDR;
 	LOG4((ice->obj_name, 
 	     "Check %s%s: connectivity check FAILED: source address mismatch",
@@ -2323,7 +2358,13 @@ static void on_stun_request_complete(pj_stun_session *stun_sess,
     /* Find local candidate that matches the XOR-MAPPED-ADDRESS */
     pj_assert(lcand == NULL);
     for (i=0; i<ice->lcand_cnt; ++i) {
-	if (pj_sockaddr_cmp(&xaddr->sockaddr, &ice->lcand[i].addr) == 0) {
+	/* Ticket #1891: apply additional check as there may be a shared
+	 * mapped address for different base/local addresses.
+	 */
+	if (pj_sockaddr_cmp(&xaddr->sockaddr, &ice->lcand[i].addr) == 0 &&
+	    pj_sockaddr_cmp(&check->lcand->base_addr,
+			    &ice->lcand[i].base_addr) == 0)
+	{
 	    /* Match */
 	    lcand = &ice->lcand[i];
 	    break;
@@ -2453,6 +2494,8 @@ static pj_status_t on_stun_rx_request(pj_stun_session *sess,
     pj_stun_uint64_attr *role_attr;
     pj_stun_tx_data *tdata;
     pj_ice_rx_check *rcheck, tmp_rcheck;
+    const pj_sockaddr_t *source_addr = src_addr;
+    unsigned source_addr_len = src_addr_len;
     pj_status_t status;
 
     PJ_UNUSED_ARG(pkt);
@@ -2566,10 +2609,53 @@ static pj_status_t on_stun_rx_request(pj_stun_session *sess,
 	return status;
     }
 
+    if (((pj_sockaddr *)src_addr)->addr.sa_family == pj_AF_INET6()) {
+        unsigned i;
+        unsigned transport_id = ((pj_ice_msg_data*)token)->transport_id;
+        pj_ice_sess_cand *lcand = NULL;
+
+    	for (i = 0; i < ice->clist.count; ++i) {
+	    pj_ice_sess_check *c = &ice->clist.checks[i];
+	    if (c->lcand->comp_id == sd->comp_id &&
+	        c->lcand->transport_id == transport_id) 
+	    {
+	    	lcand = c->lcand;
+	    	break;
+	    }
+    	}
+
+	if (lcand != NULL && lcand->addr.addr.sa_family == pj_AF_INET()) {
+	    /* We are behind NAT64, so src_addr is a synthesized IPv6
+	     * address. Instead of putting this synth IPv6 address as
+             * the XOR-MAPPED-ADDRESS, we need to find its original
+             * IPv4 address.
+             */
+            for (i = 0; i < ice->rcand_cnt; ++i) {
+            	pj_sockaddr synth_addr;
+            
+            	if (ice->rcand[i].addr.addr.sa_family != pj_AF_INET())
+                    continue;
+
+            	status = pj_sockaddr_synthesize(pj_AF_INET6(), &synth_addr,
+            				    	&ice->rcand[i].addr);
+	    	if (status == PJ_SUCCESS &&
+	            pj_sockaddr_cmp(src_addr, &synth_addr) == 0)
+	    	{
+	            /* We find the original IPv4 address. */
+	            source_addr = &ice->rcand[i].addr;
+	            source_addr_len = pj_sockaddr_get_len(source_addr);
+	            break;
+	    	}
+            }
+        }
+    }
+
+
     /* Add XOR-MAPPED-ADDRESS attribute */
     status = pj_stun_msg_add_sockaddr_attr(tdata->pool, tdata->msg, 
 					   PJ_STUN_ATTR_XOR_MAPPED_ADDR,
-					   PJ_TRUE, src_addr, src_addr_len);
+					   PJ_TRUE, source_addr,
+					   source_addr_len);
 
     /* Create a msg_data to be associated with this response */
     msg_data = PJ_POOL_ZALLOC_T(tdata->pool, pj_ice_msg_data);
@@ -2598,8 +2684,8 @@ static pj_status_t on_stun_rx_request(pj_stun_session *sess,
     /* Init rcheck */
     rcheck->comp_id = sd->comp_id;
     rcheck->transport_id = ((pj_ice_msg_data*)token)->transport_id;
-    rcheck->src_addr_len = src_addr_len;
-    pj_sockaddr_cp(&rcheck->src_addr, src_addr);
+    rcheck->src_addr_len = source_addr_len;
+    pj_sockaddr_cp(&rcheck->src_addr, source_addr);
     rcheck->use_candidate = (uc_attr != NULL);
     rcheck->priority = prio_attr->value;
     rcheck->role_attr = role_attr;

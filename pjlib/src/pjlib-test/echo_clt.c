@@ -1,4 +1,4 @@
-/* $Id: echo_clt.c 3553 2011-05-05 06:14:19Z nanang $ */
+/* $Id: echo_clt.c 5311 2016-05-20 04:17:00Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -57,6 +57,7 @@ static int echo_client_thread(void *arg)
     pj_sock_t sock;
     char send_buf[BUF_SIZE];
     char recv_buf[BUF_SIZE];
+    char addr[PJ_INET_ADDRSTRLEN];
     pj_sockaddr_in addr;
     pj_str_t s;
     pj_status_t rc;
@@ -87,7 +88,8 @@ static int echo_client_thread(void *arg)
     }
 
     PJ_LOG(3,("", "...socket connected to %s:%d", 
-		  pj_inet_ntoa(addr.sin_addr),
+		  pj_inet_ntop2(pj_AF_INET(), &addr.sin_addr,
+		  		addr, sizeof(addr)),
 		  pj_ntohs(addr.sin_port)));
 
     pj_memset(send_buf, 'A', BUF_SIZE);

@@ -2,11 +2,11 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{c33e6ca0-8aff-4d60-b6e3-8209c3956b6b}</UniqueIdentifier>
+      <UniqueIdentifier>{b47424a1-193e-423f-9735-05ce03549f4e}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
     </Filter>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{c9091bdf-d46d-45d3-a494-f106a83800c7}</UniqueIdentifier>
+      <UniqueIdentifier>{299e6683-786a-497a-ab65-a7ae49842874}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl</Extensions>
     </Filter>
   </ItemGroup>
@@ -206,6 +206,15 @@
     <ClCompile Include="..\src\pjmedia\wsola.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\pjmedia\audiodev.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\pjmedia\videodev.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\pjmedia\echo_webrtc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\pjmedia\alaw_ulaw.h">
@@ -380,6 +389,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\pjmedia\wsola.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\pjmedia\audiodev.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\pjmedia\videodev.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

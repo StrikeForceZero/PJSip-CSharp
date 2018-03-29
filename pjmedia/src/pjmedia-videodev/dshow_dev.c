@@ -1,4 +1,4 @@
-/* $Id: dshow_dev.c 4962 2014-11-19 07:44:39Z riza $ */
+/* $Id: dshow_dev.c 5560 2017-02-24 04:21:07Z nanang $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -1065,8 +1065,10 @@ static pj_status_t dshow_stream_stop(pjmedia_vid_dev_stream *strm)
         for (i=0; !stream->cap_thread_exited && i<100; ++i)
 	    pj_thread_sleep(10);
     }
-    for (i=0; !stream->rend_thread_exited && i<100; ++i)
-	pj_thread_sleep(10);
+    if (stream->param.dir & PJMEDIA_DIR_RENDER) {
+	for (i=0; !stream->rend_thread_exited && i<100; ++i)
+	    pj_thread_sleep(10);
+    }
 
     if (stream->dgraph.media_filter)
 	IMediaFilter_Stop(stream->dgraph.media_filter);

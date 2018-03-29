@@ -1,4 +1,4 @@
-/* $Id: evsub_msg.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: evsub_msg.c 5558 2017-02-20 01:29:21Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -179,7 +179,7 @@ static int pjsip_sub_state_hdr_print(pjsip_sub_state_hdr *hdr,
     }
     if (hdr->retry_after >= 0) {
 	pj_memcpy(p, ";retry-after=", 13);
-	p += 9;
+	p += 13;
 	printed = pj_utoa(hdr->retry_after, p);
 	p += printed;
     }

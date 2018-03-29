@@ -1,4 +1,4 @@
-/* $Id: alt_pjsua_aud.c 4793 2014-03-14 04:09:50Z bennylp $ */
+/* $Id: alt_pjsua_aud.c 5657 2017-09-25 02:18:57Z ming $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -255,7 +255,9 @@ static void timer_to_send_aud_rtcp(void *user_data)
 void pjsua_aud_stop_stream(pjsua_call_media *call_med)
 {
     /* Detach our RTP/RTCP callbacks from transport */
-    pjmedia_transport_detach(call_med->tp, call_med);
+    if (call_med->tp) {
+    	pjmedia_transport_detach(call_med->tp, call_med);
+    }
 
     /* TODO: destroy your audio stream here */
 }

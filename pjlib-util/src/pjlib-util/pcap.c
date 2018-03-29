@@ -1,4 +1,4 @@
-/* $Id: pcap.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: pcap.c 5605 2017-06-15 02:18:17Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -89,6 +89,8 @@ struct pj_pcap_file
     pj_pcap_hdr	    hdr;
     pj_pcap_filter  filter;
 };
+
+#pragma pack()
 
 /* Init default filter */
 PJ_DEF(void) pj_pcap_filter_default(pj_pcap_filter *filter)
@@ -229,9 +231,11 @@ PJ_DEF(pj_status_t) pj_pcap_read_udp(pj_pcap_file *file,
 	unsigned rec_incl;
 	pj_ssize_t sz;
 	pj_size_t sz_read = 0;
+	char addr[PJ_INET_ADDRSTRLEN];
 	pj_status_t status;
 
 	TRACE_((file->obj_name, "Reading packet.."));
+	pj_bzero(&addr, sizeof(addr));
 
 	/* Read PCAP packet header */
 	sz = sizeof(tmp.rec);
@@ -282,7 +286,8 @@ PJ_DEF(pj_status_t) pj_pcap_read_udp(pj_pcap_file *file,
 	/* Skip if IP source mismatch */
 	if (file->filter.ip_src && tmp.ip.ip_src != file->filter.ip_src) {
 	    TRACE_((file->obj_name, "IP source %s mismatch, skipping", 
-		    pj_inet_ntoa(*(pj_in_addr*)&tmp.ip.ip_src)));
+		    pj_inet_ntop2(pj_AF_INET(), (pj_in_addr*)&tmp.ip.ip_src,
+		    		  addr, sizeof(addr))));
 	    SKIP_PKT();
 	    continue;
 	}
@@ -290,7 +295,8 @@ PJ_DEF(pj_status_t) pj_pcap_read_udp(pj_pcap_file *file,
 	/* Skip if IP destination mismatch */
 	if (file->filter.ip_dst && tmp.ip.ip_dst != file->filter.ip_dst) {
 	    TRACE_((file->obj_name, "IP detination %s mismatch, skipping", 
-		    pj_inet_ntoa(*(pj_in_addr*)&tmp.ip.ip_dst)));
+		    pj_inet_ntop2(pj_AF_INET(), (pj_in_addr*)&tmp.ip.ip_dst,
+		    		  addr, sizeof(addr))));
 	    SKIP_PKT();
 	    continue;
 	}

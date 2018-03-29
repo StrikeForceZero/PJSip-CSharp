@@ -1,4 +1,4 @@
-/* $Id: dns_server.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: dns_server.c 5534 2017-01-19 07:41:25Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -124,11 +124,7 @@ PJ_DEF(pj_status_t) pj_dns_server_destroy(pj_dns_server *srv)
 	srv->asock = NULL;
     }
 
-    if (srv->pool) {
-	pj_pool_t *pool = srv->pool;
-	srv->pool = NULL;
-	pj_pool_release(pool);
-    }
+    pj_pool_safe_release(&srv->pool);
 
     return PJ_SUCCESS;
 }
@@ -311,6 +307,20 @@ static int print_rr(pj_uint8_t *pkt, int size, pj_uint8_t *pos,
 	p += 6;
 	size -= 6;
 
+    } else if (rr->type == PJ_DNS_TYPE_AAAA) {
+
+	if (size < 18)
+	    return -1;
+
+	/* RDLEN is 16 */
+	write16(p, 16);
+
+	/* Address */
+	pj_memcpy(p+2, &rr->rdata.aaaa.ip_addr, 16);
+
+	p += 18;
+	size -= 18;
+    
     } else if (rr->type == PJ_DNS_TYPE_CNAME ||
 	       rr->type == PJ_DNS_TYPE_NS ||
 	       rr->type == PJ_DNS_TYPE_PTR) {

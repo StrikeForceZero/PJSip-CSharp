@@ -1,4 +1,4 @@
-/* $Id: os_info.c 4610 2013-10-03 10:26:14Z ming $ */
+/* $Id: os_info.c 5635 2017-08-01 07:49:34Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -98,24 +98,29 @@ static char *ver_info(pj_uint32_t ver, char *buf)
 }
 
 static pj_uint32_t parse_version(char *str)
-{
-    char *tok;
+{    
     int i, maxtok;
+    pj_ssize_t found_idx;
     pj_uint32_t version = 0;
+    pj_str_t in_str = pj_str(str);
+    pj_str_t token, delim;
     
     while (*str && !pj_isdigit(*str))
 	str++;
 
     maxtok = 4;
-    for (tok = strtok(str, ".-"), i=0; tok && i<maxtok;
-	 ++i, tok=strtok(NULL, ".-"))
+    delim = pj_str(".-");
+    for (found_idx = pj_strtok(&in_str, &delim, &token, 0), i=0; 
+	 found_idx != in_str.slen && i < maxtok;
+	 ++i, found_idx = pj_strtok(&in_str, &delim, &token, 
+	                            found_idx + token.slen))
     {
 	int n;
 
-	if (!pj_isdigit(*tok))
+	if (!pj_isdigit(*token.ptr))
 	    break;
 	
-	n = atoi(tok);
+	n = atoi(token.ptr);
 	version |= (n << ((3-i)*8));
     }
     
@@ -192,6 +197,9 @@ PJ_DEF(const pj_sys_info*) pj_get_sys_info(void)
     #endif
 #elif defined(_MSC_VER)
     {
+    #if defined(PJ_WIN32_WINPHONE8) && PJ_WIN32_WINPHONE8
+	si.os_name = pj_str("winphone");
+    #else
 	OSVERSIONINFO ovi;
 
 	ovi.dwOSVersionInfoSize = sizeof(ovi);
@@ -206,21 +214,28 @@ PJ_DEF(const pj_sys_info*) pj_get_sys_info(void)
 	#else
 	    si.os_name = pj_str("win32");
 	#endif
+    #endif
     }
 
     {
 	SYSTEM_INFO wsi;
 
+    #if defined(PJ_WIN32_WINPHONE8) && PJ_WIN32_WINPHONE8
+	GetNativeSystemInfo(&wsi);
+    #else
 	GetSystemInfo(&wsi);
+    #endif
+	
 	switch (wsi.wProcessorArchitecture) {
-    #if defined(PJ_WIN32_WINCE) && PJ_WIN32_WINCE
+	#if (defined(PJ_WIN32_WINCE) && PJ_WIN32_WINCE) || \
+	    (defined(PJ_WIN32_WINPHONE8) && PJ_WIN32_WINPHONE8)
 	case PROCESSOR_ARCHITECTURE_ARM:
 	    si.machine = pj_str("arm");
 	    break;
 	case PROCESSOR_ARCHITECTURE_SHX:
 	    si.machine = pj_str("shx");
 	    break;
-    #else
+	#else
 	case PROCESSOR_ARCHITECTURE_AMD64:
 	    si.machine = pj_str("x86_64");
 	    break;
@@ -230,8 +245,12 @@ PJ_DEF(const pj_sys_info*) pj_get_sys_info(void)
 	case PROCESSOR_ARCHITECTURE_INTEL:
 	    si.machine = pj_str("i386");
 	    break;
-    #endif	/* PJ_WIN32_WINCE */
+	#endif	/* PJ_WIN32_WINCE */
 	}
+    #if defined(PJ_WIN32_WINPHONE8) && PJ_WIN32_WINPHONE8
+	/* Avoid compile warning. */
+	goto get_sdk_info;
+    #endif
     }
 #elif defined(PJ_SYMBIAN) && PJ_SYMBIAN != 0
     {

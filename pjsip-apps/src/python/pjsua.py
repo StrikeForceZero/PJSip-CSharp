@@ -1,4 +1,4 @@
-# $Id: pjsua.py 4810 2014-04-07 06:56:06Z ming $
+# $Id: pjsua.py 5448 2016-10-06 07:20:41Z riza $
 #
 # Object oriented PJSUA wrapper.
 #
@@ -487,6 +487,8 @@ class TransportConfig:
                           Voice traffic.
                      4: PJ_QOS_TYPE_CONTROL
                           Control traffic.
+                     5: PJ_QOS_TYPE_SIGNALLING
+                          Signalling traffic.
     qos_params_flags    -- Determines which values to set, bitmask of pj_qos_flag.
                              PJ_QOS_PARAM_HAS_DSCP = 1
                              PJ_QOS_PARAM_HAS_SO_PRIO = 2

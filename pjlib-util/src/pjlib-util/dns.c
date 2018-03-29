@@ -1,4 +1,4 @@
-/* $Id: dns.c 4712 2014-01-23 08:09:29Z nanang $ */
+/* $Id: dns.c 5350 2016-06-21 06:55:10Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -326,8 +326,15 @@ static pj_status_t parse_rr(pj_dns_parsed_rr *rr, pj_pool_t *pool,
     p += 2;
 
     /* Class MUST be IN */
-    if (rr->dnsclass != 1)
-	return PJLIB_UTIL_EDNSINCLASS;
+    if (rr->dnsclass != 1) {
+	/* Class is not IN, return error only if type is known (see #1889) */
+	if (rr->type == PJ_DNS_TYPE_A     || rr->type == PJ_DNS_TYPE_AAAA  ||
+	    rr->type == PJ_DNS_TYPE_CNAME || rr->type == PJ_DNS_TYPE_NS    ||
+	    rr->type == PJ_DNS_TYPE_PTR   || rr->type == PJ_DNS_TYPE_SRV)
+	{
+	    return PJLIB_UTIL_EDNSINCLASS;
+	}
+    }
 
     /* Get TTL */
     pj_memcpy(&rr->ttl, p, 4);
@@ -740,5 +747,20 @@ PJ_DEF(void) pj_dns_init_a_rr( pj_dns_parsed_rr *rec,
     rec->dnsclass = (pj_uint16_t) dnsclass;
     rec->ttl = ttl;
     rec->rdata.a.ip_addr = *ip_addr;
+}
+
+
+PJ_DEF(void) pj_dns_init_aaaa_rr(pj_dns_parsed_rr *rec,
+				 const pj_str_t *res_name,
+				 unsigned dnsclass,
+				 unsigned ttl,
+				 const pj_in6_addr *ip_addr)
+{
+    pj_bzero(rec, sizeof(*rec));
+    rec->name = *res_name;
+    rec->type = PJ_DNS_TYPE_AAAA;
+    rec->dnsclass = (pj_uint16_t) dnsclass;
+    rec->ttl = ttl;
+    rec->rdata.aaaa.ip_addr = *ip_addr;
 }
 

@@ -1,4 +1,4 @@
-/* $Id: sip_util.c 4888 2014-08-18 08:54:43Z bennylp $ */
+/* $Id: sip_util.c 5636 2017-08-02 02:51:59Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -1016,6 +1016,14 @@ PJ_DEF(pj_status_t) pjsip_process_route_set(pjsip_tx_data *tdata,
     if (status != PJ_SUCCESS)
 	return status;
 
+    /* If transport selector is set, set destination type accordingly */
+    if (tdata->tp_sel.type != PJSIP_TPSELECTOR_NONE && tdata->tp_sel.u.ptr) {
+	if (tdata->tp_sel.type == PJSIP_TPSELECTOR_TRANSPORT)
+	    dest_info->type = tdata->tp_sel.u.transport->key.type;
+	else if (tdata->tp_sel.type == PJSIP_TPSELECTOR_LISTENER)
+	    dest_info->type = tdata->tp_sel.u.listener->type;
+    }
+
     /* If target URI is different than request URI, replace 
      * request URI add put the original URI in the last Route header.
      */
@@ -1206,8 +1214,14 @@ static void stateless_send_transport_cb( void *token,
 	}
 
 	via->transport = pj_str(stateless_data->cur_transport->type_name);
+	/* For Cancel request, do not update the Via address with
+	 * the new transport since it needs to match the original
+	 * request.
+	 */
         if (tdata->via_addr.host.slen > 0 &&
-            tdata->via_tp == (void *)stateless_data->cur_transport)
+            (!tdata->via_tp ||
+             tdata->via_tp == (void *)stateless_data->cur_transport ||
+             tdata->msg->line.req.method.id == PJSIP_CANCEL_METHOD))
         {
             via->sent_by = tdata->via_addr;
         } else {

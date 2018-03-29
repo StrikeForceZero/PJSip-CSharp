@@ -1,4 +1,4 @@
-/* $Id: server.h 3553 2011-05-05 06:14:19Z nanang $ */
+/* $Id: server.h 5350 2016-06-21 06:55:10Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -39,12 +39,14 @@ enum test_server_flags
     CREATE_DNS_SERVER		= (1 << 0),
     CREATE_A_RECORD_FOR_DOMAIN	= (1 << 1),
 
-    CREATE_STUN_SERVER		= (1 << 5),
-    CREATE_STUN_SERVER_DNS_SRV	= (1 << 6),
+    CREATE_STUN_SERVER		= (1 << 4),
+    CREATE_STUN_SERVER_DNS_SRV	= (1 << 5),
 
-    CREATE_TURN_SERVER		= (1 << 10),
-    CREATE_TURN_SERVER_DNS_SRV	= (1 << 11),
+    CREATE_TURN_SERVER		= (1 << 8),
+    CREATE_TURN_SERVER_DNS_SRV	= (1 << 9),
 
+    SERVER_IPV4			= (1 << 12),
+    SERVER_IPV6			= (1 << 13)
 };
 
 typedef struct test_server test_server;

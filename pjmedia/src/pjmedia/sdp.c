@@ -1,4 +1,4 @@
-/* $Id: sdp.c 5106 2015-06-12 03:03:48Z riza $ */
+/* $Id: sdp.c 5743 2018-02-21 02:51:52Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -144,7 +144,7 @@ PJ_DEF(pjmedia_sdp_attr*) pjmedia_sdp_attr_find (unsigned count,
     unsigned i;
     unsigned c_pt = 0xFFFF;
 
-    PJ_ASSERT_RETURN(count < PJMEDIA_MAX_SDP_ATTR, NULL);
+    PJ_ASSERT_RETURN(count <= PJMEDIA_MAX_SDP_ATTR, NULL);
 
     if (c_fmt)
 	c_pt = pj_strtoul(c_fmt);
@@ -201,7 +201,7 @@ PJ_DEF(unsigned) pjmedia_sdp_attr_remove_all(unsigned *count,
     pj_str_t attr_name;
 
     PJ_ASSERT_RETURN(count && attr_array && name, PJ_EINVAL);
-    PJ_ASSERT_RETURN(*count < PJMEDIA_MAX_SDP_ATTR, PJ_ETOOMANY);
+    PJ_ASSERT_RETURN(*count <= PJMEDIA_MAX_SDP_ATTR, PJ_ETOOMANY);
 
     attr_name.ptr = (char*)name;
     attr_name.slen = pj_ansi_strlen(name);
@@ -228,7 +228,7 @@ PJ_DEF(pj_status_t) pjmedia_sdp_attr_remove( unsigned *count,
     unsigned i, removed=0;
 
     PJ_ASSERT_RETURN(count && attr_array && attr, PJ_EINVAL);
-    PJ_ASSERT_RETURN(*count < PJMEDIA_MAX_SDP_ATTR, PJ_ETOOMANY);
+    PJ_ASSERT_RETURN(*count <= PJMEDIA_MAX_SDP_ATTR, PJ_ETOOMANY);
 
     for (i=0; i<*count; ) {
 	if (attr_array[i] == attr) {
@@ -256,7 +256,8 @@ PJ_DEF(pj_status_t) pjmedia_sdp_attr_get_rtpmap( const pjmedia_sdp_attr *attr,
 
     PJ_ASSERT_RETURN(pj_strcmp2(&attr->name, "rtpmap")==0, PJ_EINVALIDOP);
 
-    PJ_ASSERT_RETURN(attr->value.slen != 0, PJMEDIA_SDP_EINATTR);
+    if (attr->value.slen == 0)
+        return PJMEDIA_SDP_EINATTR;
 
     init_sdp_parser();
 
@@ -341,6 +342,9 @@ PJ_DEF(pj_status_t) pjmedia_sdp_attr_get_fmtp( const pjmedia_sdp_attr *attr,
 
     PJ_ASSERT_RETURN(pj_strcmp2(&attr->name, "fmtp")==0, PJ_EINVALIDOP);
 
+    if (attr->value.slen == 0)
+        return PJMEDIA_SDP_EINATTR;
+
     /* fmtp BNF:
      *	a=fmtp:<format> <format specific parameter>
      */
@@ -379,6 +383,9 @@ PJ_DEF(pj_status_t) pjmedia_sdp_attr_get_rtcp(const pjmedia_sdp_attr *attr,
 
     PJ_ASSERT_RETURN(pj_strcmp2(&attr->name, "rtcp")==0, PJ_EINVALIDOP);
 
+    if (attr->value.slen == 0)
+        return PJMEDIA_SDP_EINATTR;
+
     init_sdp_parser();
 
     /* fmtp BNF:
@@ -408,7 +415,8 @@ PJ_DEF(pj_status_t) pjmedia_sdp_attr_get_rtcp(const pjmedia_sdp_attr *attr,
 	    pj_scan_get(&scanner, &cs_token, &rtcp->addr_type);
 
 	    /* Get the address */
-	    pj_scan_get(&scanner, &cs_token, &rtcp->addr);
+	    //pj_scan_get(&scanner, &cs_token, &rtcp->addr);
+	    pj_scan_get_until_chr(&scanner, "/ \t\r\n", &rtcp->addr);
 
 	}
 
@@ -431,6 +439,7 @@ PJ_DEF(pjmedia_sdp_attr*) pjmedia_sdp_attr_create_rtcp(pj_pool_t *pool,
     enum {
 	ATTR_LEN = PJ_INET6_ADDRSTRLEN+16
     };
+    char tmp_addr[PJ_INET6_ADDRSTRLEN];
     pjmedia_sdp_attr *attr;
 
     attr = PJ_POOL_ALLOC_T(pool, pjmedia_sdp_attr);
@@ -440,10 +449,10 @@ PJ_DEF(pjmedia_sdp_attr*) pjmedia_sdp_attr_create_rtcp(pj_pool_t *pool,
 	attr->value.slen = 
 	    pj_ansi_snprintf(attr->value.ptr, ATTR_LEN,
 			    "%u IN IP4 %s",
-			    pj_ntohs(a->ipv4.sin_port),
-			    pj_inet_ntoa(a->ipv4.sin_addr));
+			    pj_sockaddr_get_port(a),
+			    pj_sockaddr_print(a, tmp_addr, 
+					      sizeof(tmp_addr), 0));
     } else if (a->addr.sa_family == pj_AF_INET6()) {
-	char tmp_addr[PJ_INET6_ADDRSTRLEN];
 	attr->value.slen = 
 	    pj_ansi_snprintf(attr->value.ptr, ATTR_LEN,
 			    "%u IN IP6 %s",
@@ -1242,9 +1251,19 @@ PJ_DEF(pj_status_t) pjmedia_sdp_parse( pj_pool_t *pool,
 		    attr = parse_attr(pool, &scanner, &ctx);
 		    if (attr) {
 			if (media) {
-			    pjmedia_sdp_media_add_attr(media, attr);
+			    if (media->attr_count < PJMEDIA_MAX_SDP_ATTR)
+				pjmedia_sdp_media_add_attr(media, attr);
+			    else
+				PJ_PERROR(2, (THIS_FILE, PJ_ETOOMANY,
+					      "Error adding media attribute, "
+					      "attribute is ignored"));
 			} else {
-			    pjmedia_sdp_session_add_attr(session, attr);
+			    if (session->attr_count < PJMEDIA_MAX_SDP_ATTR)
+				pjmedia_sdp_session_add_attr(session, attr);
+			    else
+				PJ_PERROR(2, (THIS_FILE, PJ_ETOOMANY,
+					      "Error adding session attribute"
+					      ", attribute is ignored"));
 			}
 		    }
 		    break;
@@ -1294,9 +1313,19 @@ PJ_DEF(pj_status_t) pjmedia_sdp_parse( pj_pool_t *pool,
 		    bandw = PJ_POOL_ZALLOC_T(pool, pjmedia_sdp_bandw);
 		    parse_bandwidth_info(&scanner, bandw, &ctx);
 		    if (media) {
-			media->bandw[media->bandw_count++] = bandw;
+			if (media->bandw_count < PJMEDIA_MAX_SDP_BANDW)
+			    media->bandw[media->bandw_count++] = bandw;
+			else
+			    PJ_PERROR(2, (THIS_FILE, PJ_ETOOMANY,
+					  "Error adding media bandwidth "
+					  "info, info is ignored"));
 		    } else {
-			session->bandw[session->bandw_count++] = bandw;
+			if (session->bandw_count < PJMEDIA_MAX_SDP_BANDW)
+			    session->bandw[session->bandw_count++] = bandw;
+			else
+			    PJ_PERROR(2, (THIS_FILE, PJ_ETOOMANY,
+					  "Error adding session bandwidth "
+					  "info, info is ignored"));
 		    }
 		    break;
 		default:
@@ -1494,11 +1523,12 @@ PJ_DEF(pj_status_t) pjmedia_sdp_validate2(const pjmedia_sdp_session *sdp,
 	     * RTC based programs sends "null" for instant messaging!
 	     */
 	    if (pj_isdigit(*m->desc.fmt[j].ptr)) {
-		unsigned pt = pj_strtoul(&m->desc.fmt[j]);
+		unsigned long pt;
+		pj_status_t status = pj_strtoul3(&m->desc.fmt[j], &pt, 10);
 
 		/* Payload type is between 0 and 127. 
 		 */
-		CHECK( pt <= 127, PJMEDIA_SDP_EINPT);
+		CHECK( status == PJ_SUCCESS && pt <= 127, PJMEDIA_SDP_EINPT);
 
 		/* If port is not zero, then for each dynamic payload type, an
 		 * rtpmap attribute must be specified.

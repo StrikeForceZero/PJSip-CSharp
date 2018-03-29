@@ -1,4 +1,4 @@
-/* $Id: transport_adapter_sample.c 3841 2011-10-24 09:28:13Z ming $ */
+/* $Id: transport_adapter_sample.c 5478 2016-11-03 09:39:20Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -26,17 +26,8 @@
 /* Transport functions prototypes */
 static pj_status_t transport_get_info (pjmedia_transport *tp,
 				       pjmedia_transport_info *info);
-static pj_status_t transport_attach   (pjmedia_transport *tp,
-				       void *user_data,
-				       const pj_sockaddr_t *rem_addr,
-				       const pj_sockaddr_t *rem_rtcp,
-				       unsigned addr_len,
-				       void (*rtp_cb)(void*,
-						      void*,
-						      pj_ssize_t),
-				       void (*rtcp_cb)(void*,
-						       void*,
-						       pj_ssize_t));
+static pj_status_t transport_attach2  (pjmedia_transport *tp,
+                                       pjmedia_transport_attach_param *att_prm);
 static void	   transport_detach   (pjmedia_transport *tp,
 				       void *strm);
 static pj_status_t transport_send_rtp( pjmedia_transport *tp,
@@ -76,7 +67,7 @@ static pj_status_t transport_destroy  (pjmedia_transport *tp);
 static struct pjmedia_transport_op tp_adapter_op = 
 {
     &transport_get_info,
-    &transport_attach,
+    NULL,
     &transport_detach,
     &transport_send_rtp,
     &transport_send_rtcp,
@@ -86,7 +77,8 @@ static struct pjmedia_transport_op tp_adapter_op =
     &transport_media_start,
     &transport_media_stop,
     &transport_simulate_lost,
-    &transport_destroy
+    &transport_destroy,
+    &transport_attach2,
 };
 
 
@@ -100,6 +92,7 @@ struct tp_adapter
 
     /* Stream information. */
     void		*stream_user_data;
+    void                *stream_ref;
     void	       (*stream_rtp_cb)(void *user_data,
 					void *pkt,
 					pj_ssize_t);
@@ -190,22 +183,12 @@ static void transport_rtcp_cb(void *user_data, void *pkt, pj_ssize_t size)
     adapter->stream_rtcp_cb(adapter->stream_user_data, pkt, size);
 }
 
-
 /*
- * attach() is called by stream to register callbacks that we should
+ * attach2() is called by stream to register callbacks that we should
  * call on receipt of RTP and RTCP packets.
  */
-static pj_status_t transport_attach(pjmedia_transport *tp,
-				    void *user_data,
-				    const pj_sockaddr_t *rem_addr,
-				    const pj_sockaddr_t *rem_rtcp,
-				    unsigned addr_len,
-				    void (*rtp_cb)(void*,
-						   void*,
-						   pj_ssize_t),
-				    void (*rtcp_cb)(void*,
-						    void*,
-						    pj_ssize_t))
+static pj_status_t transport_attach2(pjmedia_transport *tp,
+                                     pjmedia_transport_attach_param *att_param)
 {
     struct tp_adapter *adapter = (struct tp_adapter*)tp;
     pj_status_t status;
@@ -215,17 +198,21 @@ static pj_status_t transport_attach(pjmedia_transport *tp,
      * instead.
      */
     pj_assert(adapter->stream_user_data == NULL);
-    adapter->stream_user_data = user_data;
-    adapter->stream_rtp_cb = rtp_cb;
-    adapter->stream_rtcp_cb = rtcp_cb;
+    adapter->stream_user_data = att_param->user_data;
+    adapter->stream_rtp_cb = att_param->rtp_cb;
+    adapter->stream_rtcp_cb = att_param->rtcp_cb;
+    adapter->stream_ref = att_param->stream;
 
-    status = pjmedia_transport_attach(adapter->slave_tp, adapter, rem_addr,
-				      rem_rtcp, addr_len, &transport_rtp_cb,
-				      &transport_rtcp_cb);
+    att_param->rtp_cb = &transport_rtp_cb;
+    att_param->rtcp_cb = &transport_rtcp_cb;
+    att_param->user_data = adapter;
+        
+    status = pjmedia_transport_attach2(adapter->slave_tp, att_param);
     if (status != PJ_SUCCESS) {
 	adapter->stream_user_data = NULL;
 	adapter->stream_rtp_cb = NULL;
 	adapter->stream_rtcp_cb = NULL;
+        adapter->stream_ref = NULL;
 	return status;
     }
 
@@ -247,6 +234,7 @@ static void transport_detach(pjmedia_transport *tp, void *strm)
 	adapter->stream_user_data = NULL;
 	adapter->stream_rtp_cb = NULL;
 	adapter->stream_rtcp_cb = NULL;
+        adapter->stream_ref = NULL;
     }
 }
 

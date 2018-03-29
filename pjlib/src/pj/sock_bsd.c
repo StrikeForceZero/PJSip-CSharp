@@ -1,4 +1,4 @@
-/* $Id: sock_bsd.c 4860 2014-06-19 05:07:12Z riza $ */
+/* $Id: sock_bsd.c 5590 2017-05-09 02:39:08Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -62,7 +62,8 @@ const pj_uint16_t PJ_SOCK_RDM	= SOCK_RDM;
 const pj_uint16_t PJ_SOL_SOCKET	= SOL_SOCKET;
 #ifdef SOL_IP
 const pj_uint16_t PJ_SOL_IP	= SOL_IP;
-#elif (defined(PJ_WIN32) && PJ_WIN32) || (defined(PJ_WIN64) && PJ_WIN64) 
+#elif (defined(PJ_WIN32) && PJ_WIN32) || (defined(PJ_WIN64) && PJ_WIN64) || \
+      (defined (IPPROTO_IP))
 const pj_uint16_t PJ_SOL_IP	= IPPROTO_IP;
 #else
 const pj_uint16_t PJ_SOL_IP	= 0;
@@ -128,6 +129,14 @@ const pj_uint16_t PJ_IPTOS_RELIABILITY	= 0x04;
 const pj_uint16_t PJ_IPTOS_MINCOST	= IPTOS_MINCOST;
 #else
 const pj_uint16_t PJ_IPTOS_MINCOST	= 0x02;
+#endif
+
+
+/* IPV6_TCLASS */
+#ifdef IPV6_TCLASS
+const pj_uint16_t PJ_IPV6_TCLASS = IPV6_TCLASS;
+#else
+const pj_uint16_t PJ_IPV6_TCLASS = 0xFFFF;
 #endif
 
 
@@ -220,11 +229,12 @@ PJ_DEF(pj_uint32_t) pj_htonl(pj_uint32_t hostlong)
  */
 PJ_DEF(char*) pj_inet_ntoa(pj_in_addr inaddr)
 {
-#if !defined(PJ_LINUX) && !defined(PJ_LINUX_KERNEL)
+#if 0 //!defined(PJ_LINUX) && !defined(PJ_LINUX_KERNEL)
     return inet_ntoa(*(struct in_addr*)&inaddr);
 #else
     struct in_addr addr;
-    addr.s_addr = inaddr.s_addr;
+    //addr.s_addr = inaddr.s_addr;
+    pj_memcpy(&addr, &inaddr, sizeof(addr));
     return inet_ntoa(addr);
 #endif
 }
@@ -539,6 +549,12 @@ PJ_DEF(pj_status_t) pj_sock_socket(int af,
 	    pj_sock_setsockopt(*sock, pj_SOL_SOCKET(), pj_SO_NOSIGPIPE(),
 			       &val, sizeof(val));
 	}
+#if defined(PJ_SOCK_HAS_IPV6_V6ONLY) && PJ_SOCK_HAS_IPV6_V6ONLY != 0
+	if (af == PJ_AF_INET6) {
+	    pj_sock_setsockopt(*sock, PJ_SOL_IPV6, IPV6_V6ONLY,
+			       &val, sizeof(val));
+	}
+#endif
 #if defined(PJ_IPHONE_OS_HAS_MULTITASKING_SUPPORT) && \
     PJ_IPHONE_OS_HAS_MULTITASKING_SUPPORT!=0
 	if (type == pj_SOCK_DGRAM()) {

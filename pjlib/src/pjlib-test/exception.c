@@ -1,4 +1,4 @@
-/* $Id: exception.c 5060 2015-04-10 11:47:48Z nanang $ */
+/* $Id: exception.c 5646 2017-09-08 11:16:09Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -168,9 +168,11 @@ static int test(void)
     PJ_CATCH_ANY {
 	switch (PJ_GET_EXCEPTION()) {
 	case ID_1:
-	    if (!rc) rc = -30; break;
+	    if (!rc) rc = -30;
+	    break;
 	case ID_2:
-	    if (!rc) rc = 0; break;
+	    if (!rc) rc = 0;
+	    break;
 	default:
 	    if (!rc) rc = -40;
 	    break;

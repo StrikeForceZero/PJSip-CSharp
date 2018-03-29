@@ -1,4 +1,4 @@
-/* $Id: sip_transport.h 5097 2015-05-18 04:42:42Z ming $ */
+/* $Id: sip_transport.h 5556 2017-02-20 01:16:58Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -799,6 +799,8 @@ struct pjsip_transport
     
     pjsip_endpoint	   *endpt;	    /**< Endpoint instance.	    */
     pjsip_tpmgr		   *tpmgr;	    /**< Transport manager.	    */
+    pjsip_tpfactory	   *factory;	    /**< Factory instance. Note: it
+					         may be invalid/shutdown.   */
     pj_timer_entry	    idle_timer;	    /**< Timer when ref cnt is zero.*/
 
     pj_timestamp	    last_recv_ts;   /**< Last time receiving data.  */
@@ -901,6 +903,23 @@ PJ_DECL(pj_status_t) pjsip_transport_register( pjsip_tpmgr *mgr,
 PJ_DECL(pj_status_t) pjsip_transport_shutdown(pjsip_transport *tp);
 
 /**
+ * Start shutdown procedure for this transport. If \a force is false,
+ * the API is the same as #pjsip_transport_shutdown(), while
+ * if \a force is true, existing transport users will immediately
+ * receive PJSIP_TP_STATE_DISCONNECTED notification and should not
+ * use the transport anymore. In either case, transport will
+ * only be destroyed after all objects release their references.
+ *
+ * @param tp		    The transport.
+ * @param force		    Force transport to immediately send
+ *			    disconnection state notification.
+ *
+ * @return		    PJ_SUCCESS on success.
+ */
+PJ_DECL(pj_status_t) pjsip_transport_shutdown2(pjsip_transport *tp,
+					       pj_bool_t force);
+
+/**
  * Destroy a transport when there is no object currently uses the transport.
  * This function is normally called internally by transport manager or the
  * transport itself. Application should use #pjsip_transport_shutdown()
@@ -992,6 +1011,7 @@ struct pjsip_tpfactory
     pjsip_transport_type_e  type;	    /**< Transport type.	*/
     char		   *type_name;      /**< Type string name.	*/
     unsigned		    flag;	    /**< Transport flag.	*/
+    char		   *info;	    /**< Transport info/description.*/
 
     pj_sockaddr		    local_addr;	    /**< Bound address.		*/
     pjsip_host_port	    addr_name;	    /**< Published name.	*/

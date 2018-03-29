@@ -1,4 +1,4 @@
-/* $Id: sip_transport.c 5097 2015-05-18 04:42:42Z ming $ */
+/* $Id: sip_transport.c 5682 2017-11-08 02:58:18Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -253,6 +253,7 @@ PJ_DEF(pj_status_t) pjsip_transport_register_type( unsigned tp_flag,
 						   int *p_tp_type)
 {
     unsigned i;
+    pjsip_transport_type_e parent = 0;
 
     PJ_ASSERT_RETURN(tp_flag && tp_name && def_port, PJ_EINVAL);
     PJ_ASSERT_RETURN(pj_ansi_strlen(tp_name) < 
@@ -260,6 +261,11 @@ PJ_DEF(pj_status_t) pjsip_transport_register_type( unsigned tp_flag,
 		     PJ_ENAMETOOLONG);
 
     for (i=1; i<PJ_ARRAY_SIZE(transport_names); ++i) {
+        if (tp_flag & PJSIP_TRANSPORT_IPV6 && 
+            pj_stricmp2(&transport_names[i].name, tp_name) == 0)
+        {
+	    parent = transport_names[i].type;
+        }
 	if (transport_names[i].type == 0)
 	    break;
     }
@@ -267,14 +273,19 @@ PJ_DEF(pj_status_t) pjsip_transport_register_type( unsigned tp_flag,
     if (i == PJ_ARRAY_SIZE(transport_names))
 	return PJ_ETOOMANY;
 
-    transport_names[i].type = (pjsip_transport_type_e)i;
+    if (tp_flag & PJSIP_TRANSPORT_IPV6 && parent) {
+        transport_names[i].type = parent | PJSIP_TRANSPORT_IPV6;
+    } else {
+        transport_names[i].type = (pjsip_transport_type_e)i;
+    }
+
     transport_names[i].port = (pj_uint16_t)def_port;
     pj_ansi_strcpy(transport_names[i].name_buf, tp_name);
     transport_names[i].name = pj_str(transport_names[i].name_buf);
     transport_names[i].flag = tp_flag;
 
     if (p_tp_type)
-	*p_tp_type = i;
+	*p_tp_type = transport_names[i].type;
 
     return PJ_SUCCESS;
 }
@@ -422,7 +433,8 @@ PJ_DEF(pj_status_t) pjsip_tx_data_create( pjsip_tpmgr *mgr,
     tdata = PJ_POOL_ZALLOC_T(pool, pjsip_tx_data);
     tdata->pool = pool;
     tdata->mgr = mgr;
-    pj_memcpy(tdata->obj_name, pool->obj_name, PJ_MAX_OBJ_NAME);
+    pj_ansi_snprintf(tdata->obj_name, sizeof(tdata->obj_name), "tdta%p", tdata);
+    pj_memcpy(pool->obj_name, tdata->obj_name, sizeof(pool->obj_name));
 
     status = pj_atomic_create(tdata->pool, 0, &tdata->ref_cnt);
     if (status != PJ_SUCCESS) {
@@ -491,8 +503,13 @@ static void tx_data_destroy(pjsip_tx_data *tdata)
  */
 PJ_DEF(pj_status_t) pjsip_tx_data_dec_ref( pjsip_tx_data *tdata )
 {
-    pj_assert( pj_atomic_get(tdata->ref_cnt) > 0);
-    if (pj_atomic_dec_and_get(tdata->ref_cnt) <= 0) {
+    pj_atomic_value_t ref_cnt;
+    
+    PJ_ASSERT_RETURN(tdata && tdata->ref_cnt, PJ_EINVAL);
+
+    ref_cnt = pj_atomic_dec_and_get(tdata->ref_cnt);
+    pj_assert( ref_cnt >= 0);
+    if (ref_cnt == 0) {
 	tx_data_destroy(tdata);
 	return PJSIP_EBUFDESTROYED;
     } else {
@@ -952,23 +969,44 @@ static void transport_idle_callback(pj_timer_heap_t *timer_heap,
     pjsip_transport_destroy(tp);
 }
 
+
+static pj_bool_t is_transport_valid(pjsip_transport *tp, pjsip_tpmgr *tpmgr,
+				    const pjsip_transport_key *key,
+				    int key_len)
+{
+    return (pj_hash_get(tpmgr->table, key, key_len, NULL) == (void*)tp);
+}
+
 /*
  * Add ref.
  */
 PJ_DEF(pj_status_t) pjsip_transport_add_ref( pjsip_transport *tp )
 {
+    pjsip_tpmgr *tpmgr;
+    pjsip_transport_key key;
+    int key_len;
+
     PJ_ASSERT_RETURN(tp != NULL, PJ_EINVAL);
 
+    /* Cache some vars for checking transport validity later */
+    tpmgr = tp->tpmgr;
+    key_len = sizeof(tp->key.type) + tp->addr_len;
+    pj_memcpy(&key, &tp->key, key_len);
+
     if (pj_atomic_inc_and_get(tp->ref_cnt) == 1) {
-	pj_lock_acquire(tp->tpmgr->lock);
-	/* Verify again. */
-	if (pj_atomic_get(tp->ref_cnt) == 1) {
+	pj_lock_acquire(tpmgr->lock);
+	/* Verify again. But first, make sure transport is still valid
+	 * (see #1883).
+	 */
+	if (is_transport_valid(tp, tpmgr, &key, key_len) &&
+	    pj_atomic_get(tp->ref_cnt) == 1)
+	{
 	    if (tp->idle_timer.id != PJ_FALSE) {
 		pjsip_endpt_cancel_timer(tp->tpmgr->endpt, &tp->idle_timer);
 		tp->idle_timer.id = PJ_FALSE;
 	    }
 	}
-	pj_lock_release(tp->tpmgr->lock);
+	pj_lock_release(tpmgr->lock);
     }
 
     return PJ_SUCCESS;
@@ -979,16 +1017,27 @@ PJ_DEF(pj_status_t) pjsip_transport_add_ref( pjsip_transport *tp )
  */
 PJ_DEF(pj_status_t) pjsip_transport_dec_ref( pjsip_transport *tp )
 {
-    PJ_ASSERT_RETURN(tp != NULL, PJ_EINVAL);
+    pjsip_tpmgr *tpmgr;
+    pjsip_transport_key key;
+    int key_len;
 
+    PJ_ASSERT_RETURN(tp != NULL, PJ_EINVAL);
     pj_assert(pj_atomic_get(tp->ref_cnt) > 0);
 
+    /* Cache some vars for checking transport validity later */
+    tpmgr = tp->tpmgr;
+    key_len = sizeof(tp->key.type) + tp->addr_len;
+    pj_memcpy(&key, &tp->key, key_len);
+
     if (pj_atomic_dec_and_get(tp->ref_cnt) == 0) {
-	pj_lock_acquire(tp->tpmgr->lock);
+	pj_lock_acquire(tpmgr->lock);
 	/* Verify again. Do not register timer if the transport is
-	 * being destroyed.
+	 * being destroyed. But first, make sure transport is still valid
+	 * (see #1883).
 	 */
-	if (pj_atomic_get(tp->ref_cnt) == 0 && !tp->is_destroying) {
+	if (is_transport_valid(tp, tpmgr, &key, key_len) &&
+	    !tp->is_destroying && pj_atomic_get(tp->ref_cnt) == 0)
+	{
 	    pj_time_val delay;
 	    
 	    /* If transport is in graceful shutdown, then this is the
@@ -1009,7 +1058,7 @@ PJ_DEF(pj_status_t) pjsip_transport_dec_ref( pjsip_transport *tp )
 	    pjsip_endpt_schedule_timer(tp->tpmgr->endpt, &tp->idle_timer, 
 				       &delay);
 	}
-	pj_lock_release(tp->tpmgr->lock);
+	pj_lock_release(tpmgr->lock);
     }
 
     return PJ_SUCCESS;
@@ -1077,12 +1126,12 @@ static pj_status_t destroy_transport( pjsip_tpmgr *mgr,
     pj_uint32_t hval;
     void *entry;
 
+    tp->is_destroying = PJ_TRUE;
+
     TRACE_((THIS_FILE, "Transport %s is being destroyed", tp->obj_name));
 
     pj_lock_acquire(tp->lock);
     pj_lock_acquire(mgr->lock);
-
-    tp->is_destroying = PJ_TRUE;
 
     /*
      * Unregister timer, if any.
@@ -1126,11 +1175,22 @@ static pj_status_t destroy_transport( pjsip_tpmgr *mgr,
  */
 PJ_DEF(pj_status_t) pjsip_transport_shutdown(pjsip_transport *tp)
 {
+    return pjsip_transport_shutdown2(tp, PJ_FALSE);
+}
+
+
+/*
+ * Start shutdown procedure for this transport. 
+ */
+PJ_DEF(pj_status_t) pjsip_transport_shutdown2(pjsip_transport *tp,
+					      pj_bool_t force)
+{
     pjsip_tpmgr *mgr;
     pj_status_t status;
     pjsip_tp_state_callback state_cb;
 
-    TRACE_((THIS_FILE, "Transport %s shutting down", tp->obj_name));
+    PJ_LOG(4, (THIS_FILE, "Transport %s shutting down, force=%d",
+			  tp->obj_name, force));
 
     pj_lock_acquire(tp->lock);
 
@@ -1150,18 +1210,19 @@ PJ_DEF(pj_status_t) pjsip_transport_shutdown(pjsip_transport *tp)
     if (tp->do_shutdown)
 	status = tp->do_shutdown(tp);
 
+    if (status == PJ_SUCCESS)
+	tp->is_shutdown = PJ_TRUE;
+
     /* Notify application of transport shutdown */
     state_cb = pjsip_tpmgr_get_state_cb(tp->tpmgr);
     if (state_cb) {
 	pjsip_transport_state_info state_info;
 
 	pj_bzero(&state_info, sizeof(state_info));
-	state_info.status = status;
-        (*state_cb)(tp, PJSIP_TP_STATE_SHUTDOWN, &state_info);
+	state_info.status = PJ_ECANCELLED;
+	(*state_cb)(tp, (force? PJSIP_TP_STATE_DISCONNECTED:
+		    PJSIP_TP_STATE_SHUTDOWN), &state_info);
     }
-
-    if (status == PJ_SUCCESS)
-	tp->is_shutdown = PJ_TRUE;
 
     /* If transport reference count is zero, start timer count-down */
     if (pj_atomic_get(tp->ref_cnt) == 0) {
@@ -1261,6 +1322,23 @@ PJ_DEF(pj_status_t) pjsip_tpmgr_unregister_tpfactory( pjsip_tpmgr *mgr,
 PJ_DECL(void) pjsip_tpmgr_fla2_param_default(pjsip_tpmgr_fla2_param *prm)
 {
     pj_bzero(prm, sizeof(*prm));
+}
+
+static pj_bool_t pjsip_tpmgr_is_tpfactory_valid(pjsip_tpmgr *mgr,
+						pjsip_tpfactory *tpf)
+{
+    pjsip_tpfactory *p;
+
+    pj_lock_acquire(mgr->lock);
+    for (p=mgr->factory_list.next; p!=&mgr->factory_list; p=p->next) {
+	if (p == tpf) {
+	    pj_lock_release(mgr->lock);
+	    return PJ_TRUE;
+	}
+    }
+    pj_lock_release(mgr->lock);
+
+    return PJ_FALSE;
 }
 
 /*****************************************************************************
@@ -1770,7 +1848,7 @@ PJ_DEF(pj_ssize_t) pjsip_tpmgr_receive_packet( pjsip_tpmgr *mgr,
 	/* Check for parsing syntax error */
 	if (msg==NULL || !pj_list_empty(&rdata->msg_info.parse_err)) {
 	    pjsip_parser_err_report *err;
-	    char buf[128];
+	    char buf[256];
 	    pj_str_t tmp;
 
 	    /* Gather syntax error information */
@@ -1784,7 +1862,10 @@ PJ_DEF(pj_ssize_t) pjsip_tpmgr_receive_packet( pjsip_tpmgr *mgr,
 				       pj_exception_id_name(err->except_code),
 				       (int)err->hname.slen, err->hname.ptr,
 				       err->line, err->col);
-		if (len > 0 && len < (int) (sizeof(buf)-tmp.slen)) {
+		if (len >= (int)sizeof(buf)-tmp.slen) {
+		    len = (int)sizeof(buf)-tmp.slen;
+		}
+		if (len > 0) {
 		    tmp.slen += len;
 		}
 		err = err->next;
@@ -1968,33 +2049,27 @@ PJ_DEF(pj_status_t) pjsip_tpmgr_acquire_transport2(pjsip_tpmgr *mgr,
 	TRACE_((THIS_FILE, "Transport %s acquired", seltp->obj_name));
 	return PJ_SUCCESS;
 
-
-    } else if (sel && sel->type == PJSIP_TPSELECTOR_LISTENER &&
-	       sel->u.listener)
-    {
-	/* Application has requested that a specific listener is to
-	 * be used. In this case, skip transport hash table lookup.
-	 */
-
-	/* Verify that the listener type matches the destination type */
-	if (sel->u.listener->type != type) {
-	    pj_lock_release(mgr->lock);
-	    return PJSIP_ETPNOTSUITABLE;
-	}
-
-	/* We'll use this listener to create transport */
-	factory = sel->u.listener;
-
     } else {
 
 	/*
 	 * This is the "normal" flow, where application doesn't specify
-	 * specific transport/listener to be used to send message to.
+	 * specific transport to be used to send message to.
 	 * In this case, lookup the transport from the hash table.
 	 */
 	pjsip_transport_key key;
 	int key_len;
 	pjsip_transport *transport;
+
+	/* If listener is specified, verify that the listener type matches
+	 * the destination type.
+	 */
+	if (sel && sel->type == PJSIP_TPSELECTOR_LISTENER && sel->u.listener)
+	{
+	    if (sel->u.listener->type != type) {
+		pj_lock_release(mgr->lock);
+		return PJSIP_ETPNOTSUITABLE;
+	    }
+	}
 
 	pj_bzero(&key, sizeof(key));
 	key_len = sizeof(key.type) + addr_len;
@@ -2037,6 +2112,19 @@ PJ_DEF(pj_status_t) pjsip_tpmgr_acquire_transport2(pjsip_tpmgr *mgr,
 	    }
 	}
 
+	/* If transport is found and listener is specified, verify listener */
+	else if (sel && sel->type == PJSIP_TPSELECTOR_LISTENER &&
+		 sel->u.listener && transport->factory != sel->u.listener)
+	{
+	    transport = NULL;
+	    /* This will cause a new transport to be created which will be a
+	     * 'duplicate' of the existing transport (same type & remote addr,
+	     * but different factory). Any future hash lookup will return
+	     * the new one, and eventually the old one will still be freed
+	     * (by application or #1774).
+	     */
+	}
+
 	if (transport!=NULL && !transport->is_shutdown) {
 	    /*
 	     * Transport found!
@@ -2049,22 +2137,51 @@ PJ_DEF(pj_status_t) pjsip_tpmgr_acquire_transport2(pjsip_tpmgr *mgr,
 	    return PJ_SUCCESS;
 	}
 
+
 	/*
 	 * Transport not found!
-	 * Find factory that can create such transport.
+	 * So we need to create one, find factory that can create
+	 * such transport.
 	 */
-	factory = mgr->factory_list.next;
-	while (factory != &mgr->factory_list) {
-	    if (factory->type == type)
-		break;
-	    factory = factory->next;
-	}
+	if (sel && sel->type == PJSIP_TPSELECTOR_LISTENER && sel->u.listener)
+	{
+	    /* Application has requested that a specific listener is to
+	     * be used.
+	     */
 
-	if (factory == &mgr->factory_list) {
-	    /* No factory can create the transport! */
-	    pj_lock_release(mgr->lock);
-	    TRACE_((THIS_FILE, "No suitable factory was found either"));
-	    return PJSIP_EUNSUPTRANSPORT;
+	    /* Verify that the listener type matches the destination type */
+	    if (sel->u.listener->type != type) {
+		pj_lock_release(mgr->lock);
+		return PJSIP_ETPNOTSUITABLE;
+	    }
+
+	    /* We'll use this listener to create transport */
+	    factory = sel->u.listener;
+
+	    /* Verify if listener is still valid */
+	    if (!pjsip_tpmgr_is_tpfactory_valid(mgr, factory)) {
+		pj_lock_release(mgr->lock);
+		PJ_LOG(3,(THIS_FILE, "Specified factory for creating "
+				     "transport is not found"));
+		return PJ_ENOTFOUND;
+	    }
+
+	} else {
+
+	    /* Find factory with type matches the destination type */
+	    factory = mgr->factory_list.next;
+	    while (factory != &mgr->factory_list) {
+		if (factory->type == type)
+		    break;
+		factory = factory->next;
+	    }
+
+	    if (factory == &mgr->factory_list) {
+		/* No factory can create the transport! */
+		pj_lock_release(mgr->lock);
+		TRACE_((THIS_FILE, "No suitable factory was found either"));
+		return PJSIP_EUNSUPTRANSPORT;
+	    }
 	}
     }
 
@@ -2084,6 +2201,7 @@ PJ_DEF(pj_status_t) pjsip_tpmgr_acquire_transport2(pjsip_tpmgr *mgr,
 	PJ_ASSERT_ON_FAIL(tp!=NULL, 
 	    {pj_lock_release(mgr->lock); return PJ_EBUG;});
 	pjsip_transport_add_ref(*tp);
+	(*tp)->factory = factory;
     }
     pj_lock_release(mgr->lock);
     return status;

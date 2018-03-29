@@ -1,4 +1,4 @@
-/* $Id: media.cpp 5157 2015-08-10 09:11:39Z nanang $ */
+/* $Id: media.cpp 5654 2017-09-20 04:34:27Z riza $ */
 /*
  * Copyright (C) 2013 Teluu Inc. (http://www.teluu.com)
  *
@@ -351,7 +351,7 @@ pj_uint32_t AudioMediaPlayer::getPos() const throw(Error)
 {
     pj_ssize_t pos = pjsua_player_get_pos(playerId);
     if (pos < 0) {
-	PJSUA2_RAISE_ERROR2(-pos, "AudioMediaPlayer::getPos()");
+	PJSUA2_RAISE_ERROR2((pj_status_t)-pos, "AudioMediaPlayer::getPos()");
     }
     return (pj_uint32_t)pos;
 }
@@ -508,7 +508,7 @@ void ToneGenerator::play(const ToneDescVector &tones,
 	PJSUA2_RAISE_ERROR(PJ_EINVAL);
     }
 
-    status = pjmedia_tonegen_play(tonegen, tones.size(), &tones[0],
+    status = pjmedia_tonegen_play(tonegen, (unsigned)tones.size(), &tones[0],
 				  loop? PJMEDIA_TONEGEN_LOOP : 0);
     PJSUA2_CHECK_RAISE_ERROR2(status, "ToneGenerator::play()");
 }
@@ -525,7 +525,7 @@ void ToneGenerator::playDigits(const ToneDigitVector &digits,
 	PJSUA2_RAISE_ERROR(PJ_EINVAL);
     }
 
-    status = pjmedia_tonegen_play_digits(tonegen, digits.size(), &digits[0],
+    status = pjmedia_tonegen_play_digits(tonegen, (unsigned)digits.size(), &digits[0],
 					 loop? PJMEDIA_TONEGEN_LOOP : 0);
     PJSUA2_CHECK_RAISE_ERROR2(status, "ToneGenerator::playDigits()");
 }
@@ -571,7 +571,7 @@ void ToneGenerator::setDigitMap(const ToneDigitMapVector &digit_map)
 	PJSUA2_RAISE_ERROR(PJ_EINVALIDOP);
     }
 
-    digitMap.count = digit_map.size();
+    digitMap.count = (unsigned)digit_map.size();
     if (digitMap.count > PJ_ARRAY_SIZE(digitMap.digits))
 	digitMap.count = PJ_ARRAY_SIZE(digitMap.digits);
 
@@ -598,20 +598,15 @@ void AudioDevInfo::fromPj(const pjmedia_aud_dev_info &dev_info)
     routes = dev_info.routes;
 
     for (unsigned i=0; i<dev_info.ext_fmt_cnt;++i) {
-	MediaFormatAudio *format = new MediaFormatAudio;
-
-	format->fromPj(dev_info.ext_fmt[i]);
-	if (format->type == PJMEDIA_TYPE_AUDIO)
+	MediaFormatAudio format;
+	format.fromPj(dev_info.ext_fmt[i]);
+	if (format.type == PJMEDIA_TYPE_AUDIO)
 	    extFmt.push_back(format);
     }
 }
 
 AudioDevInfo::~AudioDevInfo()
 {
-    for(unsigned i=0;i<extFmt.size();++i) {
-	delete extFmt[i];
-    }
-    extFmt.clear();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -679,17 +674,29 @@ AudioMedia &AudDevManager::getPlaybackDevMedia() throw(Error)
 }
 
 void AudDevManager::setCaptureDev(int capture_dev) const throw(Error)
-{
-    int playback_dev = getPlaybackDev();
+{    
+    pjsua_snd_dev_param param;
+    pjsua_snd_dev_param_default(&param);    
 
-    PJSUA2_CHECK_EXPR( pjsua_set_snd_dev(capture_dev, playback_dev) );
+    param.capture_dev = capture_dev;
+    param.playback_dev = getPlaybackDev();    
+
+    param.mode = PJSUA_SND_DEV_NO_IMMEDIATE_OPEN;    
+
+    PJSUA2_CHECK_EXPR( pjsua_set_snd_dev2(&param) );
 }
 
 void AudDevManager::setPlaybackDev(int playback_dev) const throw(Error)
 {
-    int capture_dev = getCaptureDev();
+    pjsua_snd_dev_param param;
+    pjsua_snd_dev_param_default(&param);    
 
-    PJSUA2_CHECK_EXPR( pjsua_set_snd_dev(capture_dev, playback_dev) );
+    param.capture_dev = getCaptureDev();
+    param.playback_dev = playback_dev;
+
+    param.mode = PJSUA_SND_DEV_NO_IMMEDIATE_OPEN;    
+
+    PJSUA2_CHECK_EXPR( pjsua_set_snd_dev2(&param) );    
 }
 
 const AudioDevInfoVector &AudDevManager::enumDev() throw(Error)
@@ -718,6 +725,21 @@ void AudDevManager::setNullDev() throw(Error)
 MediaPort *AudDevManager::setNoDev()
 {
     return (MediaPort*)pjsua_set_no_snd_dev();
+}
+
+void AudDevManager::setSndDevMode(unsigned mode) const throw(Error)
+{    
+    int capture_dev = 0, playback_dev = 0;
+    pjsua_snd_dev_param param;
+    pj_status_t status = pjsua_get_snd_dev(&capture_dev, &playback_dev);    
+    if (status != PJ_SUCCESS) {
+	PJSUA2_RAISE_ERROR2(status, "AudDevManager::setSndDevMode()");	
+    }
+    pjsua_snd_dev_param_default(&param);
+    param.capture_dev = capture_dev;
+    param.playback_dev = playback_dev;
+    param.mode = mode;
+    PJSUA2_CHECK_EXPR( pjsua_set_snd_dev2(&param) );
 }
 
 void AudDevManager::setEcOptions(unsigned tail_msec,
@@ -1237,10 +1259,9 @@ void VideoDevInfo::fromPj(const pjmedia_vid_dev_info &dev_info)
     caps = dev_info.caps;
 
     for (unsigned i = 0; i<dev_info.fmt_cnt;++i) {
-	MediaFormatVideo *format = new MediaFormatVideo;
-
-	format->fromPj(dev_info.fmt[i]);
-	if (format->type == PJMEDIA_TYPE_VIDEO)
+	MediaFormatVideo format;
+	format.fromPj(dev_info.fmt[i]);
+	if (format.type == PJMEDIA_TYPE_VIDEO)
 	    fmt.push_back(format);
     }
 #else
@@ -1250,12 +1271,6 @@ void VideoDevInfo::fromPj(const pjmedia_vid_dev_info &dev_info)
 
 VideoDevInfo::~VideoDevInfo()
 {
-#if PJSUA_HAS_VIDEO
-    for (unsigned i = 0;i<fmt.size();++i) {
-	delete fmt[i];
-    }
-    fmt.clear();
-#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1500,9 +1515,127 @@ VidDevManager::~VidDevManager()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+
+/** 
+ * Utility class for converting CodecFmtpVector to and from pjmedia_codec_fmtp. 
+ */
+class CodecFmtpUtil
+{
+public:
+    static void fromPj(const pjmedia_codec_fmtp &in_fmtp,
+		       CodecFmtpVector &out_fmtp)
+    {
+        unsigned i = 0;
+        for (; i<in_fmtp.cnt; ++i) {
+	    CodecFmtp fmtp;
+	    fmtp.name = pj2Str(in_fmtp.param[i].name);
+	    fmtp.val = pj2Str(in_fmtp.param[i].val);
+	
+            out_fmtp.push_back(fmtp);
+       }
+    }
+
+    static void toPj(const CodecFmtpVector &in_fmtp,
+		     pjmedia_codec_fmtp &out_fmtp)
+    {
+        CodecFmtpVector::const_iterator i;
+        out_fmtp.cnt = 0;
+        for (i = in_fmtp.begin(); i != in_fmtp.end(); ++i) {
+	    if (out_fmtp.cnt >= PJMEDIA_CODEC_MAX_FMTP_CNT) {
+	        break;
+    	    }
+	    out_fmtp.param[out_fmtp.cnt].name = str2Pj((*i).name);
+	    out_fmtp.param[out_fmtp.cnt].val = str2Pj((*i).val);
+	    ++out_fmtp.cnt;
+        }
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////
 void CodecInfo::fromPj(const pjsua_codec_info &codec_info)
 {
     codecId = pj2Str(codec_info.codec_id);
     priority = codec_info.priority;
     desc = pj2Str(codec_info.desc);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+void CodecParam::fromPj(const pjmedia_codec_param &param)
+{
+    /* info part. */
+    info.clockRate = param.info.clock_rate;
+    info.channelCnt = param.info.channel_cnt;
+    info.avgBps = param.info.avg_bps;
+    info.maxBps = param.info.max_bps;
+    info.maxRxFrameSize = param.info.max_rx_frame_size;
+    info.frameLen = param.info.frm_ptime;
+    info.pcmBitsPerSample = param.info.pcm_bits_per_sample;
+    info.pt = param.info.pt;
+    info.fmtId = param.info.fmt_id;
+
+    /* setting part. */
+    setting.frmPerPkt = param.setting.frm_per_pkt;
+    setting.vad = param.setting.vad;
+    setting.cng = param.setting.cng;
+    setting.penh = param.setting.penh;
+    setting.plc = param.setting.plc;
+    setting.reserved = param.setting.reserved;
+    CodecFmtpUtil::fromPj(param.setting.enc_fmtp, setting.encFmtp);
+    CodecFmtpUtil::fromPj(param.setting.dec_fmtp, setting.decFmtp);
+}
+
+pjmedia_codec_param CodecParam::toPj() const
+{
+    pjmedia_codec_param param;
+
+    /* info part. */
+    param.info.clock_rate = info.clockRate;
+    param.info.channel_cnt = info.channelCnt;
+    param.info.avg_bps = (pj_uint32_t)info.avgBps;
+    param.info.max_bps= (pj_uint32_t)info.maxBps;
+    param.info.max_rx_frame_size = info.maxRxFrameSize;
+    param.info.frm_ptime = (pj_uint16_t)info.frameLen;
+    param.info.pcm_bits_per_sample = (pj_uint8_t)info.pcmBitsPerSample;
+    param.info.pt = (pj_uint8_t)info.pt;
+    param.info.fmt_id = info.fmtId;
+
+    /* setting part. */
+    param.setting.frm_per_pkt = (pj_uint8_t)setting.frmPerPkt;
+    param.setting.vad = setting.vad;
+    param.setting.cng = setting.cng;
+    param.setting.penh = setting.penh;
+    param.setting.plc = setting.plc;
+    param.setting.reserved = setting.reserved;
+    CodecFmtpUtil::toPj(setting.encFmtp, param.setting.enc_fmtp);
+    CodecFmtpUtil::toPj(setting.decFmtp, param.setting.dec_fmtp);
+    return param;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void VidCodecParam::fromPj(const pjmedia_vid_codec_param &param)
+{
+    dir = param.dir;
+    packing = param.packing;
+    ignoreFmtp = param.ignore_fmtp != PJ_FALSE;
+    encMtu = param.enc_mtu;
+    encFmt.fromPj(param.enc_fmt);
+    decFmt.fromPj(param.dec_fmt);
+    CodecFmtpUtil::fromPj(param.enc_fmtp, encFmtp);
+    CodecFmtpUtil::fromPj(param.dec_fmtp, decFmtp);
+}
+
+pjmedia_vid_codec_param VidCodecParam::toPj() const
+{
+    pjmedia_vid_codec_param param;
+    pj_bzero(&param, sizeof(param));    
+    param.dir = dir;
+    param.packing = packing;
+    param.ignore_fmtp = ignoreFmtp;
+    param.enc_mtu = encMtu;
+    param.enc_fmt = encFmt.toPj();
+    param.dec_fmt = decFmt.toPj();
+    CodecFmtpUtil::toPj(encFmtp, param.enc_fmtp);
+    CodecFmtpUtil::toPj(decFmtp, param.dec_fmtp);
+    return param;
+}
+

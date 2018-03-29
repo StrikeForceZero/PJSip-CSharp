@@ -1,4 +1,4 @@
-/* $Id: media.hpp 5139 2015-07-30 13:42:51Z riza $ */
+/* $Id: media.hpp 5645 2017-09-06 03:44:35Z riza $ */
 /*
  * Copyright (C) 2013 Teluu Inc. (http://www.teluu.com)
  *
@@ -108,7 +108,7 @@ struct MediaFormatVideo : public MediaFormat
 };
 
 /** Array of MediaFormat */
-typedef std::vector<MediaFormat*> MediaFormatVector;
+typedef std::vector<MediaFormat> MediaFormatVector;
 
 /**
  * This structure descibes information about a particular media port that
@@ -767,7 +767,9 @@ public:
 
     /**
      * Select or change capture sound device. Application may call this
-     * function at any time to replace current sound device.
+     * function at any time to replace current sound device. Calling this 
+     * method will not change the state of the sound device (opened/closed).
+     * Note that this method will override the mode set by setSndDevMode().
      *
      * @param capture_dev   	Device ID of the capture device.
      */
@@ -775,7 +777,9 @@ public:
 
     /**
      * Select or change playback sound device. Application may call this
-     * function at any time to replace current sound device.
+     * function at any time to replace current sound device. Calling this 
+     * method will not change the state of the sound device (opened/closed).
+     * Note that this method will override the mode set by setSndDevMode().
      *
      * @param playback_dev   	Device ID of the playback device.
      */
@@ -805,6 +809,15 @@ public:
      *				own sound device or master port.
      */
     MediaPort *setNoDev();
+
+    /**
+     * Set sound device mode.
+     * 
+     * @param mode		The sound device mode, as bitmask combination 
+     *				of #pjsua_snd_dev_mode
+     *
+     */
+    void setSndDevMode(unsigned mode) const throw(Error);
 
     /**
      * Change the echo cancellation settings.
@@ -1941,10 +1954,102 @@ struct CodecInfo
 typedef std::vector<CodecInfo*> CodecInfoVector;
 
 /**
- * Codec parameters, corresponds to pjmedia_codec_param or
- * pjmedia_vid_codec_param.
+ * Structure of codec specific parameters which contains name=value pairs.
+ * The codec specific parameters are to be used with SDP according to
+ * the standards (e.g: RFC 3555) in SDP 'a=fmtp' attribute.
  */
-typedef void *CodecParam;
+typedef struct CodecFmtp
+{
+    string name;
+    string val;
+} CodecFmtp;
+
+/** Array of codec fmtp */
+typedef std::vector<CodecFmtp> CodecFmtpVector;
+
+/**
+ * Audio codec parameters info.
+ */
+struct CodecParamInfo
+{
+    unsigned	clockRate;		/**< Sampling rate in Hz	    */
+    unsigned	channelCnt;		/**< Channel count.		    */
+    unsigned 	avgBps;			/**< Average bandwidth in bits/sec  */
+    unsigned	maxBps;			/**< Maximum bandwidth in bits/sec  */
+    unsigned    maxRxFrameSize;		/**< Maximum frame size             */
+    unsigned 	frameLen;		/**< Decoder frame ptime in msec.   */
+    unsigned  	pcmBitsPerSample;	/**< Bits/sample in the PCM side    */
+    unsigned  	pt;			/**< Payload type.		    */
+    pjmedia_format_id fmtId;		/**< Source format, it's format of
+					     encoder input and decoder
+					     output.			    */
+};
+
+/**
+ * Audio codec parameters setting.
+ */
+struct CodecParamSetting
+{
+    unsigned  	frmPerPkt;	    /**< Number of frames per packet.	*/
+    bool	vad;		    /**< Voice Activity Detector.	*/
+    bool	cng;		    /**< Comfort Noise Generator.	*/
+    bool	penh;		    /**< Perceptual Enhancement		*/
+    bool	plc;		    /**< Packet loss concealment	*/
+    bool	reserved;	    /**< Reserved, must be zero.	*/
+    CodecFmtpVector encFmtp;	    /**< Encoder's fmtp params.		*/
+    CodecFmtpVector decFmtp;	    /**< Decoder's fmtp params.		*/
+};
+
+/**
+ * Detailed codec attributes used in configuring an audio codec and in querying
+ * the capability of audio codec factories.
+ *
+ * Please note that codec parameter also contains SDP specific setting,
+ * #setting::decFmtp and #setting::encFmtp, which may need to be set 
+ * appropriately based on the effective setting. 
+ * See each codec documentation for more detail.
+ */
+struct CodecParam
+{
+    struct CodecParamInfo info;
+    struct CodecParamSetting setting;
+
+    void fromPj(const pjmedia_codec_param &param);
+
+    pjmedia_codec_param toPj() const;
+};
+
+/**
+ * Detailed codec attributes used in configuring a video codec and in querying
+ * the capability of video codec factories. 
+ *
+ * Please note that codec parameter also contains SDP specific setting,
+ * #decFmtp and #encFmtp, which may need to be set appropriately based on
+ * the effective setting. See each codec documentation for more detail.
+ */
+struct VidCodecParam
+{
+    pjmedia_dir         dir;            /**< Direction                      */
+    pjmedia_vid_packing packing; 	/**< Packetization strategy.	    */
+
+    struct
+    MediaFormatVideo    encFmt;         /**< Encoded format	            */
+    CodecFmtpVector	encFmtp;        /**< Encoder fmtp params	    */
+    unsigned            encMtu;         /**< MTU or max payload size setting*/
+
+    struct
+    MediaFormatVideo    decFmt;         /**< Decoded format	            */
+    CodecFmtpVector	decFmtp;        /**< Decoder fmtp params	    */
+
+    bool		ignoreFmtp;	/**< Ignore fmtp params. If set to
+					     true, the codec will apply
+					     format settings specified in
+					     encFmt and decFmt only.	    */
+
+    void fromPj(const pjmedia_vid_codec_param &param);
+
+    pjmedia_vid_codec_param toPj() const;
+};
 
 
 /**

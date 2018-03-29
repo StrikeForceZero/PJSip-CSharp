@@ -1,4 +1,4 @@
-/* $Id: errno.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: errno.c 5328 2016-05-31 08:11:48Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -106,7 +106,9 @@ int errno_test(void)
     /*
      * Unix errors
      */
-#   if defined(EINVAL) && !defined(PJ_SYMBIAN)
+#   if defined(EINVAL) && !defined(PJ_SYMBIAN) && !defined(PJ_WIN32) \
+       && !defined(PJ_WIN64)
+
     rc = PJ_STATUS_FROM_OS(EINVAL);
     pj_set_os_error(rc);
 

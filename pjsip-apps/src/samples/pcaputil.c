@@ -1,4 +1,4 @@
-/* $Id: pcaputil.c 5035 2015-03-27 06:17:27Z nanang $ */
+/* $Id: pcaputil.c 5664 2017-09-28 02:56:36Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -287,11 +287,13 @@ static void pcap2wav(const pj_str_t *codec,
 #if PJMEDIA_HAS_SRTP
     if (srtp_crypto->slen) {
 	pjmedia_srtp_crypto crypto;
+	pjmedia_transport *tp;
 
 	pj_bzero(&crypto, sizeof(crypto));
 	crypto.key = *srtp_key;
 	crypto.name = *srtp_crypto;
-	T( pjmedia_transport_srtp_create(app.mept, NULL, NULL, &app.srtp) );
+	T( pjmedia_transport_loop_create(app.mept, &tp) );
+	T( pjmedia_transport_srtp_create(app.mept, tp, NULL, &app.srtp) );
 	T( pjmedia_transport_srtp_start(app.srtp, &crypto, &crypto) );
     }
 #else
@@ -371,8 +373,6 @@ static void pcap2wav(const pj_str_t *codec,
 	/* Decode and write to WAV file */
 	samples_cnt = 0;
 	for (i=0; i<frame_cnt; ++i) {
-	    pjmedia_frame pcm_frame;
-
 	    pcm_frame.buf = pcm;
 	    pcm_frame.size = samples_per_frame * 2;
 

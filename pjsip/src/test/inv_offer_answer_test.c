@@ -1,4 +1,4 @@
-/* $Id: inv_offer_answer_test.c 3553 2011-05-05 06:14:19Z nanang $ */
+/* $Id: inv_offer_answer_test.c 5535 2017-01-19 10:31:38Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -184,6 +184,7 @@ static pjmedia_sdp_session *create_sdp(pj_pool_t *pool, const char *body)
     pj_strdup2_with_null(pool, &dup, body);
     status = pjmedia_sdp_parse(pool, dup.ptr, dup.slen, &sdp);
     pj_assert(status == PJ_SUCCESS);
+    PJ_UNUSED_ARG(status);
 
     return sdp;
 }
@@ -308,8 +309,8 @@ static pj_bool_t on_rx_request(pjsip_rx_data *rdata)
 	 * Create UAS
 	 */
 	uri = pj_str(CONTACT);
-	status = pjsip_dlg_create_uas(pjsip_ua_instance(), rdata,
-				      &uri, &dlg);
+	status = pjsip_dlg_create_uas_and_inc_lock(pjsip_ua_instance(), rdata,
+						   &uri, &dlg);
 	pj_assert(status == PJ_SUCCESS);
 
 	if (inv_test.param.oa[0] == OFFERER_UAC)
@@ -321,6 +322,7 @@ static pj_bool_t on_rx_request(pjsip_rx_data *rdata)
 
 	status = pjsip_inv_create_uas(dlg, rdata, sdp, inv_test.param.inv_option, &inv_test.uas);
 	pj_assert(status == PJ_SUCCESS);
+	pjsip_dlg_dec_lock(dlg);
 
 	TRACE_((THIS_FILE, "    Sending 183 with SDP"));
 
@@ -334,7 +336,7 @@ static pj_bool_t on_rx_request(pjsip_rx_data *rdata)
 	status = pjsip_inv_send_msg(inv_test.uas, tdata);
 	pj_assert(status == PJ_SUCCESS);
 
-	return PJ_TRUE;
+	return (status == PJ_SUCCESS);
     }
 
     return PJ_FALSE;
@@ -391,6 +393,7 @@ static void run_job(job_t *j)
 	pj_assert(status == PJ_SUCCESS);
 	break;
     }
+    PJ_UNUSED_ARG(status);
 }
 
 
@@ -675,6 +678,7 @@ int inv_offer_answer_test(void)
 	pj_sockaddr_in_init(&addr, NULL, PORT);
 	status = pjsip_udp_transport_start(endpt, &addr, NULL, 1, &tp);
 	pj_assert(status == PJ_SUCCESS);
+	PJ_UNUSED_ARG(status);
     }
 
     /* Do tests */

@@ -1,4 +1,4 @@
-/* $Id: transport_udp.c 4538 2013-06-19 09:06:55Z nanang $ */
+/* $Id: transport_udp.c 5654 2017-09-20 04:34:27Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -55,8 +55,9 @@ struct transport_udp
     unsigned		options;	/**< Transport options.		    */
     unsigned		media_options;	/**< Transport media options.	    */
     void	       *user_data;	/**< Only valid when attached	    */
-    pj_bool_t		attached;	/**< Has attachment?		    */
+    //pj_bool_t		attached;	/**< Has attachment?		    */
     pj_sockaddr		rem_rtp_addr;	/**< Remote RTP address		    */
+    unsigned		rem_rtp_cnt;	/**< How many pkt from this addr.   */
     pj_sockaddr		rem_rtcp_addr;	/**< Remote RTCP address	    */
     int			addr_len;	/**< Length of addresses.	    */
     void  (*rtp_cb)(	void*,		/**< To report incoming RTP.	    */
@@ -479,11 +480,16 @@ static void on_rx_rtp( pj_ioqueue_key_t *key,
 	    if (pj_sockaddr_cmp(&udp->rem_rtp_addr, &udp->rtp_src_addr) == 0) {
 		/* We're still receiving from rem_rtp_addr. Don't switch. */
 		udp->rtp_src_cnt = 0;
+		udp->rem_rtp_cnt++;
 	    } else {
 		udp->rtp_src_cnt++;
 
 		if (udp->rtp_src_cnt < PJMEDIA_RTP_NAT_PROBATION_CNT) {
-		    discard = PJ_TRUE;
+		    /* Only discard if we have ever received packet from
+		     * remote address (rem_rtp_addr).
+		     */
+		    //discard = PJ_TRUE;
+		    discard = (udp->rem_rtp_cnt != 0);
 		} else {
 		
 		    char addr_text[80];
@@ -529,7 +535,8 @@ static void on_rx_rtp( pj_ioqueue_key_t *key,
 	    }
 	}
 
-	if (!discard && udp->attached && cb)
+	//if (!discard && udp->attached && cb)
+	if (!discard && cb)
 	    (*cb)(user_data, udp->rtp_pkt, bytes_read);
 
 	bytes_read = sizeof(udp->rtp_pkt);
@@ -565,7 +572,8 @@ static void on_rx_rtcp(pj_ioqueue_key_t *key,
 	cb = udp->rtcp_cb;
 	user_data = udp->user_data;
 
-	if (udp->attached && cb)
+	//if (udp->attached && cb)
+	if (cb)
 	    (*cb)(user_data, udp->rtcp_pkt, bytes_read);
 
 	/* Check if RTCP source address is the same as the configured
@@ -644,12 +652,15 @@ static pj_status_t transport_attach(   pjmedia_transport *tp,
 {
     struct transport_udp *udp = (struct transport_udp*) tp;
     const pj_sockaddr *rtcp_addr;
+    pj_sockaddr sock_addr, remote_addr, remote_rtcp;
+    int rem_addr_len;
+    pj_status_t status;
 
     /* Validate arguments */
     PJ_ASSERT_RETURN(tp && rem_addr && addr_len, PJ_EINVAL);
 
     /* Must not be "attached" to existing application */
-    PJ_ASSERT_RETURN(!udp->attached, PJ_EINVALIDOP);
+    //PJ_ASSERT_RETURN(!udp->attached, PJ_EINVALIDOP);
 
     /* Lock the ioqueue keys to make sure that callbacks are
      * not executed. See ticket #844 for details.
@@ -659,19 +670,37 @@ static pj_status_t transport_attach(   pjmedia_transport *tp,
 
     /* "Attach" the application: */
 
+    rem_addr_len = sizeof(pj_sockaddr);
+    pj_sock_getsockname(udp->rtp_sock, &sock_addr, &rem_addr_len);
+
+    /* Synthesize address, if necessary. */
+    status = pj_sockaddr_synthesize(sock_addr.addr.sa_family,
+    				    &remote_addr, rem_addr);
+    if (status != PJ_SUCCESS) {
+    	pj_perror(3, tp->name, status, "Failed to synthesize the correct"
+    				       "IP address for RTP");
+    }
+    rem_addr_len = pj_sockaddr_get_len(&remote_addr);
+
     /* Copy remote RTP address */
-    pj_memcpy(&udp->rem_rtp_addr, rem_addr, addr_len);
+    pj_memcpy(&udp->rem_rtp_addr, &remote_addr, rem_addr_len);
 
     /* Copy remote RTP address, if one is specified. */
     rtcp_addr = (const pj_sockaddr*) rem_rtcp;
     if (rtcp_addr && pj_sockaddr_has_addr(rtcp_addr)) {
-	pj_memcpy(&udp->rem_rtcp_addr, rem_rtcp, addr_len);
+        status = pj_sockaddr_synthesize(sock_addr.addr.sa_family,
+        		       		&remote_rtcp, rem_rtcp);
+        if (status != PJ_SUCCESS) {
+    	    pj_perror(3, tp->name, status, "Failed to synthesize the correct"
+    				       	   "IP address for RTCP");
+        }
+	pj_memcpy(&udp->rem_rtcp_addr, &remote_rtcp, rem_addr_len);
 
     } else {
 	unsigned rtcp_port;
 
 	/* Otherwise guess the RTCP address from the RTP address */
-	pj_memcpy(&udp->rem_rtcp_addr, rem_addr, addr_len);
+	pj_memcpy(&udp->rem_rtcp_addr, &udp->rem_rtp_addr, rem_addr_len);
 	rtcp_port = pj_sockaddr_get_port(&udp->rem_rtp_addr) + 1;
 	pj_sockaddr_set_port(&udp->rem_rtcp_addr, (pj_uint16_t)rtcp_port);
     }
@@ -682,22 +711,23 @@ static pj_status_t transport_attach(   pjmedia_transport *tp,
     udp->user_data = user_data;
 
     /* Save address length */
-    udp->addr_len = addr_len;
+    udp->addr_len = rem_addr_len;
 
     /* Last, mark transport as attached */
-    udp->attached = PJ_TRUE;
+    //udp->attached = PJ_TRUE;
 
     /* Reset source RTP & RTCP addresses and counter */
     pj_bzero(&udp->rtp_src_addr, sizeof(udp->rtp_src_addr));
     pj_bzero(&udp->rtcp_src_addr, sizeof(udp->rtcp_src_addr));
     udp->rtp_src_cnt = 0;
     udp->rtcp_src_cnt = 0;
+    udp->rem_rtp_cnt = 0;
 
     /* Set buffer size for RTP socket */
 #if PJMEDIA_TRANSPORT_SO_RCVBUF_SIZE
     {
 	unsigned sobuf_size = PJMEDIA_TRANSPORT_SO_RCVBUF_SIZE;
-	pj_status_t status;
+	
 	status = pj_sock_setsockopt_sobuf(udp->rtp_sock, pj_SO_RCVBUF(),
 					  PJ_TRUE, &sobuf_size);
 	if (status != PJ_SUCCESS) {
@@ -717,7 +747,7 @@ static pj_status_t transport_attach(   pjmedia_transport *tp,
 #if PJMEDIA_TRANSPORT_SO_SNDBUF_SIZE
     {
 	unsigned sobuf_size = PJMEDIA_TRANSPORT_SO_SNDBUF_SIZE;
-	pj_status_t status;
+
 	status = pj_sock_setsockopt_sobuf(udp->rtp_sock, pj_SO_SNDBUF(),
 					  PJ_TRUE, &sobuf_size);
 	if (status != PJ_SUCCESS) {
@@ -751,7 +781,10 @@ static void transport_detach( pjmedia_transport *tp,
 
     pj_assert(tp);
 
-    if (udp->attached) {
+    //if (udp->attached) {
+    if (1) {
+	int i;
+
 	/* Lock the ioqueue keys to make sure that callbacks are
 	 * not executed. See ticket #460 for details.
 	 */
@@ -765,12 +798,19 @@ static void transport_detach( pjmedia_transport *tp,
 	pj_assert(user_data == udp->user_data);
 
 	/* First, mark transport as unattached */
-	udp->attached = PJ_FALSE;
+	//udp->attached = PJ_FALSE;
 
 	/* Clear up application infos from transport */
 	udp->rtp_cb = NULL;
 	udp->rtcp_cb = NULL;
 	udp->user_data = NULL;
+
+	/* Cancel any outstanding send */
+	for (i=0; i<PJ_ARRAY_SIZE(udp->rtp_pending_write); ++i) {
+	    pj_ioqueue_post_completion(udp->rtp_key,
+				       &udp->rtp_pending_write[i].op_key, 0);
+	}
+	pj_ioqueue_post_completion(udp->rtcp_key, &udp->rtcp_write_op, 0);
 
 	/* Unlock keys */
 	pj_ioqueue_unlock_key(udp->rtcp_key);
@@ -791,7 +831,7 @@ static pj_status_t transport_send_rtp( pjmedia_transport *tp,
     pj_status_t status;
 
     /* Must be attached */
-    PJ_ASSERT_RETURN(udp->attached, PJ_EINVALIDOP);
+    //PJ_ASSERT_RETURN(udp->attached, PJ_EINVALIDOP);
 
     /* Check that the size is supported */
     PJ_ASSERT_RETURN(size <= PJMEDIA_MAX_MTU, PJ_ETOOBIG);
@@ -852,7 +892,7 @@ static pj_status_t transport_send_rtcp2(pjmedia_transport *tp,
     pj_ssize_t sent;
     pj_status_t status;
 
-    PJ_ASSERT_RETURN(udp->attached, PJ_EINVALIDOP);
+    //PJ_ASSERT_RETURN(udp->attached, PJ_EINVALIDOP);
 
     if (addr == NULL) {
 	addr = &udp->rem_rtcp_addr;

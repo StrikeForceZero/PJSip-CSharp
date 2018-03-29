@@ -2,14 +2,14 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{00868b4a-2bc8-4b54-bfd8-b18b09d1d908}</UniqueIdentifier>
+      <UniqueIdentifier>{99e57094-b236-44f5-ab40-8a0a3d2a97c6}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
     </Filter>
     <Filter Include="Source Files\g722 Files">
-      <UniqueIdentifier>{006ebb62-1156-475a-bd5f-4019f7392b77}</UniqueIdentifier>
+      <UniqueIdentifier>{f132ef73-1710-4f7c-920d-824cb2fbe51f}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{b819ce14-0c47-4e2e-b63e-2358da8503f0}</UniqueIdentifier>
+      <UniqueIdentifier>{99ddac3a-ed72-4404-85ab-df65cb5227ca}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl</Extensions>
     </Filter>
   </ItemGroup>
@@ -70,6 +70,12 @@
     </ClCompile>
     <ClCompile Include="..\src\pjmedia-codec\g722\g722_enc.c">
       <Filter>Source Files\g722 Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\pjmedia-codec\opus.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\pjmedia-codec\bcg729.c">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -137,6 +143,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\pjmedia-codec\types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\pjmedia-codec\opus.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\pjmedia-codec\bcg729.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

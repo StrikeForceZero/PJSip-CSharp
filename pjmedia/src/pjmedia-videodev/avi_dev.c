@@ -1,4 +1,4 @@
-/* $Id: avi_dev.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: avi_dev.c 5534 2017-01-19 07:41:25Z nanang $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -192,10 +192,8 @@ static pj_status_t avi_factory_init(pjmedia_vid_dev_factory *f)
 static pj_status_t avi_factory_destroy(pjmedia_vid_dev_factory *f)
 {
     struct avi_factory *cf = (struct avi_factory*)f;
-    pj_pool_t *pool = cf->pool;
 
-    cf->pool = NULL;
-    pj_pool_release(pool);
+    pj_pool_safe_release(&cf->pool);
 
     return PJ_SUCCESS;
 }

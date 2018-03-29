@@ -1,4 +1,4 @@
-/* $Id: stun_msg_dump.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: stun_msg_dump.c 5544 2017-01-24 05:41:05Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -86,19 +86,19 @@ static int print_attr(char *buffer, unsigned length,
     case PJ_STUN_ATTR_XOR_REFLECTED_FROM:
     case PJ_STUN_ATTR_ALTERNATE_SERVER:
 	{
+	    char addr[PJ_INET6_ADDRSTRLEN];
 	    const pj_stun_sockaddr_attr *attr;
+	    pj_uint16_t af;
 
 	    attr = (const pj_stun_sockaddr_attr*)ahdr;
+	    af = attr->sockaddr.addr.sa_family;
 
-	    if (attr->sockaddr.addr.sa_family == pj_AF_INET()) {
+	    if ((af == pj_AF_INET()) || (af == pj_AF_INET6())) {
 		len = pj_ansi_snprintf(p, end-p,
-				       ", IPv4 addr=%s:%d\n",
-				       pj_inet_ntoa(attr->sockaddr.ipv4.sin_addr),
-				       pj_ntohs(attr->sockaddr.ipv4.sin_port));
-
-	    } else if (attr->sockaddr.addr.sa_family == pj_AF_INET6()) {
-		len = pj_ansi_snprintf(p, end-p,
-				       ", IPv6 addr present\n");
+				       ", %s addr=%s\n",
+				       (af == pj_AF_INET())?"IPv4":"IPv6",
+				       pj_sockaddr_print(&attr->sockaddr,
+				           		addr, sizeof(addr),3));
 	    } else {
 		len = pj_ansi_snprintf(p, end-p,
 				       ", INVALID ADDRESS FAMILY!\n");
@@ -256,6 +256,7 @@ PJ_DEF(char*) pj_stun_msg_dump(const pj_stun_msg *msg,
     char *p, *end;
     int len;
     unsigned i;
+    pj_uint32_t tsx_id[3];
 
     PJ_ASSERT_RETURN(msg && buffer && length, NULL);
 
@@ -269,14 +270,15 @@ PJ_DEF(char*) pj_stun_msg_dump(const pj_stun_msg *msg,
 			   pj_stun_get_class_name(msg->hdr.type));
     APPLY();
 
+    pj_memcpy(tsx_id, msg->hdr.tsx_id, sizeof(msg->hdr.tsx_id));
     len = pj_ansi_snprintf(p, end-p, 
 			   " Hdr: length=%d, magic=%08x, tsx_id=%08x%08x%08x\n"
 			   " Attributes:\n",
 			   msg->hdr.length,
 			   msg->hdr.magic,
-			   *(pj_uint32_t*)&msg->hdr.tsx_id[0],
-			   *(pj_uint32_t*)&msg->hdr.tsx_id[4],
-			   *(pj_uint32_t*)&msg->hdr.tsx_id[8]);
+			   tsx_id[0],
+			   tsx_id[1],
+			   tsx_id[2]);
     APPLY();
 
     for (i=0; i<msg->attr_count; ++i) {

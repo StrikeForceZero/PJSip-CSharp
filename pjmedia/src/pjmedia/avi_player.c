@@ -1,4 +1,4 @@
-/* $Id: avi_player.c 5046 2015-04-06 06:21:41Z nanang $ */
+/* $Id: avi_player.c 5659 2017-09-25 02:58:42Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -44,7 +44,9 @@
 
 #define AVI_EOF 0xFFEEFFEE
 
-#define COMPARE_TAG(doc_tag, tag) (doc_tag == *((pj_uint32_t *)avi_tags[tag]))
+//#define COMPARE_TAG(doc_tag, tag) (doc_tag==*((pj_uint32_t*)avi_tags[tag]))
+#define COMPARE_TAG(doc_tag, tag) \
+	    (pj_memcmp(&(doc_tag), &avi_tags[tag], 4)==0)
 
 #define SIGNATURE	    PJMEDIA_SIG_PORT_VID_AVI_PLAYER
 
@@ -610,15 +612,13 @@ static pj_status_t avi_get_frame(pjmedia_port *this_port,
 			         pjmedia_frame *frame)
 {
     struct avi_reader_port *fport = (struct avi_reader_port*)this_port;
-    pj_status_t status;
+    pj_status_t status = PJ_SUCCESS;
     pj_ssize_t size_read = 0, size_to_read = 0;
 
     pj_assert(fport->base.info.signature == SIGNATURE);
 
     /* We encountered end of file */
     if (fport->eof) {
-	pj_status_t status = PJ_SUCCESS;
-
 	PJ_LOG(5,(THIS_FILE, "File port %.*s EOF",
 		  (int)fport->base.info.name.slen,
 		  fport->base.info.name.ptr));

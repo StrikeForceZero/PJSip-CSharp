@@ -1,4 +1,4 @@
-/* $Id: errno.c 4704 2014-01-16 05:30:46Z ming $ */
+/* $Id: errno.c 5535 2017-01-19 10:31:38Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -184,5 +184,5 @@ PJ_DEF(pj_status_t) pjlib_util_init(void)
 				  &pjlib_util_strerror);
     pj_assert(status == PJ_SUCCESS);
 
-    return PJ_SUCCESS;
+    return status;
 }

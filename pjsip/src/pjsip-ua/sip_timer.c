@@ -1,4 +1,4 @@
-/* $Id: sip_timer.c 4967 2014-12-05 04:03:06Z ming $ */
+/* $Id: sip_timer.c 5576 2017-03-31 09:52:12Z riza $ */
 /* 
  * Copyright (C) 2009-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -333,6 +333,8 @@ static void timer_cb(pj_timer_heap_t *timer_heap, struct pj_timer_entry *entry)
     pjsip_tx_data *tdata = NULL;
     pj_status_t status;
     pj_bool_t as_refresher;
+    int entry_id;
+    char obj_name[PJ_MAX_OBJ_NAME];
 
     pj_assert(inv);
 
@@ -344,7 +346,10 @@ static void timer_cb(pj_timer_heap_t *timer_heap, struct pj_timer_entry *entry)
     /* Check our role */
     as_refresher =
 	(inv->timer->refresher == TR_UAC && inv->timer->role == PJSIP_ROLE_UAC) ||
-	(inv->timer->refresher == TR_UAS && inv->timer->role == PJSIP_ROLE_UAS);    
+	(inv->timer->refresher == TR_UAS && inv->timer->role == PJSIP_ROLE_UAS);
+
+    entry_id = entry->id;
+    pj_ansi_strncpy(obj_name, inv->pool->obj_name, PJ_MAX_OBJ_NAME);
 
     /* Do action based on role(refresher or refreshee). 
      * As refresher:
@@ -353,7 +358,7 @@ static void timer_cb(pj_timer_heap_t *timer_heap, struct pj_timer_entry *entry)
      * As refreshee:
      * - end session if there is no refresh request received.
      */
-    if (as_refresher && (entry->id != REFRESHER_EXPIRE_TIMER_ID)) {
+    if (as_refresher && (entry_id != REFRESHER_EXPIRE_TIMER_ID)) {
 	pj_time_val now;
 
 	/* As refresher, reshedule the refresh request on the following:
@@ -414,7 +419,7 @@ static void timer_cb(pj_timer_heap_t *timer_heap, struct pj_timer_entry *entry)
 	}
 
 	pj_gettimeofday(&now);
-	PJ_LOG(4, (inv->pool->obj_name,
+	PJ_LOG(4, (obj_name,
 		   "Refreshing session after %ds (expiration period=%ds)",
 		   (now.sec-inv->timer->last_refresh.sec),
 		   inv->timer->setting.sess_expires));
@@ -432,7 +437,7 @@ static void timer_cb(pj_timer_heap_t *timer_heap, struct pj_timer_entry *entry)
 				       NULL, &tdata);
 
 	pj_gettimeofday(&now);
-	PJ_LOG(3, (inv->pool->obj_name, 
+	PJ_LOG(3, (obj_name,
 		   "No session %s received after %ds "
 		   "(expiration period=%ds), stopping session now!",
 		   (as_refresher?"refresh response":"refresh"),
@@ -451,11 +456,16 @@ static void timer_cb(pj_timer_heap_t *timer_heap, struct pj_timer_entry *entry)
 	status = pjsip_inv_send_msg(inv, tdata);	
     }
 
+    /*
+     * At this point, dialog might have already been destroyed,
+     * including its pool used by the invite session.
+     */
+
     /* Print error message, if any */
     if (status != PJ_SUCCESS) {
-	PJ_PERROR(2, (inv->pool->obj_name, status,
+	PJ_PERROR(2, (obj_name, status,
 		     "Error in %s session timer",
-		     ((as_refresher && entry->id != REFRESHER_EXPIRE_TIMER_ID)? 
+		     ((as_refresher && entry_id != REFRESHER_EXPIRE_TIMER_ID)?
 		       "refreshing" : "terminating")));
     }
 }
@@ -733,8 +743,15 @@ PJ_DEF(pj_status_t) pjsip_timer_process_resp(pjsip_inv_session *inv,
 	{if(st_code)*st_code=PJSIP_SC_INTERNAL_SERVER_ERROR;return PJ_EINVAL;});
 
     /* Check if Session Timers is supported */
-    if ((inv->options & PJSIP_INV_SUPPORT_TIMER) == 0)
-	return PJ_SUCCESS;
+    if ((inv->options & PJSIP_INV_SUPPORT_TIMER) == 0) {
+        if (rdata->msg_info.msg->line.status.code == 
+            PJSIP_SC_SESSION_TIMER_TOO_SMALL)
+        {
+            return PJSIP_EINVALIDSTATUS;
+        } else {
+            return PJ_SUCCESS;
+        }
+    }
 
     pj_assert(is_initialized);
 
@@ -963,20 +980,32 @@ PJ_DEF(pj_status_t)  pjsip_timer_handle_refresh_error(
 		    (pjsip_status_code)event->body.tsx_state.tsx->status_code;
 
 	    PJ_LOG(3, (inv->pool->obj_name, 
-			"Receive error %d for refresh request %.*s/cseq=%d, "
-			"stopping session now", st_code, 
-			event->body.tsx_state.tsx->method.name.slen,
+			"Receive error %d for refresh request %.*s/cseq=%d",
+			st_code, event->body.tsx_state.tsx->method.name.slen,
 			event->body.tsx_state.tsx->method.name.ptr,
 			event->body.tsx_state.tsx->cseq));
 
-	    status = pjsip_inv_end_session(inv, 
+	    if (st_code == 503 && PJSIP_SESS_TIMER_RETRY_DELAY >= 0) {
+	    	/* Retry the refresh after some delay */
+	    	pj_time_val delay = {PJSIP_SESS_TIMER_RETRY_DELAY, 0};
+
+	        PJ_LOG(3, (inv->pool->obj_name, "Scheduling to retry refresh "
+	        	   "request after %d second(s)", delay.sec));
+
+	    	inv->timer->timer.id = 1;
+	    	pjsip_endpt_schedule_timer(inv->dlg->endpt,
+	    				   &inv->timer->timer, &delay);
+	    } else {
+	        PJ_LOG(3, (inv->pool->obj_name, "Ending session now"));
+
+	    	status = pjsip_inv_end_session(inv, 
 				    event->body.tsx_state.tsx->status_code, 
 				    pjsip_get_status_text(st_code), 
 				    &bye);
 
-	    if (status == PJ_SUCCESS && bye)
-		status = pjsip_inv_send_msg(inv, bye);
-
+	    	if (status == PJ_SUCCESS && bye)
+		    status = pjsip_inv_send_msg(inv, bye);
+	    }
 	}
     }
 

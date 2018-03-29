@@ -1,4 +1,4 @@
-/* $Id: account.cpp 4957 2014-11-04 08:00:15Z nanang $ */
+/* $Id: account.cpp 5649 2017-09-15 05:32:08Z riza $ */
 /*
  * Copyright (C) 2013 Teluu Inc. (http://www.teluu.com)
  *
@@ -43,6 +43,7 @@ void AccountRegConfig::readObject(const ContainerNode &node) throw(Error)
     NODE_READ_BOOL	(this_node, dropCallsOnFail);
     NODE_READ_UNSIGNED	(this_node, unregWaitMsec);
     NODE_READ_UNSIGNED	(this_node, proxyUse);
+    NODE_READ_STRING	(this_node, contactParams);
 
     readSipHeaders(this_node, "headers", headers);
 }
@@ -61,6 +62,7 @@ void AccountRegConfig::writeObject(ContainerNode &node) const throw(Error)
     NODE_WRITE_BOOL	(this_node, dropCallsOnFail);
     NODE_WRITE_UNSIGNED	(this_node, unregWaitMsec);
     NODE_WRITE_UNSIGNED	(this_node, proxyUse);
+    NODE_WRITE_STRING	(this_node, contactParams);
 
     writeSipHeaders(this_node, "headers", headers);
 }
@@ -182,6 +184,7 @@ void AccountNatConfig::readObject(const ContainerNode &node) throw(Error)
 
     NODE_READ_NUM_T   ( this_node, pjsua_stun_use, sipStunUse);
     NODE_READ_NUM_T   ( this_node, pjsua_stun_use, mediaStunUse);
+    NODE_READ_NUM_T   ( this_node, pjsua_nat64_opt, nat64Opt);
     NODE_READ_BOOL    ( this_node, iceEnabled);
     NODE_READ_INT     ( this_node, iceMaxHostCands);
     NODE_READ_BOOL    ( this_node, iceAggressiveNomination);
@@ -213,6 +216,7 @@ void AccountNatConfig::writeObject(ContainerNode &node) const throw(Error)
 
     NODE_WRITE_NUM_T   ( this_node, pjsua_stun_use, sipStunUse);
     NODE_WRITE_NUM_T   ( this_node, pjsua_stun_use, mediaStunUse);
+    NODE_WRITE_NUM_T   ( this_node, pjsua_nat64_opt, nat64Opt);
     NODE_WRITE_BOOL    ( this_node, iceEnabled);
     NODE_WRITE_INT     ( this_node, iceMaxHostCands);
     NODE_WRITE_BOOL    ( this_node, iceAggressiveNomination);
@@ -277,6 +281,8 @@ void AccountVideoConfig::readObject(const ContainerNode &node) throw(Error)
     NODE_READ_NUM_T   ( this_node, pjmedia_vid_dev_index, defaultRenderDevice);
     NODE_READ_NUM_T   ( this_node, pjmedia_vid_stream_rc_method, rateControlMethod);
     NODE_READ_UNSIGNED( this_node, rateControlBandwidth);
+    NODE_READ_UNSIGNED( this_node, startKeyframeCount);
+    NODE_READ_UNSIGNED( this_node, startKeyframeInterval);
 }
 
 void AccountVideoConfig::writeObject(ContainerNode &node) const throw(Error)
@@ -290,6 +296,27 @@ void AccountVideoConfig::writeObject(ContainerNode &node) const throw(Error)
     NODE_WRITE_NUM_T   ( this_node, pjmedia_vid_dev_index, defaultRenderDevice);
     NODE_WRITE_NUM_T   ( this_node, pjmedia_vid_stream_rc_method, rateControlMethod);
     NODE_WRITE_UNSIGNED( this_node, rateControlBandwidth);
+    NODE_WRITE_UNSIGNED( this_node, startKeyframeCount);
+    NODE_WRITE_UNSIGNED( this_node, startKeyframeInterval);
+}
+///////////////////////////////////////////////////////////////////////////////
+
+void AccountIpChangeConfig::readObject(const ContainerNode &node) throw(Error)
+{
+    ContainerNode this_node = node.readContainer("AccountIpChangeConfig");
+
+    NODE_READ_BOOL    ( this_node, shutdownTp);
+    NODE_READ_BOOL    ( this_node, hangupCalls);
+    NODE_READ_UNSIGNED( this_node, reinviteFlags);
+}
+
+void AccountIpChangeConfig::writeObject(ContainerNode &node) const throw(Error)
+{
+    ContainerNode this_node = node.writeNewContainer("AccountIpChangeConfig");
+
+    NODE_WRITE_BOOL    ( this_node, shutdownTp);
+    NODE_WRITE_BOOL    ( this_node, hangupCalls);
+    NODE_WRITE_UNSIGNED( this_node, reinviteFlags);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -325,6 +352,7 @@ void AccountConfig::toPj(pjsua_acc_config &ret) const
     ret.drop_calls_on_reg_fail	= regConfig.dropCallsOnFail;
     ret.unreg_timeout		= regConfig.unregWaitMsec;
     ret.reg_use_proxy		= regConfig.proxyUse;
+    ret.reg_contact_params	= str2Pj(regConfig.contactParams);
     for (i=0; i<regConfig.headers.size(); ++i) {
 	pj_list_push_back(&ret.reg_hdr_list, &regConfig.headers[i].toPj());
     }
@@ -377,9 +405,14 @@ void AccountConfig::toPj(pjsua_acc_config &ret) const
     ret.unpublish_max_wait_time_msec = presConfig.publishShutdownWaitMsec;
     ret.pidf_tuple_id		= str2Pj(presConfig.pidfTupleId);
 
+    // AccountMwiConfig
+    ret.mwi_enabled 		= mwiConfig.enabled;
+    ret.mwi_expires 		= mwiConfig.expirationSec;
+
     // AccountNatConfig
     ret.sip_stun_use		= natConfig.sipStunUse;
     ret.media_stun_use		= natConfig.mediaStunUse;
+    ret.nat64_opt		= natConfig.nat64Opt;
     ret.ice_cfg_use		= PJSUA_ICE_CONFIG_USE_CUSTOM;
     ret.ice_cfg.enable_ice	= natConfig.iceEnabled;
     ret.ice_cfg.ice_max_host_cands = natConfig.iceMaxHostCands;
@@ -429,6 +462,13 @@ void AccountConfig::toPj(pjsua_acc_config &ret) const
     ret.vid_rend_dev		= videoConfig.defaultRenderDevice;
     ret.vid_stream_rc_cfg.method= videoConfig.rateControlMethod;
     ret.vid_stream_rc_cfg.bandwidth = videoConfig.rateControlBandwidth;
+    ret.vid_stream_sk_cfg.count = videoConfig.startKeyframeCount;
+    ret.vid_stream_sk_cfg.interval = videoConfig.startKeyframeInterval;
+
+    // AccountIpChangeConfig
+    ret.ip_change_cfg.shutdown_tp = ipChangeConfig.shutdownTp;
+    ret.ip_change_cfg.hangup_calls = ipChangeConfig.hangupCalls;
+    ret.ip_change_cfg.reinvite_flags = ipChangeConfig.reinviteFlags;
 }
 
 /* Initialize from pjsip. */
@@ -453,6 +493,7 @@ void AccountConfig::fromPj(const pjsua_acc_config &prm,
     regConfig.dropCallsOnFail	= PJ2BOOL(prm.drop_calls_on_reg_fail);
     regConfig.unregWaitMsec	= prm.unreg_timeout;
     regConfig.proxyUse		= prm.reg_use_proxy;
+    regConfig.contactParams	= pj2Str(prm.reg_contact_params);
     regConfig.headers.clear();
     hdr = prm.reg_hdr_list.next;
     while (hdr != &prm.reg_hdr_list) {
@@ -520,6 +561,7 @@ void AccountConfig::fromPj(const pjsua_acc_config &prm,
     // AccountNatConfig
     natConfig.sipStunUse	= prm.sip_stun_use;
     natConfig.mediaStunUse	= prm.media_stun_use;
+    natConfig.nat64Opt		= prm.nat64_opt;
     if (prm.ice_cfg_use == PJSUA_ICE_CONFIG_USE_CUSTOM) {
 	natConfig.iceEnabled = PJ2BOOL(prm.ice_cfg.enable_ice);
 	natConfig.iceMaxHostCands = prm.ice_cfg.ice_max_host_cands;
@@ -594,6 +636,13 @@ void AccountConfig::fromPj(const pjsua_acc_config &prm,
     videoConfig.defaultRenderDevice	= prm.vid_rend_dev;
     videoConfig.rateControlMethod	= prm.vid_stream_rc_cfg.method;
     videoConfig.rateControlBandwidth	= prm.vid_stream_rc_cfg.bandwidth;
+    videoConfig.startKeyframeCount	= prm.vid_stream_sk_cfg.count;
+    videoConfig.startKeyframeInterval	= prm.vid_stream_sk_cfg.interval;
+
+    // AccountIpChangeConfig
+    ipChangeConfig.shutdownTp = PJ2BOOL(prm.ip_change_cfg.shutdown_tp);
+    ipChangeConfig.hangupCalls = PJ2BOOL(prm.ip_change_cfg.hangup_calls);
+    ipChangeConfig.reinviteFlags = prm.ip_change_cfg.reinvite_flags;
 }
 
 void AccountConfig::readObject(const ContainerNode &node) throw(Error)
@@ -666,7 +715,10 @@ Account::~Account()
 	    delete b; /* this will remove itself from the list */
 	}
 
-	pjsua_acc_set_user_data(id, NULL);
+	// This caused error message of "Error: cannot find Account.."
+	// when Endpoint::on_reg_started() is called for unregistration.
+	//pjsua_acc_set_user_data(id, NULL);
+
 	pjsua_acc_del(id);
     }
 }
