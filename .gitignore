@@ -3,6 +3,9 @@
 **/obj/
 **/*.log
 .vs/
+.vscode
+*.bsc
+*.depend
 
 **/lib/*.lib
 
