@@ -136,7 +136,7 @@ public class StreamInfo : global::System.IDisposable {
     } 
   }
 
-  public CodecParam audCodecParam {
+  /*public CodecParam audCodecParam {
     set {
       pjsua2PINVOKE.StreamInfo_audCodecParam_set(swigCPtr, CodecParam.getCPtr(value));
     } 
@@ -145,9 +145,9 @@ public class StreamInfo : global::System.IDisposable {
       CodecParam ret = (cPtr == global::System.IntPtr.Zero) ? null : new CodecParam(cPtr, false);
       return ret;
     } 
-  }
+  }*/
 
-  public VidCodecParam vidCodecParam {
+  /*public VidCodecParam vidCodecParam {
     set {
       pjsua2PINVOKE.StreamInfo_vidCodecParam_set(swigCPtr, VidCodecParam.getCPtr(value));
     } 
@@ -156,7 +156,7 @@ public class StreamInfo : global::System.IDisposable {
       VidCodecParam ret = (cPtr == global::System.IntPtr.Zero) ? null : new VidCodecParam(cPtr, false);
       return ret;
     } 
-  }
+  }*/
 
   public StreamInfo() : this(pjsua2PINVOKE.new_StreamInfo(), true) {
   }

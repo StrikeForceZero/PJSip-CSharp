@@ -273,16 +273,16 @@ public class Endpoint : global::System.IDisposable {
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
-  public CodecParam codecGetParam(string codec_id) {
+  /*public CodecParam codecGetParam(string codec_id) {
     CodecParam ret = new CodecParam(pjsua2PINVOKE.Endpoint_codecGetParam(swigCPtr, codec_id), true);
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
     return ret;
-  }
+  }*/
 
-  public void codecSetParam(string codec_id, CodecParam param) {
+  /*public void codecSetParam(string codec_id, CodecParam param) {
     pjsua2PINVOKE.Endpoint_codecSetParam(swigCPtr, codec_id, CodecParam.getCPtr(param));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
-  }
+  }*/
 
   public CodecInfoVector videoCodecEnum() {
     CodecInfoVector ret = new CodecInfoVector(pjsua2PINVOKE.Endpoint_videoCodecEnum(swigCPtr), false);
@@ -295,26 +295,26 @@ public class Endpoint : global::System.IDisposable {
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
-  public VidCodecParam getVideoCodecParam(string codec_id) {
+  /*public VidCodecParam getVideoCodecParam(string codec_id) {
     VidCodecParam ret = new VidCodecParam(pjsua2PINVOKE.Endpoint_getVideoCodecParam(swigCPtr, codec_id), true);
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
     return ret;
-  }
+  }*/
 
-  public void setVideoCodecParam(string codec_id, VidCodecParam param) {
+  /*public void setVideoCodecParam(string codec_id, VidCodecParam param) {
     pjsua2PINVOKE.Endpoint_setVideoCodecParam(swigCPtr, codec_id, VidCodecParam.getCPtr(param));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
-  }
+  }*/
 
   public void resetVideoCodecParam(string codec_id) {
     pjsua2PINVOKE.Endpoint_resetVideoCodecParam(swigCPtr, codec_id);
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
-  public void handleIpChange(IpChangeParam param) {
+  /*public void handleIpChange(IpChangeParam param) {
     pjsua2PINVOKE.Endpoint_handleIpChange(swigCPtr, IpChangeParam.getCPtr(param));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
-  }
+  }*/
 
   public virtual void onNatDetectionComplete(OnNatDetectionCompleteParam prm) {
     if (SwigDerivedClassHasMethod("onNatDetectionComplete", swigMethodTypes0)) pjsua2PINVOKE.Endpoint_onNatDetectionCompleteSwigExplicitEndpoint(swigCPtr, OnNatDetectionCompleteParam.getCPtr(prm)); else pjsua2PINVOKE.Endpoint_onNatDetectionComplete(swigCPtr, OnNatDetectionCompleteParam.getCPtr(prm));
@@ -341,10 +341,10 @@ public class Endpoint : global::System.IDisposable {
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
-  public virtual void onIpChangeProgress(OnIpChangeProgressParam prm) {
+  /*public virtual void onIpChangeProgress(OnIpChangeProgressParam prm) {
     if (SwigDerivedClassHasMethod("onIpChangeProgress", swigMethodTypes5)) pjsua2PINVOKE.Endpoint_onIpChangeProgressSwigExplicitEndpoint(swigCPtr, OnIpChangeProgressParam.getCPtr(prm)); else pjsua2PINVOKE.Endpoint_onIpChangeProgress(swigCPtr, OnIpChangeProgressParam.getCPtr(prm));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
-  }
+  }*/
 
   private void SwigDirectorConnect() {
     if (SwigDerivedClassHasMethod("onNatDetectionComplete", swigMethodTypes0))
@@ -357,8 +357,8 @@ public class Endpoint : global::System.IDisposable {
       swigDelegate3 = new SwigDelegateEndpoint_3(SwigDirectoronTimer);
     if (SwigDerivedClassHasMethod("onSelectAccount", swigMethodTypes4))
       swigDelegate4 = new SwigDelegateEndpoint_4(SwigDirectoronSelectAccount);
-    if (SwigDerivedClassHasMethod("onIpChangeProgress", swigMethodTypes5))
-      swigDelegate5 = new SwigDelegateEndpoint_5(SwigDirectoronIpChangeProgress);
+    /*if (SwigDerivedClassHasMethod("onIpChangeProgress", swigMethodTypes5))
+      swigDelegate5 = new SwigDelegateEndpoint_5(SwigDirectoronIpChangeProgress);*/
     pjsua2PINVOKE.Endpoint_director_connect(swigCPtr, swigDelegate0, swigDelegate1, swigDelegate2, swigDelegate3, swigDelegate4, swigDelegate5);
   }
 
@@ -389,7 +389,7 @@ public class Endpoint : global::System.IDisposable {
   }
 
   private void SwigDirectoronIpChangeProgress(global::System.IntPtr prm) {
-    onIpChangeProgress(new OnIpChangeProgressParam(prm, false));
+    // onIpChangeProgress(new OnIpChangeProgressParam(prm, false));
   }
 
   public delegate void SwigDelegateEndpoint_0(global::System.IntPtr prm);
@@ -411,7 +411,7 @@ public class Endpoint : global::System.IDisposable {
   private static global::System.Type[] swigMethodTypes2 = new global::System.Type[] { typeof(OnTransportStateParam) };
   private static global::System.Type[] swigMethodTypes3 = new global::System.Type[] { typeof(OnTimerParam) };
   private static global::System.Type[] swigMethodTypes4 = new global::System.Type[] { typeof(OnSelectAccountParam) };
-  private static global::System.Type[] swigMethodTypes5 = new global::System.Type[] { typeof(OnIpChangeProgressParam) };
+  //private static global::System.Type[] swigMethodTypes5 = new global::System.Type[] { typeof(OnIpChangeProgressParam) };
 }
 
 }

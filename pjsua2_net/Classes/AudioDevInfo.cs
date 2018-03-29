@@ -114,7 +114,7 @@ public class AudioDevInfo : global::System.IDisposable {
     } 
   }
 
-  public SWIGTYPE_p_std__vectorT_pj__MediaFormat_t extFmt {
+  /*public SWIGTYPE_p_std__vectorT_pj__MediaFormat_t extFmt {
     set {
       pjsua2PINVOKE.AudioDevInfo_extFmt_set(swigCPtr, SWIGTYPE_p_std__vectorT_pj__MediaFormat_t.getCPtr(value));
     } 
@@ -123,7 +123,7 @@ public class AudioDevInfo : global::System.IDisposable {
       SWIGTYPE_p_std__vectorT_pj__MediaFormat_t ret = (cPtr == global::System.IntPtr.Zero) ? null : new SWIGTYPE_p_std__vectorT_pj__MediaFormat_t(cPtr, false);
       return ret;
     } 
-  }
+  }*/
 
   public AudioDevInfo() : this(pjsua2PINVOKE.new_AudioDevInfo(), true) {
   }

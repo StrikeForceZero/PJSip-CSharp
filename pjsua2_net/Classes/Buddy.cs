@@ -84,16 +84,16 @@ public class Buddy : global::System.IDisposable {
     if (SwigDerivedClassHasMethod("onBuddyState", swigMethodTypes0)) pjsua2PINVOKE.Buddy_onBuddyStateSwigExplicitBuddy(swigCPtr); else pjsua2PINVOKE.Buddy_onBuddyState(swigCPtr);
   }
 
-  public virtual void onBuddyEvSubState(OnBuddyEvSubStateParam prm) {
+  /*public virtual void onBuddyEvSubState(OnBuddyEvSubStateParam prm) {
     if (SwigDerivedClassHasMethod("onBuddyEvSubState", swigMethodTypes1)) pjsua2PINVOKE.Buddy_onBuddyEvSubStateSwigExplicitBuddy(swigCPtr, OnBuddyEvSubStateParam.getCPtr(prm)); else pjsua2PINVOKE.Buddy_onBuddyEvSubState(swigCPtr, OnBuddyEvSubStateParam.getCPtr(prm));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
-  }
+  }*/
 
   private void SwigDirectorConnect() {
     if (SwigDerivedClassHasMethod("onBuddyState", swigMethodTypes0))
       swigDelegate0 = new SwigDelegateBuddy_0(SwigDirectoronBuddyState);
-    if (SwigDerivedClassHasMethod("onBuddyEvSubState", swigMethodTypes1))
-      swigDelegate1 = new SwigDelegateBuddy_1(SwigDirectoronBuddyEvSubState);
+    /*if (SwigDerivedClassHasMethod("onBuddyEvSubState", swigMethodTypes1))
+      swigDelegate1 = new SwigDelegateBuddy_1(SwigDirectoronBuddyEvSubState);*/
     pjsua2PINVOKE.Buddy_director_connect(swigCPtr, swigDelegate0, swigDelegate1);
   }
 
@@ -107,9 +107,9 @@ public class Buddy : global::System.IDisposable {
     onBuddyState();
   }
 
-  private void SwigDirectoronBuddyEvSubState(global::System.IntPtr prm) {
+  /*private void SwigDirectoronBuddyEvSubState(global::System.IntPtr prm) {
     onBuddyEvSubState(new OnBuddyEvSubStateParam(prm, false));
-  }
+  }*/
 
   public delegate void SwigDelegateBuddy_0();
   public delegate void SwigDelegateBuddy_1(global::System.IntPtr prm);
@@ -118,7 +118,7 @@ public class Buddy : global::System.IDisposable {
   private SwigDelegateBuddy_1 swigDelegate1;
 
   private static global::System.Type[] swigMethodTypes0 = new global::System.Type[] {  };
-  private static global::System.Type[] swigMethodTypes1 = new global::System.Type[] { typeof(OnBuddyEvSubStateParam) };
+  //private static global::System.Type[] swigMethodTypes1 = new global::System.Type[] { typeof(OnBuddyEvSubStateParam) };
 }
 
 }

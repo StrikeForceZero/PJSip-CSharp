@@ -83,7 +83,7 @@ public class OnTransportStateParam : global::System.IDisposable {
     } 
   }
 
-  public TlsInfo tlsInfo {
+  /*public TlsInfo tlsInfo {
     set {
       pjsua2PINVOKE.OnTransportStateParam_tlsInfo_set(swigCPtr, TlsInfo.getCPtr(value));
     } 
@@ -92,7 +92,7 @@ public class OnTransportStateParam : global::System.IDisposable {
       TlsInfo ret = (cPtr == global::System.IntPtr.Zero) ? null : new TlsInfo(cPtr, false);
       return ret;
     } 
-  }
+  }*/
 
   public OnTransportStateParam() : this(pjsua2PINVOKE.new_OnTransportStateParam(), true) {
   }

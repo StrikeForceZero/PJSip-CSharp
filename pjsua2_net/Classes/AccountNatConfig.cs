@@ -59,7 +59,7 @@ public class AccountNatConfig : PersistentObject {
     } 
   }
 
-  public pjsua_nat64_opt nat64Opt {
+  /*public pjsua_nat64_opt nat64Opt {
     set {
       pjsua2PINVOKE.AccountNatConfig_nat64Opt_set(swigCPtr, (int)value);
     } 
@@ -67,7 +67,7 @@ public class AccountNatConfig : PersistentObject {
       pjsua_nat64_opt ret = (pjsua_nat64_opt)pjsua2PINVOKE.AccountNatConfig_nat64Opt_get(swigCPtr);
       return ret;
     } 
-  }
+  }*/
 
   public bool iceEnabled {
     set {

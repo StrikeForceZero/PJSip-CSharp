@@ -149,7 +149,7 @@ public class AccountConfig : PersistentObject {
     } 
   }
 
-  public AccountIpChangeConfig ipChangeConfig {
+  /*public AccountIpChangeConfig ipChangeConfig {
     set {
       pjsua2PINVOKE.AccountConfig_ipChangeConfig_set(swigCPtr, AccountIpChangeConfig.getCPtr(value));
     } 
@@ -158,7 +158,7 @@ public class AccountConfig : PersistentObject {
       AccountIpChangeConfig ret = (cPtr == global::System.IntPtr.Zero) ? null : new AccountIpChangeConfig(cPtr, false);
       return ret;
     } 
-  }
+  }*/
 
   public AccountConfig() : this(pjsua2PINVOKE.new_AccountConfig(), true) {
   }

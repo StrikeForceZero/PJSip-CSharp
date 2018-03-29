@@ -94,7 +94,7 @@ public class VideoDevInfo : global::System.IDisposable {
     } 
   }
 
-  public SWIGTYPE_p_std__vectorT_pj__MediaFormat_t fmt {
+  /*public SWIGTYPE_p_std__vectorT_pj__MediaFormat_t fmt {
     set {
       pjsua2PINVOKE.VideoDevInfo_fmt_set(swigCPtr, SWIGTYPE_p_std__vectorT_pj__MediaFormat_t.getCPtr(value));
     } 
@@ -103,7 +103,7 @@ public class VideoDevInfo : global::System.IDisposable {
       SWIGTYPE_p_std__vectorT_pj__MediaFormat_t ret = (cPtr == global::System.IntPtr.Zero) ? null : new SWIGTYPE_p_std__vectorT_pj__MediaFormat_t(cPtr, false);
       return ret;
     } 
-  }
+  }*/
 
   public VideoDevInfo() : this(pjsua2PINVOKE.new_VideoDevInfo(), true) {
   }
