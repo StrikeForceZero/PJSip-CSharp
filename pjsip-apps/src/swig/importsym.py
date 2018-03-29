@@ -55,7 +55,7 @@ if not CPP_PATH:
 
 # Hardcoded!
 if sys.platform == 'win32':
-	PYCPARSER_DIR="C:/devs/tools/pycparser"
+	PYCPARSER_DIR="C:/Python27/Lib/site-packages/pycparser"
 elif sys.platform == "linux2":
 	PYCPARSER_DIR="/home/bennylp/Desktop/opt/src/pycparser-master"
 else:
@@ -68,7 +68,7 @@ if not os.path.exists(PYCPARSER_DIR + '/utils/fake_libc_include'):
 # Heading, to be placed before the source files
 C_HEADING_SECTION = """
 #define PJ_AUTOCONF		1
-#define jmp_buf			int
+// #define jmp_buf			int
 #define __attribute__(x)
 """
 
