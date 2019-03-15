@@ -23972,7 +23972,8 @@ SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_Account_findBuddy__SWIG_1(void * jarg
 }
 
 
-SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Account_addBuddy(void * jarg1, void * jarg2) {
+// TODO: Fix cannot access private member declared in class 'pj::Account'
+/*SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Account_addBuddy(void * jarg1, void * jarg2) {
   pj::Account *arg1 = (pj::Account *) 0 ;
   pj::Buddy *arg2 = (pj::Buddy *) 0 ;
   
@@ -23989,7 +23990,7 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Account_removeBuddy(void * jarg1, void 
   arg1 = (pj::Account *)jarg1; 
   arg2 = (pj::Buddy *)jarg2; 
   (arg1)->removeBuddy(arg2);
-}
+}*/
 
 
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Account_onIncomingCall(void * jarg1, void * jarg2) {
