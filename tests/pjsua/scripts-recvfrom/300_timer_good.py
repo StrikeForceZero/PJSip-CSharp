@@ -1,10 +1,10 @@
-# $Id: 300_timer_good.py 3307 2010-09-08 05:38:49Z nanang $
+# $Id: 300_timer_good.py 5844 2018-07-26 03:37:08Z nanang $
 import inc_sip as sip
 import inc_sdp as sdp
 
 # INVITE session using session timer
 
-pjsua = "--null-audio sip:127.0.0.1:$PORT --use-timer 2 --timer-min-se 100 --timer-se 2000"
+pjsua = "--null-audio sip:127.0.0.1:$PORT --use-timer 2 --timer-min-se 100 --timer-se 2000 --no-tcp"
 
 req = sip.RecvfromTransaction("INVITE with session timer", 200,
 				include=["Session-Expires:\s*2000", "Min-SE:\s*100"], 

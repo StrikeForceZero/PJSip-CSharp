@@ -1,4 +1,4 @@
-/* $Id: ioqueue_common_abs.c 5539 2017-01-23 04:32:34Z nanang $ */
+/* $Id: ioqueue_common_abs.c 5737 2018-02-15 13:57:11Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -343,7 +343,7 @@ pj_bool_t ioqueue_dispatch_write_event( pj_ioqueue_t *ioqueue,
 		    PJ_PERROR(4,(THIS_FILE, send_rc,
 				 "Send error for socket %d, retrying",
 				 h->fd));
-		    replace_udp_sock(h);
+		    send_rc = replace_udp_sock(h);
 		    continue;
 		}
 #endif
@@ -546,9 +546,6 @@ pj_bool_t ioqueue_dispatch_read_event( pj_ioqueue_t *ioqueue,
 #           elif (defined(PJ_HAS_UNISTD_H) && PJ_HAS_UNISTD_H != 0)
                 bytes_read = read(h->fd, read_op->buf, bytes_read);
                 rc = (bytes_read >= 0) ? PJ_SUCCESS : pj_get_os_error();
-#	    elif defined(PJ_LINUX_KERNEL) && PJ_LINUX_KERNEL != 0
-                bytes_read = sys_read(h->fd, read_op->buf, bytes_read);
-                rc = (bytes_read >= 0) ? PJ_SUCCESS : -bytes_read;
 #           else
 #               error "Implement read() for this platform!"
 #           endif
@@ -581,7 +578,10 @@ pj_bool_t ioqueue_dispatch_read_event( pj_ioqueue_t *ioqueue,
 	    if (rc == PJ_STATUS_FROM_OS(ENOTCONN) && !IS_CLOSING(h) &&
 		h->fd_type==pj_SOCK_DGRAM())
 	    {
-		replace_udp_sock(h);
+		rc = replace_udp_sock(h);
+		if (rc != PJ_SUCCESS) {
+		    bytes_read = -rc;
+		}
 	    }
 #endif
 	}

@@ -1,4 +1,4 @@
-/* $Id: ice_session.c 5665 2017-09-28 03:44:53Z ming $ */
+/* $Id: ice_session.c 5850 2018-08-01 08:34:19Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -409,9 +409,9 @@ PJ_DEF(pj_status_t) pj_ice_sess_create(pj_stun_config *stun_cfg,
     }
 
     if (local_passwd == NULL) {
-	ice->rx_pass.ptr = (char*) pj_pool_alloc(ice->pool, PJ_ICE_UFRAG_LEN);
-	pj_create_random_string(ice->rx_pass.ptr, PJ_ICE_UFRAG_LEN);
-	ice->rx_pass.slen = PJ_ICE_UFRAG_LEN;
+	ice->rx_pass.ptr = (char*) pj_pool_alloc(ice->pool, PJ_ICE_PWD_LEN);
+	pj_create_random_string(ice->rx_pass.ptr, PJ_ICE_PWD_LEN);
+	ice->rx_pass.slen = PJ_ICE_PWD_LEN;
     } else {
 	pj_strdup(ice->pool, &ice->rx_pass, local_passwd);
     }
@@ -762,7 +762,7 @@ PJ_DEF(pj_status_t) pj_ice_sess_add_cand(pj_ice_sess *ice,
 	      ice->tp_data[i].transport_id == transport_id);
 
     pj_ansi_strcpy(ice->tmp.txt, pj_sockaddr_print(&lcand->addr, address,
-                                                   sizeof(address), 0));
+                                                   sizeof(address), 2));
     LOG4((ice->obj_name, 
 	 "Candidate %d added: comp_id=%d, type=%s, foundation=%.*s, "
 	 "addr=%s:%d, base=%s:%d, prio=0x%x (%u)",
@@ -773,7 +773,7 @@ PJ_DEF(pj_status_t) pj_ice_sess_add_cand(pj_ice_sess *ice,
 	 lcand->foundation.ptr,
 	 ice->tmp.txt, 
 	  pj_sockaddr_get_port(&lcand->addr),
-	  pj_sockaddr_print(&lcand->base_addr, address, sizeof(address), 0),
+	  pj_sockaddr_print(&lcand->base_addr, address, sizeof(address), 2),
 	  pj_sockaddr_get_port(&lcand->base_addr),
 	 lcand->prio, lcand->prio));
 
@@ -921,10 +921,10 @@ static const char *dump_check(char *buffer, unsigned bufsize,
 			   (int)GET_CHECK_ID(clist, check),
 			   check->lcand->comp_id,
 			   pj_sockaddr_print(&lcand->addr, laddr,
-			                     sizeof(laddr), 0),
+			                     sizeof(laddr), 2),
 			   pj_sockaddr_get_port(&lcand->addr),
 			   pj_sockaddr_print(&rcand->addr, raddr,
-			                     sizeof(raddr), 0),
+			                     sizeof(raddr), 2),
 			   pj_sockaddr_get_port(&rcand->addr));
 
     if (len < 0)
@@ -1073,7 +1073,7 @@ static pj_status_t prune_checklist(pj_ice_sess *ice,
 		LOG4((ice->obj_name, 
 		      "Base candidate %s:%d not found for srflx candidate %d",
 		      pj_sockaddr_print(&srflx->base_addr, baddr,
-		                        sizeof(baddr), 0),
+		                        sizeof(baddr), 2),
 		      pj_sockaddr_get_port(&srflx->base_addr),
 		      GET_LCAND_ID(clist->checks[i].lcand)));
 		return PJNATH_EICENOHOSTCAND;
@@ -2734,6 +2734,8 @@ static void handle_incoming_check(pj_ice_sess *ice,
      */
     if (i == ice->rcand_cnt) {
 	char raddr[PJ_INET6_ADDRSTRLEN];
+	void *p;
+
 	if (ice->rcand_cnt >= PJ_ICE_MAX_CAND) {
 	    LOG4((ice->obj_name, 
 	          "Unable to add new peer reflexive candidate: too many "
@@ -2748,14 +2750,13 @@ static void handle_incoming_check(pj_ice_sess *ice,
 	pj_sockaddr_cp(&rcand->addr, &rcheck->src_addr);
 
 	/* Foundation is random, unique from other foundation */
-	rcand->foundation.ptr = (char*) pj_pool_alloc(ice->pool, 36);
+	rcand->foundation.ptr = p = (char*) pj_pool_alloc(ice->pool, 36);
 	rcand->foundation.slen = pj_ansi_snprintf(rcand->foundation.ptr, 36,
-						  "f%p", 
-						  rcand->foundation.ptr);
+						  "f%p", p);
 
 	LOG4((ice->obj_name, 
 	      "Added new remote candidate from the request: %s:%d",
-	      pj_sockaddr_print(&rcand->addr, raddr, sizeof(raddr), 0),
+	      pj_sockaddr_print(&rcand->addr, raddr, sizeof(raddr), 2),
 	      pj_sockaddr_get_port(&rcand->addr)));
 
     } else {

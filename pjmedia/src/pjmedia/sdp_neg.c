@@ -1,4 +1,4 @@
-/* $Id: sdp_neg.c 5619 2017-07-05 03:57:53Z riza $ */
+/* $Id: sdp_neg.c 5828 2018-07-20 02:19:41Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -150,6 +150,7 @@ PJ_DEF(pj_status_t) pjmedia_sdp_neg_create_w_remote_offer(pj_pool_t *pool,
     PJ_ASSERT_RETURN(neg != NULL, PJ_ENOMEM);
 
     neg->prefer_remote_codec_order = PJMEDIA_SDP_NEG_PREFER_REMOTE_CODEC_ORDER;
+    neg->answer_with_multiple_codecs = PJMEDIA_SDP_NEG_ANSWER_MULTIPLE_CODECS;
     neg->neg_remote_sdp = pjmedia_sdp_session_clone(pool, remote);
 
     if (initial) {
@@ -509,11 +510,12 @@ PJ_DEF(pj_status_t) pjmedia_sdp_neg_set_local_answer( pj_pool_t *pool,
     /* Check arguments are valid. */
     PJ_ASSERT_RETURN(pool && neg && local, PJ_EINVAL);
 
-    /* Can only do this in STATE_REMOTE_OFFER.
-     * If we already provide local offer, then rx_remote_answer() should
+    /* Can only do this in STATE_REMOTE_OFFER or WAIT_NEGO.
+     * If we already provide local offer, then set_remote_answer() should
      * be called instead of this function.
      */
-    PJ_ASSERT_RETURN(neg->state == PJMEDIA_SDP_NEG_STATE_REMOTE_OFFER, 
+    PJ_ASSERT_RETURN(neg->state == PJMEDIA_SDP_NEG_STATE_REMOTE_OFFER ||
+    		     neg->state == PJMEDIA_SDP_NEG_STATE_WAIT_NEGO, 
 		     PJMEDIA_SDPNEG_EINSTATE);
 
     /* State now is STATE_WAIT_NEGO. */

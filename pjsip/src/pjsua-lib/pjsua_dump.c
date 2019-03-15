@@ -1,4 +1,4 @@
-/* $Id: pjsua_dump.c 5170 2015-08-25 08:45:46Z nanang $ */
+/* $Id: pjsua_dump.c 5729 2018-01-18 05:44:41Z riza $ */
 /* 
  * Copyright (C) 2011-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -889,7 +889,7 @@ void print_call(const char *title,
     int len;
     pjsip_inv_session *inv = pjsua_var.calls[call_id].inv;
     pjsip_dialog *dlg;
-    char userinfo[128];
+    char userinfo[PJSIP_MAX_URL_SIZE];
 
     /* Dump invite sesion info. */
 

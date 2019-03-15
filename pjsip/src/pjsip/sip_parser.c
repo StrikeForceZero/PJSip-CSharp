@@ -1,4 +1,4 @@
-/* $Id: sip_parser.c 5682 2017-11-08 02:58:18Z riza $ */
+/* $Id: sip_parser.c 5697 2017-11-17 04:07:43Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -834,13 +834,13 @@ PJ_DEF(pj_status_t) pjsip_find_msg( const char *buf, pj_size_t size,
 				  pj_bool_t is_datagram, pj_size_t *msg_size)
 {
 #if PJ_HAS_TCP
-    const char *hdr_end;
-    const char *body_start;
+    const char *volatile hdr_end;
+    const char *volatile body_start;
     const char *pos;
-    const char *line;
+    const char *volatile line;
     int content_length = -1;
     pj_str_t cur_msg;
-    pj_status_t status = PJ_SUCCESS;
+    pj_status_t status = PJSIP_EMISSINGHDR;
     const pj_str_t end_hdr = { "\n\r\n", 3};
 
     *msg_size = size;
@@ -877,6 +877,9 @@ PJ_DEF(pj_status_t) pjsip_find_msg( const char *buf, pj_size_t size,
 	    pj_scanner scanner;
 	    PJ_USE_EXCEPTION;
 
+	    /* The buffer passed to the scanner is not NULL terminated,
+             * but should be safe. See ticket #2063.
+	     */ 
 	    pj_scan_init(&scanner, (char*)line, hdr_end-line, 
 			 PJ_SCAN_AUTOSKIP_WS_HEADER, &on_syntax_error);
 

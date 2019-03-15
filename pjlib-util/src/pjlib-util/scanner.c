@@ -1,4 +1,4 @@
-/* $Id: scanner.c 4641 2013-11-04 09:05:43Z nanang $ */
+/* $Id: scanner.c 5697 2017-11-17 04:07:43Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -22,8 +22,11 @@
 #include <pj/string.h>
 #include <pj/except.h>
 #include <pj/os.h>
+#include <pj/log.h>
 #include <pj/errno.h>
 #include <pj/assert.h>
+
+#define THIS_FILE   "scanner.c"
 
 #define PJ_SCAN_IS_SPACE(c)		((c)==' ' || (c)=='\t')
 #define PJ_SCAN_IS_NEWLINE(c)		((c)=='\r' || (c)=='\n')

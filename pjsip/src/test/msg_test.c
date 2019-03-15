@@ -1,4 +1,4 @@
-/* $Id: msg_test.c 4587 2013-09-05 02:14:05Z ming $ */
+/* $Id: msg_test.c 5848 2018-07-30 02:32:25Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -1107,7 +1107,7 @@ struct hdr_test_t
     {
 	/* Proxy-Authenticate, testing which params should be quoted */
 	"Proxy-Authenticate", NULL,
-	"Digest  realm=\"realm\",domain=\"sip:domain\",nonce=\"nonce\","  \
+	"Digest realm=\"realm\",domain=\"sip:domain\",nonce=\"nonce\","  \
 	        "opaque=\"opaque\",stale=true,algorithm=MD5,qop=\"auth\"",
 	&hdr_test_proxy_authenticate
     },

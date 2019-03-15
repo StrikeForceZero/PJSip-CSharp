@@ -61,6 +61,11 @@ public class AudioMedia : Media {
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
+  public void startTransmit2(AudioMedia sink, AudioMediaTransmitParam param) {
+    pjsua2PINVOKE.AudioMedia_startTransmit2(swigCPtr, AudioMedia.getCPtr(sink), AudioMediaTransmitParam.getCPtr(param));
+    if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+  }
+
   public void stopTransmit(AudioMedia sink) {
     pjsua2PINVOKE.AudioMedia_stopTransmit(swigCPtr, AudioMedia.getCPtr(sink));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();

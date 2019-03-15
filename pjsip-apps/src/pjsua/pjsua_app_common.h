@@ -1,4 +1,4 @@
-/* $Id: pjsua_app_common.h 4489 2013-04-23 07:53:25Z riza $ */
+/* $Id: pjsua_app_common.h 5746 2018-02-26 07:50:18Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -84,6 +84,7 @@ typedef struct pjsua_app_config
     pjsua_transport_config  udp_cfg;
     pjsua_transport_config  rtp_cfg;
     pjsip_redirect_op	    redir_op;
+    int			    srtp_keying;
 
     unsigned		    acc_cnt;
     pjsua_acc_config	    acc_cfg[PJSUA_MAX_ACC];

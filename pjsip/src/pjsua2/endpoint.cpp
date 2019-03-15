@@ -1,4 +1,4 @@
-/* $Id: endpoint.cpp 5676 2017-10-24 07:31:39Z ming $ */
+/* $Id: endpoint.cpp 5878 2018-09-04 15:12:58Z riza $ */
 /* 
  * Copyright (C) 2013 Teluu Inc. (http://www.teluu.com)
  *
@@ -173,6 +173,9 @@ void UaConfig::fromPj(const pjsua_config &ua_cfg)
     for (i=0; i<ua_cfg.stun_srv_cnt; ++i) {
 	this->stunServer.push_back(pj2Str(ua_cfg.stun_srv[i]));
     }
+    for (i=0; i<ua_cfg.outbound_proxy_cnt; ++i) {
+	this->outboundProxies.push_back(pj2Str(ua_cfg.outbound_proxy[i]));
+    }
 
     this->stunTryIpv6 = PJ2BOOL(ua_cfg.stun_try_ipv6);
     this->stunIgnoreFailure = PJ2BOOL(ua_cfg.stun_ignore_failure);
@@ -205,8 +208,17 @@ pjsua_config UaConfig::toPj() const
     }
     pua_cfg.stun_srv_cnt = i;
 
+    for (i=0; i<this->outboundProxies.size() &&
+    	      i<PJ_ARRAY_SIZE(pua_cfg.outbound_proxy); ++i)
+    {
+	pua_cfg.outbound_proxy[i] = str2Pj(this->outboundProxies[i]);
+    }
+    pua_cfg.outbound_proxy_cnt= i;
+
     pua_cfg.nat_type_in_sdp = this->natTypeInSdp;
     pua_cfg.enable_unsolicited_mwi = this->mwiUnsolicitedEnabled;
+    pua_cfg.stun_try_ipv6 = this->stunTryIpv6;
+    pua_cfg.stun_ignore_failure = this->stunIgnoreFailure;
 
     return pua_cfg;
 }
@@ -1054,6 +1066,7 @@ void Endpoint::on_call_sdp_created(pjsua_call_id call_id,
     if (rem_sdp)
         prm.remSdp.fromPj(*rem_sdp);
     
+    call->sdp_pool = pool;
     call->onCallSdpCreated(prm);
     
     /* Check if application modifies the SDP */
@@ -1062,11 +1075,17 @@ void Endpoint::on_call_sdp_created(pjsua_call_id call_id,
         pj_str_t dup_new_sdp;
         pj_str_t new_sdp_str = {(char*)prm.sdp.wholeSdp.c_str(),
         			(pj_ssize_t)prm.sdp.wholeSdp.size()};
+	pj_status_t status;
 
         pj_strdup(pool, &dup_new_sdp, &new_sdp_str);        
-        pjmedia_sdp_parse(pool, dup_new_sdp.ptr,
-                          dup_new_sdp.slen, &new_sdp);
-        pj_memcpy(sdp, new_sdp, sizeof(*sdp));
+        status = pjmedia_sdp_parse(pool, dup_new_sdp.ptr,
+				   dup_new_sdp.slen, &new_sdp);
+	if (status != PJ_SUCCESS) {
+	    PJ_PERROR(4,(THIS_FILE, status,
+			 "Failed to parse the modified SDP"));
+	} else {
+	    pj_memcpy(sdp, new_sdp, sizeof(*sdp));
+	}
     }
 }
 
@@ -1081,7 +1100,7 @@ void Endpoint::on_stream_created2(pjsua_call_id call_id,
     OnStreamCreatedParam prm;
     prm.stream = param->stream;
     prm.streamIdx = param->stream_idx;
-    prm.destroyPort = param->destroy_port;
+    prm.destroyPort = (param->destroy_port != PJ_FALSE);
     prm.pPort = (MediaPort)param->port;
     
     call->onStreamCreated(prm);
@@ -1134,7 +1153,26 @@ void Endpoint::on_dtmf_digit(pjsua_call_id call_id, int digit)
     job->call_id = call_id;
     char buf[10];
     pj_ansi_sprintf(buf, "%c", digit);
-    job->prm.digit = (string)buf;
+    job->prm.digit = string(buf);
+    
+    Endpoint::instance().utilAddPendingJob(job);
+}
+
+void Endpoint::on_dtmf_digit2(pjsua_call_id call_id, 
+			      const pjsua_dtmf_info *info)
+{
+    Call *call = Call::lookup(call_id);
+    if (!call) {
+	return;
+    }
+    
+    PendingOnDtmfDigitCallback *job = new PendingOnDtmfDigitCallback;
+    job->call_id = call_id;
+    char buf[10];
+    pj_ansi_sprintf(buf, "%c", info->digit);
+    job->prm.digit = string(buf);
+    job->prm.method = info->method;
+    job->prm.duration = info->duration;
     
     Endpoint::instance().utilAddPendingJob(job);
 }
@@ -1240,6 +1278,35 @@ void Endpoint::on_call_rx_offer(pjsua_call_id call_id,
     
     call->onCallRxOffer(prm);
     
+    *code = prm.statusCode;
+    *opt = prm.opt.toPj();
+}
+
+void Endpoint::on_call_rx_reinvite(pjsua_call_id call_id,
+                                   const pjmedia_sdp_session *offer,
+                                   pjsip_rx_data *rdata,
+			     	   void *reserved,
+			     	   pj_bool_t *async,
+                                   pjsip_status_code *code,
+                                   pjsua_call_setting *opt)
+{
+    PJ_UNUSED_ARG(reserved);
+
+    Call *call = Call::lookup(call_id);
+    if (!call) {
+	return;
+    }
+    
+    OnCallRxReinviteParam prm;
+    prm.offer.fromPj(*offer);
+    prm.rdata.fromPj(*rdata);
+    prm.async = PJ2BOOL(*async);
+    prm.statusCode = *code;
+    prm.opt.fromPj(*opt);
+    
+    call->onCallRxReinvite(prm);
+    
+    *async = prm.async;
     *code = prm.statusCode;
     *opt = prm.opt.toPj();
 }
@@ -1558,12 +1625,14 @@ void Endpoint::libInit(const EpConfig &prmEpConfig) throw(Error)
     ua_cfg.cb.on_call_sdp_created       = &Endpoint::on_call_sdp_created;
     ua_cfg.cb.on_stream_created2        = &Endpoint::on_stream_created2;
     ua_cfg.cb.on_stream_destroyed       = &Endpoint::on_stream_destroyed;
-    ua_cfg.cb.on_dtmf_digit             = &Endpoint::on_dtmf_digit;
+    //ua_cfg.cb.on_dtmf_digit             = &Endpoint::on_dtmf_digit;
+    ua_cfg.cb.on_dtmf_digit2            = &Endpoint::on_dtmf_digit2;
     ua_cfg.cb.on_call_transfer_request2 = &Endpoint::on_call_transfer_request2;
     ua_cfg.cb.on_call_transfer_status   = &Endpoint::on_call_transfer_status;
     ua_cfg.cb.on_call_replace_request2  = &Endpoint::on_call_replace_request2;
     ua_cfg.cb.on_call_replaced          = &Endpoint::on_call_replaced;
     ua_cfg.cb.on_call_rx_offer          = &Endpoint::on_call_rx_offer;
+    ua_cfg.cb.on_call_rx_reinvite       = &Endpoint::on_call_rx_reinvite;
     ua_cfg.cb.on_call_tx_offer          = &Endpoint::on_call_tx_offer;
     ua_cfg.cb.on_call_redirected        = &Endpoint::on_call_redirected;
     ua_cfg.cb.on_call_media_transport_state =
@@ -2069,6 +2138,23 @@ void Endpoint::resetVideoCodecParam(const string &codec_id) throw(Error)
 #else
     PJ_UNUSED_ARG(codec_id);    
 #endif	
+}
+
+/*
+ * Enumerate all SRTP crypto-suite names.
+ */
+StringVector Endpoint::srtpCryptoEnum() throw(Error)
+{
+    unsigned cnt = PJMEDIA_SRTP_MAX_CRYPTOS;
+    pjmedia_srtp_crypto cryptos[PJMEDIA_SRTP_MAX_CRYPTOS];
+    StringVector result;
+
+    PJSUA2_CHECK_EXPR(pjmedia_srtp_enum_crypto(&cnt, cryptos));
+
+    for (unsigned i = 0; i < cnt; ++i)
+	result.push_back(pj2Str(cryptos[i].name));
+
+    return result;
 }
 
 void Endpoint::handleIpChange(const IpChangeParam &param) throw(Error)

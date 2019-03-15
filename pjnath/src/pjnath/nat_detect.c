@@ -1,4 +1,4 @@
-/* $Id: nat_detect.c 5636 2017-08-02 02:51:59Z ming $ */
+/* $Id: nat_detect.c 5833 2018-07-23 07:15:08Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -302,11 +302,11 @@ PJ_DEF(pj_status_t) pj_stun_detect_nat_type2(const pj_sockaddr *server,
 	goto on_error;
 
     PJ_LOG(5,(sess->pool->obj_name, "Local address is %s:%d",
-    	      pj_sockaddr_print(&sess->local_addr, addr, sizeof(addr), 0),
+    	      pj_sockaddr_print(&sess->local_addr, addr, sizeof(addr), 2),
     	      pj_sockaddr_get_port(&sess->local_addr)));
 
     PJ_LOG(5,(sess->pool->obj_name, "Server set to %s:%d",
-    	      pj_sockaddr_print(server, addr, sizeof(addr), 0),
+    	      pj_sockaddr_print(server, addr, sizeof(addr), 2),
     	      pj_sockaddr_get_port(server)));
 
     /*
@@ -870,7 +870,7 @@ static pj_status_t send_test(nat_detect_session *sess,
     PJ_LOG(5,(sess->pool->obj_name, 
               "Performing %s to %s:%d", 
 	      test_names[test_id],
-	      pj_sockaddr_print(sess->cur_server, addr, sizeof(addr), 0),
+	      pj_sockaddr_print(sess->cur_server, addr, sizeof(addr), 2),
 	      pj_sockaddr_get_port(sess->cur_server)));
 
     /* Send the request */

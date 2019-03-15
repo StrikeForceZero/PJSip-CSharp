@@ -1,4 +1,4 @@
-/* $Id: string.c 5682 2017-11-08 02:58:18Z riza $ */
+/* $Id: string.c 5701 2017-11-22 06:59:47Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -76,7 +76,7 @@ PJ_DEF(pj_ssize_t) pj_strcspn(const pj_str_t *str, const pj_str_t *set_char)
 }
 
 
-PJ_DECL(pj_ssize_t) pj_strcspn2(const pj_str_t *str, const char *set_char)
+PJ_DEF(pj_ssize_t) pj_strcspn2(const pj_str_t *str, const char *set_char)
 {
     pj_ssize_t i, j;
     for (i = 0; i < str->slen; i++) {
@@ -114,7 +114,7 @@ PJ_DEF(pj_ssize_t) pj_strtok(const pj_str_t *str, const pj_str_t *delim,
 }
 
 
-PJ_DECL(pj_ssize_t) pj_strtok2(const pj_str_t *str, const char *delim,
+PJ_DEF(pj_ssize_t) pj_strtok2(const pj_str_t *str, const char *delim,
 			       pj_str_t *tok, pj_size_t start_idx)
 {
     pj_ssize_t str_idx;

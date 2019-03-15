@@ -1,4 +1,4 @@
-/* $Id: siprtp.c 5535 2017-01-19 10:31:38Z riza $ */
+/* $Id: siprtp.c 5747 2018-02-26 10:14:27Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -1469,6 +1469,9 @@ static void call_on_media_update( pjsip_inv_session *inv,
 	app_perror(THIS_FILE, "Error on pjmedia_transport_attach()", status);
 	return;
     }
+
+    /* Start media transport */
+    pjmedia_transport_media_start(audio->transport, 0, 0, 0, 0);
 
     /* Start media thread. */
     audio->thread_quit_flag = 0;

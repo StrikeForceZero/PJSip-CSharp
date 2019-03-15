@@ -54,6 +54,10 @@ public class Account : global::System.IDisposable {
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
+  public void shutdown() {
+    pjsua2PINVOKE.Account_shutdown(swigCPtr);
+  }
+
   public void modify(AccountConfig cfg) {
     pjsua2PINVOKE.Account_modify(swigCPtr, AccountConfig.getCPtr(cfg));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
@@ -129,14 +133,6 @@ public class Account : global::System.IDisposable {
     Buddy ret = (cPtr == global::System.IntPtr.Zero) ? null : new Buddy(cPtr, false);
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
     return ret;
-  }
-
-  public void addBuddy(Buddy buddy) {
-    pjsua2PINVOKE.Account_addBuddy(swigCPtr, Buddy.getCPtr(buddy));
-  }
-
-  public void removeBuddy(Buddy buddy) {
-    pjsua2PINVOKE.Account_removeBuddy(swigCPtr, Buddy.getCPtr(buddy));
   }
 
   public virtual void onIncomingCall(OnIncomingCallParam prm) {

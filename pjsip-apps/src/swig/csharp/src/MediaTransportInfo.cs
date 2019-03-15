@@ -40,6 +40,30 @@ public class MediaTransportInfo : global::System.IDisposable {
     }
   }
 
+  public string localRtpName {
+    set {
+      pjsua2PINVOKE.MediaTransportInfo_localRtpName_set(swigCPtr, value);
+      if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+    } 
+    get {
+      string ret = pjsua2PINVOKE.MediaTransportInfo_localRtpName_get(swigCPtr);
+      if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+      return ret;
+    } 
+  }
+
+  public string localRtcpName {
+    set {
+      pjsua2PINVOKE.MediaTransportInfo_localRtcpName_set(swigCPtr, value);
+      if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+    } 
+    get {
+      string ret = pjsua2PINVOKE.MediaTransportInfo_localRtcpName_get(swigCPtr);
+      if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+      return ret;
+    } 
+  }
+
   public string srcRtpName {
     set {
       pjsua2PINVOKE.MediaTransportInfo_srcRtpName_set(swigCPtr, value);

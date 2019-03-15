@@ -1,4 +1,4 @@
-/* $Id: sip_auth_msg.c 5237 2016-01-27 05:42:20Z riza $ */
+/* $Id: sip_auth_msg.c 5809 2018-06-22 03:43:17Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -234,7 +234,7 @@ static int print_digest_challenge( pjsip_digest_challenge *chal,
     const pjsip_parser_const_t *pc = pjsip_parser_const();
 
     /* Allow empty realm, see http://trac.pjsip.org/repos/ticket/1061 */
-    copy_advance_pair_quote(buf, " realm=", 7, chal->realm, '"', '"');
+    copy_advance_pair_quote(buf, "realm=", 6, chal->realm, '"', '"');
     copy_advance_pair_quote_cond(buf, ",domain=", 8, chal->domain, '"', '"');
     copy_advance_pair_quote_cond(buf, ",nonce=", 7, chal->nonce, '"', '"');
     copy_advance_pair_quote_cond(buf, ",opaque=", 8, chal->opaque, '"', '"');

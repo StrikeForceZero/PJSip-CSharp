@@ -1,4 +1,4 @@
-/* $Id: pjsua_vid.c 5660 2017-09-25 03:17:42Z riza $ */
+/* $Id: pjsua_vid.c 5842 2018-07-26 03:05:10Z ming $ */
 /* 
  * Copyright (C) 2011-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -58,13 +58,6 @@ pj_status_t pjsua_vid_subsys_init(void)
     if (status != PJ_SUCCESS) {
 	PJ_PERROR(1,(THIS_FILE, status,
 		     "Error creating PJMEDIA converter manager"));
-	goto on_error;
-    }
-
-    status = pjmedia_event_mgr_create(pjsua_var.pool, 0, NULL);
-    if (status != PJ_SUCCESS) {
-	PJ_PERROR(1,(THIS_FILE, status,
-		     "Error creating PJMEDIA event manager"));
 	goto on_error;
     }
 
@@ -166,9 +159,6 @@ pj_status_t pjsua_vid_subsys_destroy(void)
 
     if (pjmedia_converter_mgr_instance())
 	pjmedia_converter_mgr_destroy(NULL);
-
-    if (pjmedia_event_mgr_instance())
-	pjmedia_event_mgr_destroy(NULL);
 
     if (pjmedia_video_format_mgr_instance())
 	pjmedia_video_format_mgr_destroy(NULL);
@@ -909,8 +899,9 @@ pj_status_t pjsua_vid_channel_update(pjsua_call_media *call_med,
 	si->jb_max_pre = pjsua_var.media_cfg.jb_max_pre;
 	si->jb_max = pjsua_var.media_cfg.jb_max;
 
-	/* Set SSRC */
+	/* Set SSRC and CNAME */
 	si->ssrc = call_med->ssrc;
+	si->cname = call->cname;
 
 	/* Set RTP timestamp & sequence, normally these value are intialized
 	 * automatically when stream session created, but for some cases (e.g:
@@ -1718,6 +1709,7 @@ static pj_status_t call_add_video(pjsua_call *call,
     pjmedia_sdp_session *sdp;
     pjmedia_sdp_media *sdp_m;
     pjmedia_transport_info tpinfo;
+    unsigned options;
     pj_status_t status;
 
     /* Verify media slot availability */
@@ -1756,7 +1748,8 @@ static pj_status_t call_add_video(pjsua_call *call,
     call_med->strm.v.cap_dev = cap_dev;
 
     /* Init transport media */
-    status = pjmedia_transport_media_create(call_med->tp, pool, 0,
+    options = (call_med->enable_rtcp_mux? PJMEDIA_TPMED_RTCP_MUX: 0);
+    status = pjmedia_transport_media_create(call_med->tp, pool, options,
 					    NULL, call_med->idx);
     if (status != PJ_SUCCESS)
 	goto on_error;
@@ -1907,8 +1900,11 @@ static pj_status_t call_modify_video(pjsua_call *call,
 
 	/* Init transport media */
 	if (call_med->tp && call_med->tp_st == PJSUA_MED_TP_IDLE) {
-	    status = pjmedia_transport_media_create(call_med->tp, pool, 0,
-						    NULL, call_med->idx);
+	    unsigned options = (call_med->enable_rtcp_mux?
+            			PJMEDIA_TPMED_RTCP_MUX: 0);
+	    status = pjmedia_transport_media_create(call_med->tp, pool,
+						    options, NULL,
+						    call_med->idx);
 	    if (status != PJ_SUCCESS)
 		goto on_error;
 	}

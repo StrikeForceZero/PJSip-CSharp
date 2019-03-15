@@ -1,4 +1,4 @@
-/* $Id: l16.c 5632 2017-07-27 06:45:48Z ming $ */
+/* $Id: l16.c 5791 2018-05-14 01:24:43Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -425,7 +425,9 @@ static pj_status_t l16_enum_codecs( pjmedia_codec_factory *factory,
 	codecs[count].channel_cnt = 2;
 	++count;
     }
+#endif
 
+#if PJMEDIA_CODEC_L16_HAS_48KHZ_MONO
     if (count < *max_count) {
 	/* 48KHz mono */
 	codecs[count].type = PJMEDIA_TYPE_AUDIO;
@@ -435,7 +437,9 @@ static pj_status_t l16_enum_codecs( pjmedia_codec_factory *factory,
 	codecs[count].channel_cnt = 1;
 	++count;
     }
+#endif
 
+#if PJMEDIA_CODEC_L16_HAS_48KHZ_STEREO
     if (count < *max_count) {
 	/* 48KHz stereo */
 	codecs[count].type = PJMEDIA_TYPE_AUDIO;

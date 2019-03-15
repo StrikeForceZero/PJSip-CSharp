@@ -80,6 +80,17 @@ public class UaConfig : PersistentObject {
     } 
   }
 
+  public StringVector outboundProxies {
+    set {
+      pjsua2PINVOKE.UaConfig_outboundProxies_set(swigCPtr, StringVector.getCPtr(value));
+    } 
+    get {
+      global::System.IntPtr cPtr = pjsua2PINVOKE.UaConfig_outboundProxies_get(swigCPtr);
+      StringVector ret = (cPtr == global::System.IntPtr.Zero) ? null : new StringVector(cPtr, false);
+      return ret;
+    } 
+  }
+
   public string userAgent {
     set {
       pjsua2PINVOKE.UaConfig_userAgent_set(swigCPtr, value);

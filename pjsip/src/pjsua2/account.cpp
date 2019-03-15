@@ -1,4 +1,4 @@
-/* $Id: account.cpp 5649 2017-09-15 05:32:08Z riza $ */
+/* $Id: account.cpp 5837 2018-07-24 00:29:48Z ming $ */
 /*
  * Copyright (C) 2013 Teluu Inc. (http://www.teluu.com)
  *
@@ -26,6 +26,198 @@ using namespace pj;
 using namespace std;
 
 #define THIS_FILE		"account.cpp"
+
+///////////////////////////////////////////////////////////////////////////////
+
+void RtcpFbCap::fromPj(const pjmedia_rtcp_fb_cap &prm)
+{
+    this->codecId   = pj2Str(prm.codec_id);
+    this->type	    = prm.type;
+    this->typeName  = pj2Str(prm.type_name);
+    this->param	    = pj2Str(prm.param);
+}
+
+pjmedia_rtcp_fb_cap RtcpFbCap::toPj() const
+{
+    pjmedia_rtcp_fb_cap cap;
+
+    pj_bzero(&cap, sizeof(cap));
+    cap.codec_id    = str2Pj(this->codecId);
+    cap.type	    = this->type;
+    cap.type_name   = str2Pj(this->typeName);
+    cap.param	    = str2Pj(this->param);
+
+    return cap;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+RtcpFbConfig::RtcpFbConfig()
+{
+    pjmedia_rtcp_fb_setting setting;
+    pjmedia_rtcp_fb_setting_default(&setting);
+    fromPj(setting);
+}
+
+void RtcpFbConfig::fromPj(const pjmedia_rtcp_fb_setting &prm)
+{
+    this->dontUseAvpf = PJ2BOOL(prm.dont_use_avpf);
+    this->caps.clear();
+    for (unsigned i = 0; i < prm.cap_count; ++i) {
+	RtcpFbCap cap;
+	cap.fromPj(prm.caps[i]);
+	this->caps.push_back(cap);
+    }
+}
+
+pjmedia_rtcp_fb_setting RtcpFbConfig::toPj() const
+{
+    pjmedia_rtcp_fb_setting setting;
+
+    pj_bzero(&setting, sizeof(setting));
+    setting.dont_use_avpf   = this->dontUseAvpf;
+    setting.cap_count	    = this->caps.size();
+    for (unsigned i = 0; i < setting.cap_count; ++i) {
+	setting.caps[i] = this->caps[i].toPj();
+    }
+
+    return setting;
+}
+
+void RtcpFbConfig::readObject(const ContainerNode &node) throw(Error)
+{
+    ContainerNode this_node = node.readContainer("RtcpFbConfig");
+    NODE_READ_BOOL	(this_node, dontUseAvpf);
+
+    ContainerNode cap_node = this_node.readArray("caps");
+    this->caps.clear();
+    while (cap_node.hasUnread()) {
+	RtcpFbCap cap;
+	NODE_READ_STRING	(cap_node, cap.codecId);
+	NODE_READ_NUM_T		(cap_node, pjmedia_rtcp_fb_type, cap.type);
+	NODE_READ_STRING	(cap_node, cap.typeName);
+	NODE_READ_STRING	(cap_node, cap.param);
+	this->caps.push_back(cap);
+    }
+}
+
+void RtcpFbConfig::writeObject(ContainerNode &node) const throw(Error)
+{
+    ContainerNode this_node = node.writeNewContainer("RtcpFbConfig");
+    NODE_WRITE_BOOL	(this_node, dontUseAvpf);
+
+    ContainerNode cap_node = this_node.writeNewArray("caps");
+    for (unsigned i=0; i<this->caps.size(); ++i) {
+	NODE_WRITE_STRING	(cap_node, this->caps[i].codecId);
+	NODE_WRITE_NUM_T	(cap_node, pjmedia_rtcp_fb_type,
+				 this->caps[i].type);
+	NODE_WRITE_STRING	(cap_node, this->caps[i].typeName);
+	NODE_WRITE_STRING	(cap_node, this->caps[i].param);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void SrtpCrypto::fromPj(const pjmedia_srtp_crypto &prm)
+{
+    this->key	    = pj2Str(prm.key);
+    this->name	    = pj2Str(prm.name);
+    this->flags	    = prm.flags;
+}
+
+pjmedia_srtp_crypto SrtpCrypto::toPj() const
+{
+    pjmedia_srtp_crypto crypto;
+    
+    crypto.key	    = str2Pj(this->key);
+    crypto.name	    = str2Pj(this->name);
+    crypto.flags    = this->flags;
+
+    return crypto;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+SrtpOpt::SrtpOpt()
+{
+    pjsua_srtp_opt opt;
+    pjsua_srtp_opt_default(&opt);
+    fromPj(opt);
+}
+
+void SrtpOpt::fromPj(const pjsua_srtp_opt &prm)
+{
+    this->cryptos.clear();
+    for (unsigned i = 0; i < prm.crypto_count; ++i) {
+	SrtpCrypto crypto;
+	crypto.fromPj(prm.crypto[i]);
+	this->cryptos.push_back(crypto);
+    }
+
+    this->keyings.clear();
+    for (unsigned i = 0; i < prm.keying_count; ++i) {
+	this->keyings.push_back(prm.keying[i]);
+    }
+}
+
+pjsua_srtp_opt SrtpOpt::toPj() const
+{
+    pjsua_srtp_opt opt;
+
+    pj_bzero(&opt, sizeof(opt));
+
+    opt.crypto_count = this->cryptos.size();
+    for (unsigned i = 0; i < opt.crypto_count; ++i) {
+	opt.crypto[i] = this->cryptos[i].toPj();
+    }
+
+    opt.keying_count = this->keyings.size();
+    for (unsigned i = 0; i < opt.keying_count; ++i) {
+	opt.keying[i] = (pjmedia_srtp_keying_method)this->keyings[i];
+    }
+
+    return opt;
+}
+
+void SrtpOpt::readObject(const ContainerNode &node) throw(Error)
+{
+    ContainerNode this_node = node.readContainer("SrtpOpt");
+
+    ContainerNode crypto_node = this_node.readArray("cryptos");
+    this->cryptos.clear();
+    while (crypto_node.hasUnread()) {
+	SrtpCrypto crypto;
+	NODE_READ_STRING	(crypto_node, crypto.key);
+	NODE_READ_STRING	(crypto_node, crypto.name);
+	NODE_READ_UNSIGNED	(crypto_node, crypto.flags);
+	this->cryptos.push_back(crypto);
+    }
+
+    ContainerNode keying_node = this_node.readArray("keyings");
+    this->keyings.clear();
+    while (keying_node.hasUnread()) {
+	unsigned keying;
+	NODE_READ_UNSIGNED	(keying_node, keying);
+	this->keyings.push_back(keying);
+    }
+}
+
+void SrtpOpt::writeObject(ContainerNode &node) const throw(Error)
+{
+    ContainerNode this_node = node.writeNewContainer("SrtpOpt");
+
+    ContainerNode crypto_node = this_node.writeNewArray("cryptos");
+    for (unsigned i=0; i<this->cryptos.size(); ++i) {
+	NODE_WRITE_STRING	(crypto_node, this->cryptos[i].key);
+	NODE_WRITE_STRING	(crypto_node, this->cryptos[i].name);
+	NODE_WRITE_UNSIGNED	(crypto_node, this->cryptos[i].flags);
+    }
+
+    ContainerNode keying_node = this_node.writeNewArray("keyings");
+    for (unsigned i=0; i<this->keyings.size(); ++i) {
+	NODE_WRITE_UNSIGNED	(keying_node, this->keyings[i]);
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -252,8 +444,10 @@ void AccountMediaConfig::readObject(const ContainerNode &node) throw(Error)
     NODE_READ_BOOL    ( this_node, streamKaEnabled);
     NODE_READ_NUM_T   ( this_node, pjmedia_srtp_use, srtpUse);
     NODE_READ_INT     ( this_node, srtpSecureSignaling);
+    NODE_READ_OBJ     ( this_node, srtpOpt);
     NODE_READ_NUM_T   ( this_node, pjsua_ipv6_use, ipv6Use);
     NODE_READ_OBJ     ( this_node, transportConfig);
+    NODE_READ_BOOL    ( this_node, rtcpMuxEnabled);
 }
 
 void AccountMediaConfig::writeObject(ContainerNode &node) const throw(Error)
@@ -264,8 +458,10 @@ void AccountMediaConfig::writeObject(ContainerNode &node) const throw(Error)
     NODE_WRITE_BOOL    ( this_node, streamKaEnabled);
     NODE_WRITE_NUM_T   ( this_node, pjmedia_srtp_use, srtpUse);
     NODE_WRITE_INT     ( this_node, srtpSecureSignaling);
+    NODE_WRITE_OBJ     ( this_node, srtpOpt);
     NODE_WRITE_NUM_T   ( this_node, pjsua_ipv6_use, ipv6Use);
     NODE_WRITE_OBJ     ( this_node, transportConfig);
+    NODE_WRITE_BOOL    ( this_node, rtcpMuxEnabled);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -452,7 +648,10 @@ void AccountConfig::toPj(pjsua_acc_config &ret) const
 #endif
     ret.use_srtp		= mediaConfig.srtpUse;
     ret.srtp_secure_signaling	= mediaConfig.srtpSecureSignaling;
+    ret.srtp_opt		= mediaConfig.srtpOpt.toPj();
     ret.ipv6_media_use		= mediaConfig.ipv6Use;
+    ret.enable_rtcp_mux		= mediaConfig.rtcpMuxEnabled;
+    ret.rtcp_fb_cfg		= mediaConfig.rtcpFbConfig.toPj();
 
     // AccountVideoConfig
     ret.vid_in_auto_show	= videoConfig.autoShowIncoming;
@@ -626,7 +825,10 @@ void AccountConfig::fromPj(const pjsua_acc_config &prm,
 #endif
     mediaConfig.srtpUse		= prm.use_srtp;
     mediaConfig.srtpSecureSignaling = prm.srtp_secure_signaling;
+    mediaConfig.srtpOpt.fromPj(prm.srtp_opt);
     mediaConfig.ipv6Use		= prm.ipv6_media_use;
+    mediaConfig.rtcpMuxEnabled	= PJ2BOOL(prm.enable_rtcp_mux);
+    mediaConfig.rtcpFbConfig.fromPj(prm.rtcp_fb_cfg);
 
     // AccountVideoConfig
     videoConfig.autoShowIncoming 	= PJ2BOOL(prm.vid_in_auto_show);
@@ -708,6 +910,21 @@ Account::~Account()
     /* If this instance is deleted, also delete the corresponding account in
      * PJSUA library.
      */
+    shutdown();
+}
+
+void Account::create(const AccountConfig &acc_cfg,
+                     bool make_default) throw(Error)
+{
+    pjsua_acc_config pj_acc_cfg;
+    
+    acc_cfg.toPj(pj_acc_cfg);
+    pj_acc_cfg.user_data = (void*)this;
+    PJSUA2_CHECK_EXPR( pjsua_acc_add(&pj_acc_cfg, make_default, &id) );
+}
+
+void Account::shutdown()
+{
     if (isValid() && pjsua_get_state() < PJSUA_STATE_CLOSING) {
         // Cleanup buddies in the buddy list
 	while(buddyList.size() > 0) {
@@ -721,16 +938,6 @@ Account::~Account()
 
 	pjsua_acc_del(id);
     }
-}
-
-void Account::create(const AccountConfig &acc_cfg,
-                     bool make_default) throw(Error)
-{
-    pjsua_acc_config pj_acc_cfg;
-    
-    acc_cfg.toPj(pj_acc_cfg);
-    pj_acc_cfg.user_data = (void*)this;
-    PJSUA2_CHECK_EXPR( pjsua_acc_add(&pj_acc_cfg, make_default, &id) );
 }
 
 void Account::modify(const AccountConfig &acc_cfg) throw(Error)

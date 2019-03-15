@@ -11,12 +11,35 @@
 #include "libyuv/basic_types.h"
 #include "libyuv/row.h"
 
+#if defined(_MSC_VER)
+#include <intrin.h>  // For __popcnt
+#endif
+
 #ifdef __cplusplus
 namespace libyuv {
 extern "C" {
 #endif
 
 #if !defined(LIBYUV_DISABLE_X86) && defined(_M_IX86) && defined(_MSC_VER)
+
+/* Visual Studio 2005 doesn't support __popcnt(). */
+#if (_MSC_VER > 1400)
+uint32 HammingDistance_SSE42(const uint8* src_a,
+                             const uint8* src_b,
+                             int count) {
+  uint32 diff = 0u;
+
+  int i;
+  for (i = 0; i < count - 3; i += 4) {
+    uint32 x = *((uint32*)src_a) ^ *((uint32*)src_b);
+    src_a += 4;
+    src_b += 4;
+    diff += __popcnt(x);
+  }
+  return diff;
+}
+#endif
+
 #if (_MSC_VER >= 1900)
 __declspec(naked)
 #else

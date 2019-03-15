@@ -1,4 +1,4 @@
-/* $Id: sip_ua_layer.c 5573 2017-03-29 02:40:48Z ming $ */
+/* $Id: sip_ua_layer.c 5729 2018-01-18 05:44:41Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -925,7 +925,7 @@ static void print_dialog( const char *title,
 			  pjsip_dialog *dlg, char *buf, pj_size_t size)
 {
     int len;
-    char userinfo[128];
+    char userinfo[PJSIP_MAX_URL_SIZE];
 
     len = pjsip_hdr_print_on(dlg->remote.info, userinfo, sizeof(userinfo));
     if (len < 0)

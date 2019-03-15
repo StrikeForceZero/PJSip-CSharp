@@ -1,4 +1,4 @@
-/* $Id: streamutil.c 5681 2017-11-06 10:30:07Z ming $ */
+/* $Id: streamutil.c 5747 2018-02-26 10:14:27Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -344,6 +344,9 @@ static pj_status_t create_stream( pj_pool_t *pool,
 	pjmedia_transport_close(transport);
 	return status;
     }
+
+    /* Start media transport */
+    pjmedia_transport_media_start(transport, 0, 0, 0, 0);
 
 
     return PJ_SUCCESS;

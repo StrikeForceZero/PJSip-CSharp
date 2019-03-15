@@ -1,4 +1,4 @@
-/* $Id: sip_timer.c 5576 2017-03-31 09:52:12Z riza $ */
+/* $Id: sip_timer.c 5806 2018-06-19 10:00:33Z nanang $ */
 /* 
  * Copyright (C) 2009-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -68,10 +68,8 @@ struct pjsip_timer
 						     request		    */
     pj_timer_entry		 expire_timer;	/**< Timer entry for expire 
 						     refresher		    */
+    pj_int32_t			 last_422_cseq; /**< Last 422 resp CSeq.    */
 };
-
-/* External global vars */
-extern pj_bool_t pjsip_use_compact_form;
 
 /* Local functions & vars */
 static void stop_timer(pjsip_inv_session *inv);
@@ -124,7 +122,8 @@ static int se_hdr_print(pjsip_sess_expires_hdr *hdr,
     char *endbuf = buf+size;
     pj_ssize_t printed;
     const pjsip_parser_const_t *pc = pjsip_parser_const();
-    const pj_str_t *hname = pjsip_use_compact_form? &hdr->sname : &hdr->name;
+    const pj_str_t *hname = pjsip_cfg()->endpt.use_compact_form? 
+			    &hdr->sname : &hdr->name;
 
     /* Print header name and value */
     if ((endbuf - p) < (hname->slen + 16))
@@ -787,6 +786,20 @@ PJ_DEF(pj_status_t) pjsip_timer_process_resp(pjsip_inv_session *inv,
 	    return PJSIP_EMISSINGHDR;
 	}
 
+	/* Avoid 422 retry loop. Ignore it and stop retrying if dialog is
+	 * established, otherwise, just return error to disconnect the call.
+	 */
+	if (rdata->msg_info.cseq->cseq == inv->timer->last_422_cseq + 1) {
+	    if (inv->state == PJSIP_INV_STATE_CONFIRMED) {
+		inv->invite_tsx = NULL;
+		return PJ_SUCCESS;
+	    } else {
+		return PJSIP_ERRNO_FROM_SIP_STATUS(
+	    				    PJSIP_SC_SESSION_TIMER_TOO_SMALL);
+	    }
+	}
+	inv->timer->last_422_cseq = rdata->msg_info.cseq->cseq;
+
 	/* Session Timers should have been initialized here */
 	pj_assert(inv->timer);
 
@@ -800,8 +813,8 @@ PJ_DEF(pj_status_t) pjsip_timer_process_resp(pjsip_inv_session *inv,
 
 	/* Prepare to restart the request */
 
-	/* Get the original INVITE request. */
-	tdata = inv->invite_req;
+	/* Get the original INVITE/UPDATE request. */
+	tdata = pjsip_rdata_get_tsx((pjsip_rx_data*)rdata)->last_tx;
 
 	/* Remove branch param in Via header. */
 	via = (pjsip_via_hdr*) pjsip_msg_find_hdr(tdata->msg, PJSIP_H_VIA, NULL);
@@ -829,8 +842,15 @@ PJ_DEF(pj_status_t) pjsip_timer_process_resp(pjsip_inv_session *inv,
 
 	add_timer_headers(inv, tdata, PJ_TRUE, PJ_TRUE);
 
-	/* Restart UAC */
-	pjsip_inv_uac_restart(inv, PJ_FALSE);
+	/* Restart UAC if this is initial INVITE, or simply reset tsx for
+	 * subsequent INVITE.
+	 */
+	if (inv->state < PJSIP_INV_STATE_CONFIRMED)
+	    pjsip_inv_uac_restart(inv, PJ_FALSE);
+	else if (tdata->msg->line.req.method.id == PJSIP_INVITE_METHOD)
+	    inv->invite_tsx = NULL;
+
+	/* Resend the updated request */
 	pjsip_inv_send_msg(inv, tdata);
 
 	return PJ_SUCCESS;
@@ -1043,28 +1063,13 @@ PJ_DEF(pj_status_t) pjsip_timer_process_req(pjsip_inv_session *inv,
 	return PJ_SUCCESS;
     }
 
-    /* Find Session-Expires header */
-    se_hdr = (pjsip_sess_expires_hdr*) pjsip_msg_find_hdr_by_names(
-					    msg, &STR_SE, &STR_SHORT_SE, NULL);
-    if (se_hdr == NULL) {
-	/* Remote doesn't support/want Session Timers, check if local 
-	 * require or force to use Session Timers. Note that Supported and 
-	 * Require headers negotiation should have been verified by invite 
-	 * session.
-	 */
-	if ((inv->options & 
-	    (PJSIP_INV_REQUIRE_TIMER | PJSIP_INV_ALWAYS_USE_TIMER)) == 0)
-	{
-	    /* Session Timers not forced/required */
-	    pjsip_timer_end_session(inv);
-	    return PJ_SUCCESS;
-	}
-    }
-
     /* Make sure Session Timers is initialized */
     if (inv->timer == NULL)
 	pjsip_timer_init_session(inv, NULL);
 
+    /* Find Session-Expires header */
+    se_hdr = (pjsip_sess_expires_hdr*) pjsip_msg_find_hdr_by_names(
+					    msg, &STR_SE, &STR_SHORT_SE, NULL);
     /* Find Min-SE header */
     min_se_hdr = (pjsip_min_se_hdr*) pjsip_msg_find_hdr_by_name(msg, 
 							    &STR_MIN_SE, NULL);
@@ -1095,6 +1100,21 @@ PJ_DEF(pj_status_t) pjsip_timer_process_req(pjsip_inv_session *inv,
 	 * lower than Min-SE specified by remote.
 	 */
 	inv->timer->setting.sess_expires = min_se;
+    }
+
+    /* If incoming request has no SE header, it means remote doesn't
+     * support/want Session Timers. So let's check if local require or
+     * force to use Session Timers. Note that Supported and Require headers
+     * negotiation should have been verified by invite session.
+     */
+    if (se_hdr == NULL) {
+	if ((inv->options & 
+	    (PJSIP_INV_REQUIRE_TIMER | PJSIP_INV_ALWAYS_USE_TIMER)) == 0)
+	{
+	    /* Session Timers not forced/required */
+	    pjsip_timer_end_session(inv);
+	    return PJ_SUCCESS;
+	}
     }
 
     /* Set the refresher */

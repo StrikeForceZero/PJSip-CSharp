@@ -1,4 +1,4 @@
-/* $Id: pjsua_media.c 5637 2017-08-02 07:19:21Z ming $ */
+/* $Id: pjsua_media.c 5878 2018-09-04 15:12:58Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -22,8 +22,6 @@
 
 
 #define THIS_FILE		"pjsua_media.c"
-
-#define DEFAULT_RTP_PORT	4000
 
 #ifndef PJSUA_REQUIRE_CONSECUTIVE_RTCP_PORT
 #   define PJSUA_REQUIRE_CONSECUTIVE_RTCP_PORT	0
@@ -111,6 +109,16 @@ pj_status_t pjsua_media_subsys_init(const pjsua_media_config *cfg)
     if (status != PJ_SUCCESS)
 	goto on_error;
 #endif
+
+    /* Create event manager */
+    if (!pjmedia_event_mgr_instance()) {
+	status = pjmedia_event_mgr_create(pjsua_var.pool, 0, NULL);
+	if (status != PJ_SUCCESS) {
+	    PJ_PERROR(1,(THIS_FILE, status,
+			 "Error creating PJMEDIA event manager"));
+	    goto on_error;
+	}
+    }
 
     pj_log_pop_indent();
     return PJ_SUCCESS;
@@ -223,6 +231,9 @@ pj_status_t pjsua_media_subsys_destroy(unsigned flags)
 	//pjmedia_snd_deinit();
     }
 
+    if (pjmedia_event_mgr_instance())
+	pjmedia_event_mgr_destroy(NULL);
+
     pj_log_pop_indent();
 
     return PJ_SUCCESS;
@@ -260,18 +271,16 @@ static pj_status_t create_rtp_rtcp_sock(pjsua_call_media *call_med,
 	pj_bool_t retry_stun = (acc->cfg.media_stun_use &
 				PJSUA_STUN_RETRY_ON_FAILURE) ==
 				PJSUA_STUN_RETRY_ON_FAILURE;
-	status = resolve_stun_server(PJ_TRUE, retry_stun);
+	status = resolve_stun_server(PJ_TRUE, retry_stun,
+				     (unsigned)acc->cfg.nat64_opt);
 	if (status != PJ_SUCCESS) {
 	    pjsua_perror(THIS_FILE, "Error resolving STUN server", status);
 	    return status;
 	}
     }
 
-    if (acc->next_rtp_port == 0)
+    if (acc->next_rtp_port == 0 || cfg->port == 0)
 	acc->next_rtp_port = (pj_uint16_t)cfg->port;
-
-    if (acc->next_rtp_port == 0)
-	acc->next_rtp_port = (pj_uint16_t)DEFAULT_RTP_PORT;
 
     for (i=0; i<2; ++i)
 	sock[i] = PJ_INVALID_SOCKET;
@@ -320,6 +329,20 @@ static pj_status_t create_rtp_rtcp_sock(pjsua_call_media *call_med,
 	    pj_sock_close(sock[0]);
 	    sock[0] = PJ_INVALID_SOCKET;
 	    continue;
+	}
+	
+	/* If bound to random port, find out the port number. */
+	if (acc->next_rtp_port == 0) {
+	    pj_sockaddr sock_addr;
+	    int addr_len = sizeof(pj_sockaddr);
+
+            status = pj_sock_getsockname(sock[0], &sock_addr, &addr_len);
+	    if (status != PJ_SUCCESS) {
+	    	pjsua_perror(THIS_FILE, "getsockname() error", status);
+	    	pj_sock_close(sock[0]);
+	    	return status;
+	    }
+	    acc->next_rtp_port = pj_sockaddr_get_port(&sock_addr);
 	}
 
 	/* Create RTCP socket. */
@@ -569,7 +592,8 @@ static pj_status_t create_rtp_rtcp_sock(pjsua_call_media *call_med,
     skinfo->rtcp_sock = sock[1];
     pj_sockaddr_cp(&skinfo->rtcp_addr_name, &mapped_addr[1]);
 
-    PJ_LOG(4,(THIS_FILE, "RTP socket reachable at %s",
+    PJ_LOG(4,(THIS_FILE, "RTP%s socket reachable at %s",
+	      (call_med->enable_rtcp_mux? " & RTCP": ""),
 	      pj_sockaddr_print(&skinfo->rtp_addr_name, addr_buf,
 				sizeof(addr_buf), 3)));
     PJ_LOG(4,(THIS_FILE, "RTCP socket reachable at %s",
@@ -839,7 +863,8 @@ static pj_status_t create_ice_media_transport(
 	pj_bool_t retry_stun = (acc_cfg->media_stun_use &
 				PJSUA_STUN_RETRY_ON_FAILURE) ==
 				PJSUA_STUN_RETRY_ON_FAILURE;
-	status = resolve_stun_server(PJ_TRUE, retry_stun);
+	status = resolve_stun_server(PJ_TRUE, retry_stun,
+				     (unsigned)acc_cfg->nat64_opt);
 	if (status != PJ_SUCCESS) {
 	    pjsua_perror(THIS_FILE, "Error resolving STUN server", status);
 	    return status;
@@ -902,8 +927,9 @@ static pj_status_t create_ice_media_transport(
 	    pj_str_t IN6_ADDR_ANY = {"0", 1};
 
 	    /* Configure STUN server */
-	    if (pj_sockaddr_has_addr(&pjsua_var.stun_srv) &&
-	    	pjsua_media_acc_is_using_stun(call_med->call->acc_id))
+	    if (pjsua_media_acc_is_using_stun(call_med->call->acc_id) &&
+		pj_sockaddr_has_addr(&pjsua_var.stun_srv) &&
+		pjsua_var.stun_srv.addr.sa_family == ice_cfg.stun_tp[i].af)
 	    {
 	    	ice_cfg.stun_tp[i].server = pj_str(stunip);
 	    	ice_cfg.stun_tp[i].port = pj_sockaddr_get_port(
@@ -1332,6 +1358,7 @@ static void sort_media(const pjmedia_sdp_session *sdp,
  * first in the array.
  */
 static void sort_media2(const pjsua_call_media *call_med,
+			pj_bool_t check_tp,
 			unsigned call_med_cnt,
 			pjmedia_type type,
 			pj_uint8_t midx[],
@@ -1360,7 +1387,7 @@ static void sort_media2(const pjsua_call_media *call_med,
 	}
 
 	/* Is it active? */
-	if (!call_med[i].tp) {
+	if (check_tp && !call_med[i].tp) {
 	    score[i] -= 10;
 	}
 
@@ -1535,7 +1562,9 @@ static pj_status_t call_media_init_cb(pjsua_call_media *call_med,
      */
     if (!call_med->tp_orig) {
 	pjmedia_srtp_setting srtp_opt;
+	pjsua_srtp_opt *acc_srtp_opt = &acc->cfg.srtp_opt;
 	pjmedia_transport *srtp = NULL;
+	unsigned i;
 
 	/* Check if SRTP requires secure signaling */
 	if (acc->cfg.use_srtp != PJMEDIA_SRTP_DISABLED) {
@@ -1552,6 +1581,14 @@ static pj_status_t call_media_init_cb(pjsua_call_media *call_med,
 	srtp_opt.cb.on_srtp_nego_complete = &on_srtp_nego_complete;
 	srtp_opt.user_data = call_med;
 
+	/* Get crypto and keying settings from account settings */
+	srtp_opt.crypto_count = acc_srtp_opt->crypto_count;
+	for (i = 0; i < srtp_opt.crypto_count; ++i)
+	    srtp_opt.crypto[i] = acc_srtp_opt->crypto[i];
+	srtp_opt.keying_count = acc_srtp_opt->keying_count;
+	for (i = 0; i < srtp_opt.keying_count; ++i)
+	    srtp_opt.keying[i] = acc_srtp_opt->keying[i];
+
 	/* If media session has been ever established, let's use remote's 
 	 * preference in SRTP usage policy, especially when it is stricter.
 	 */
@@ -1559,21 +1596,31 @@ static pj_status_t call_media_init_cb(pjsua_call_media *call_med,
 	    srtp_opt.use = call_med->rem_srtp_use;
 	else
 	    srtp_opt.use = acc->cfg.use_srtp;
-	    
+
 	if (pjsua_var.ua_cfg.cb.on_create_media_transport_srtp) {
+	    pjmedia_srtp_setting srtp_opt2 = srtp_opt;
 	    pjsua_call *call = call_med->call;
-	    pjmedia_srtp_use srtp_use = srtp_opt.use;
+
+	    /* Warn that this callback is deprecated (see also #2100) */
+	    PJ_LOG(1,(THIS_FILE, "Warning: on_create_media_transport_srtp "
+				 "is deprecated and will be removed in the "
+				 "future release"));
 
 	    (*pjsua_var.ua_cfg.cb.on_create_media_transport_srtp)
-		(call->index, call_med->idx, &srtp_opt);
+		(call->index, call_med->idx, &srtp_opt2);
 
-	    /* Close_member_tp must not be overwritten by app */
-	    srtp_opt.close_member_tp = PJ_TRUE;
-
-	    /* Revert SRTP usage policy if media is reinitialized */
-	    if (call->inv && call->inv->state == PJSIP_INV_STATE_CONFIRMED) {
-		srtp_opt.use = srtp_use;
+	    /* Only apply SRTP usage policy if this is initial INVITE */
+	    if (call->inv && call->inv->state < PJSIP_INV_STATE_CONFIRMED) {
+		srtp_opt.use = srtp_opt2.use;
 	    }
+
+	    /* Apply crypto and keying settings from callback */
+	    srtp_opt.crypto_count = srtp_opt2.crypto_count;
+	    for (i = 0; i < srtp_opt.crypto_count; ++i)
+		srtp_opt.crypto[i] = srtp_opt2.crypto[i];
+	    srtp_opt.keying_count = srtp_opt2.keying_count;
+	    for (i = 0; i < srtp_opt.keying_count; ++i)
+		srtp_opt.keying[i] = srtp_opt2.keying[i];
     	}
 
 	status = pjmedia_transport_srtp_create(pjsua_var.med_endpt,
@@ -1802,9 +1849,11 @@ static pj_status_t media_channel_init_cb(pjsua_call_id call_id,
             }
 
             if (call_med->tp) {
+            	unsigned options = (call_med->enable_rtcp_mux?
+            			    PJMEDIA_TPMED_RTCP_MUX: 0);
                 status = pjmedia_transport_media_create(
                              call_med->tp, tmp_pool,
-                             0, call->async_call.rem_sdp, mi);
+                             options, call->async_call.rem_sdp, mi);
             }
 	    if (status != PJ_SUCCESS) {
                 call->med_ch_info.status = status;
@@ -1998,18 +2047,25 @@ pj_status_t pjsua_media_channel_init(pjsua_call_id call_id,
 	 * media from existing media.
 	 * Otherwise, apply media count from the call setting directly.
 	 */
-	if (reinit && (call->opt.flag & PJSUA_CALL_REINIT_MEDIA) == 0) {
+	if (reinit) {
+	    pj_bool_t sort_check_tp;
+
+	    /* Media sorting below will check transport, i.e: media without
+	     * transport will have lower priority. If PJSUA_CALL_REINIT_MEDIA
+	     * is set, we must not check transport.
+	     */
+	    sort_check_tp = !(call->opt.flag & PJSUA_CALL_REINIT_MEDIA);
 
 	    /* We are sending reoffer, check media count for each media type
 	     * from the existing call media list.
 	     */
-	    sort_media2(call->media_prov, call->med_prov_cnt,
+	    sort_media2(call->media_prov, sort_check_tp, call->med_prov_cnt,
 			PJMEDIA_TYPE_AUDIO, maudidx, &maudcnt, &mtotaudcnt);
 
 	    /* No need to assert if there's no media. */
 	    //pj_assert(maudcnt > 0);
 
-	    sort_media2(call->media_prov, call->med_prov_cnt,
+	    sort_media2(call->media_prov, sort_check_tp, call->med_prov_cnt,
 			PJMEDIA_TYPE_VIDEO, mvididx, &mvidcnt, &mtotvidcnt);
 
 	    /* Call setting may add or remove media. Adding media is done by
@@ -2040,6 +2096,17 @@ pj_status_t pjsua_media_channel_init(pjsua_call_id call_id,
 	    }
 	    mvidcnt = call->opt.vid_cnt;
 
+	    /* In case of media reinit, 'med_prov_cnt' may be decreased
+	     * because the new call->opt says so. As media count should
+	     * never decrease, we should verify 'med_prov_cnt' to be
+	     * at least equal to 'med_cnt' (see also #1987).
+	     */
+	    if ((call->opt.flag & PJSUA_CALL_REINIT_MEDIA) &&
+		call->med_prov_cnt < call->med_cnt)
+	    {
+		call->med_prov_cnt = call->med_cnt;
+	    }
+
 	} else {
 
 	    maudcnt = mtotaudcnt = call->opt.aud_cnt;
@@ -2064,17 +2131,6 @@ pj_status_t pjsua_media_channel_init(pjsua_call_id call_id,
 		    mvididx[0] = (pj_uint8_t)call->med_prov_cnt++;
 		}
 #endif
-	    }
-
-	    /* In case of media reinit, 'med_prov_cnt' may be decreased
-	     * because the new call->opt says so. As media count should
-	     * never decrease, we should verify 'med_prov_cnt' to be
-	     * at least equal to 'med_cnt' (see also #1987).
-	     */
-	    if (reinit && (call->opt.flag & PJSUA_CALL_REINIT_MEDIA) &&
-		call->med_prov_cnt < call->med_cnt)
-	    {
-		call->med_prov_cnt = call->med_cnt;
 	    }
 	}
 
@@ -2124,6 +2180,8 @@ pj_status_t pjsua_media_channel_init(pjsua_call_id call_id,
 	}
 
 	if (enabled) {
+	    call_med->enable_rtcp_mux = acc->cfg.enable_rtcp_mux;
+
 	    status = pjsua_call_media_init(call_med, media_type,
 	                                   &acc->cfg.rtp_cfg,
 					   security_level, sip_err_code,
@@ -2223,6 +2281,7 @@ pj_status_t pjsua_media_channel_create_sdp(pjsua_call_id call_id,
     pjmedia_sdp_session *sdp;
     pj_sockaddr origin;
     pjsua_call *call = &pjsua_var.calls[call_id];
+    pjsua_acc *acc = &pjsua_var.acc[call->acc_id];
     pjmedia_sdp_neg_state sdp_neg_state = PJMEDIA_SDP_NEG_STATE_NULL;
     unsigned mi;
     unsigned tot_bandw_tias = 0;
@@ -2415,6 +2474,11 @@ pj_status_t pjsua_media_channel_create_sdp(pjsua_call_id call_id,
 	if (status != PJ_SUCCESS)
 	    return status;
 
+    	/* Add ssrc and cname attribute */
+    	m->attr[m->attr_count++] = pjmedia_sdp_attr_create_ssrc(pool,
+    								call_med->ssrc,
+    								&call->cname);
+
 	sdp->media[sdp->media_count++] = m;
 
 	/* Give to transport */
@@ -2442,6 +2506,19 @@ pj_status_t pjsua_media_channel_create_sdp(pjsua_call_id call_id,
 	    {
 		tot_bandw_tias += m->bandw[i]->value;
 		break;
+	    }
+	}
+
+	/* Add RTCP-FB info in SDP if we are offerer */
+	if (rem_sdp == NULL && acc->cfg.rtcp_fb_cfg.cap_count) {
+	    status = pjmedia_rtcp_fb_encode_sdp(pool, pjsua_var.med_endpt,
+						&acc->cfg.rtcp_fb_cfg, sdp,
+						mi, rem_sdp);
+	    if (status != PJ_SUCCESS) {
+		PJ_PERROR(3,(THIS_FILE, status,
+			     "Call %d media %d: Failed to encode RTCP-FB "
+			     "setting to SDP",
+			     call_id, mi));
 	    }
 	}
     }
@@ -2489,7 +2566,6 @@ pj_status_t pjsua_media_channel_create_sdp(pjsua_call_id call_id,
 	b->value = bandw / 1000;
 	sdp->bandw[sdp->bandw_count++] = b;
     }
-
 
 #if DISABLED_FOR_TICKET_1185 && defined(PJMEDIA_HAS_SRTP) && (PJMEDIA_HAS_SRTP != 0)
     /* Check if SRTP is in optional mode and configured to use duplicated
@@ -2755,6 +2831,8 @@ static pj_bool_t is_media_changed(const pjsua_call *call,
 	 * address can happen after negotiation, this can be handled
 	 * internally by ICE and does not need to cause media restart.
 	 */
+	if (old_si->rtcp_mux != new_si->rtcp_mux)
+	    return PJ_TRUE;
 	if (!is_ice_running(call_med->tp) &&
 	    pj_sockaddr_cmp(&old_si->rem_addr, &new_si->rem_addr))
 	{
@@ -2817,6 +2895,8 @@ static pj_bool_t is_media_changed(const pjsua_call *call,
 	 * address can happen after negotiation, this can be handled
 	 * internally by ICE and does not need to cause media restart.
 	 */
+	if (old_si->rtcp_mux != new_si->rtcp_mux)
+	    return PJ_TRUE;
 	if (!is_ice_running(call_med->tp) &&
 	    pj_sockaddr_cmp(&old_si->rem_addr, &new_si->rem_addr))
 	{
@@ -2917,39 +2997,70 @@ pj_status_t pjsua_media_channel_update(pjsua_call_id call_id,
     mvidcnt = mtotvidcnt = 0;
 #endif
 
-    /* Applying media count limitation. Note that in generating SDP answer,
-     * no media count limitation applied, as we didn't know yet which media
-     * would pass the SDP negotiation.
+    /* We need to re-nego SDP or modify our answer when:
+     * - media count exceeds the configured limit,
+     * - RTCP-FB is enabled (so a=rtcp-fb will only be printed for negotiated
+     *   codecs)
      */
-    if (maudcnt > call->opt.aud_cnt || mvidcnt > call->opt.vid_cnt)
+    if (!pjmedia_sdp_neg_was_answer_remote(call->inv->neg) &&
+	((maudcnt > call->opt.aud_cnt || mvidcnt > call->opt.vid_cnt) ||
+	(acc->cfg.rtcp_fb_cfg.cap_count)))
     {
-	pjmedia_sdp_session *local_sdp2;
+	pjmedia_sdp_session *local_sdp_renego = NULL;
 
-	maudcnt = PJ_MIN(maudcnt, call->opt.aud_cnt);
-	mvidcnt = PJ_MIN(mvidcnt, call->opt.vid_cnt);
-	local_sdp2 = pjmedia_sdp_session_clone(tmp_pool, local_sdp);
+	local_sdp_renego = pjmedia_sdp_session_clone(tmp_pool, local_sdp);
+	local_sdp = local_sdp_renego;
+	need_renego_sdp = PJ_TRUE;
 
-	for (mi=0; mi < local_sdp2->media_count; ++mi) {
-	    pjmedia_sdp_media *m = local_sdp2->media[mi];
-
-	    if (m->desc.port == 0 ||
-		pj_memchr(maudidx, mi, maudcnt*sizeof(maudidx[0])) ||
-		pj_memchr(mvididx, mi, mvidcnt*sizeof(mvididx[0])))
-	    {
-		continue;
+	/* Add RTCP-FB info into local SDP answer */
+	if (acc->cfg.rtcp_fb_cfg.cap_count) {
+	    for (mi=0; mi < local_sdp_renego->media_count; ++mi) {
+		status = pjmedia_rtcp_fb_encode_sdp(
+					tmp_pool, pjsua_var.med_endpt,
+					&acc->cfg.rtcp_fb_cfg,
+					local_sdp_renego, mi, remote_sdp);
+		if (status != PJ_SUCCESS) {
+		    PJ_PERROR(3,(THIS_FILE, status,
+				 "Call %d media %d: Failed to encode RTCP-FB "
+				 "setting to SDP",
+				 call_id, mi));
+		}
 	    }
-	    
-	    /* Deactivate this media */
-	    pjmedia_sdp_media_deactivate(tmp_pool, m);
 	}
 
-	local_sdp = local_sdp2;
-	need_renego_sdp = PJ_TRUE;
+	/* Applying media count limitation. Note that in generating SDP
+	 * answer, no media count limitation applied as we didn't know yet
+	 * which media would pass the SDP negotiation.
+	 */
+	if (maudcnt > call->opt.aud_cnt || mvidcnt > call->opt.vid_cnt)
+	{
+	    maudcnt = PJ_MIN(maudcnt, call->opt.aud_cnt);
+	    mvidcnt = PJ_MIN(mvidcnt, call->opt.vid_cnt);
+
+	    for (mi=0; mi < local_sdp_renego->media_count; ++mi) {
+		pjmedia_sdp_media *m = local_sdp_renego->media[mi];
+
+		if (m->desc.port == 0 ||
+		    pj_memchr(maudidx, mi, maudcnt*sizeof(maudidx[0])) ||
+		    pj_memchr(mvididx, mi, mvidcnt*sizeof(mvididx[0])))
+		{
+		    continue;
+		}
+    	    
+		/* Deactivate this excess media */
+		pjmedia_sdp_media_deactivate(tmp_pool, m);
+	    }
+	}
     }
 
+    /* Update call media from provisional media */
+    call->med_cnt = call->med_prov_cnt;
+    pj_memcpy(call->media, call->media_prov,
+	      sizeof(call->media_prov[0]) * call->med_prov_cnt);
+
     /* Process each media stream */
-    for (mi=0; mi < call->med_prov_cnt; ++mi) {
-	pjsua_call_media *call_med = &call->media_prov[mi];
+    for (mi=0; mi < call->med_cnt; ++mi) {
+	pjsua_call_media *call_med = &call->media[mi];
 	pj_bool_t media_changed = PJ_FALSE;
 
 	if (mi >= local_sdp->media_count ||
@@ -2994,6 +3105,13 @@ pj_status_t pjsua_media_channel_update(pjsua_call_id call_id,
 		goto on_check_med_status;
 	    }
 
+	    /* Check if remote wants RTP and RTCP multiplexing,
+	     * but we don't enable it.
+	     */
+	    if (si->rtcp_mux && !call_med->enable_rtcp_mux) {
+	        si->rtcp_mux = PJ_FALSE;
+	    }
+
             /* Codec parameter of stream info (si->param) can be NULL if
              * the stream is rejected or disabled.
              */
@@ -3036,6 +3154,8 @@ pj_status_t pjsua_media_channel_update(pjsua_call_id call_id,
 		pjmedia_srtp_info *srtp_info;
 
 		if (call->inv->following_fork) {
+		    unsigned options = (call_med->enable_rtcp_mux?
+            			        PJMEDIA_TPMED_RTCP_MUX: 0);
 		    /* Normally media transport will automatically restart
 		     * itself (if needed, based on info from the SDP) in
 		     * pjmedia_transport_media_start(), however in "following
@@ -3053,7 +3173,7 @@ pj_status_t pjsua_media_channel_update(pjsua_call_id call_id,
 		    }
 		    status = pjmedia_transport_media_create(call_med->tp,
 							    tmp_pool,
-							    0, NULL, mi);
+							    options, NULL, mi);
 		    if (status != PJ_SUCCESS) {
 			PJ_PERROR(1,(THIS_FILE, status,
 				     "pjmedia_transport_media_create() failed "
@@ -3168,6 +3288,13 @@ pj_status_t pjsua_media_channel_update(pjsua_call_id call_id,
 			         "for call_id %d media %d",
 			     call_id, mi));
 		goto on_check_med_status;
+	    }
+
+	    /* Check if remote wants RTP and RTCP multiplexing,
+	     * but we don't enable it.
+	     */
+	    if (si->rtcp_mux && !call_med->enable_rtcp_mux) {
+	        si->rtcp_mux = PJ_FALSE;
 	    }
 
 	    /* Check if this media is changed */
@@ -3324,21 +3451,15 @@ on_check_med_status:
 	}
     }
 
-    /* Update call media from provisional media */
-    call->med_cnt = call->med_prov_cnt;
-    pj_memcpy(call->media, call->media_prov,
-	      sizeof(call->media_prov[0]) * call->med_prov_cnt);
+    /* Sync provisional media to call media */
+    call->med_prov_cnt = call->med_cnt;
+    pj_memcpy(call->media_prov, call->media,
+	      sizeof(call->media[0]) * call->med_cnt);
 
-    /* Perform SDP re-negotiation if some media have just got disabled
-     * in this function due to media count limit settings.
-     */
+    /* Perform SDP re-negotiation. */
     if (got_media && need_renego_sdp) {
 	pjmedia_sdp_neg *neg = call->inv->neg;
 
-	/* This should only happen when we are the answerer. */
-	PJ_ASSERT_RETURN(neg && !pjmedia_sdp_neg_was_answer_remote(neg),
-			 PJMEDIA_SDPNEG_EINSTATE);
-	
 	status = pjmedia_sdp_neg_set_remote_offer(tmp_pool, neg, remote_sdp);
 	if (status != PJ_SUCCESS)
 	    goto on_error;

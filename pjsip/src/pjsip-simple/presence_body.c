@@ -1,4 +1,4 @@
-/* $Id: presence_body.c 3553 2011-05-05 06:14:19Z nanang $ */
+/* $Id: presence_body.c 5701 2017-11-22 06:59:47Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -86,7 +86,7 @@ PJ_DEF(pj_status_t) pjsip_pres_create_pidf( pj_pool_t *pool,
 	if (status->info[i].id.slen == 0) {
 	    /* xs:ID must start with letter */
 	    //pj_create_unique_string(pool, &id);
-	    id.ptr = (char*)pj_pool_alloc(pool, PJ_GUID_STRING_LENGTH+2);
+	    id.ptr = (char*)pj_pool_alloc(pool, pj_GUID_STRING_LENGTH()+2);
 	    id.ptr += 2;
 	    pj_generate_unique_string(&id);
 	    id.ptr -= 2;

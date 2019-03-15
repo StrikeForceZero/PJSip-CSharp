@@ -1,4 +1,4 @@
-/* $Id: errno.c 4613 2013-10-08 09:08:13Z bennylp $ */
+/* $Id: errno.c 5779 2018-04-09 12:30:48Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -109,7 +109,7 @@ PJ_DEF(pj_str_t) pjmedia_audiodev_strerror(pj_status_t statcode,
 	return errstr;
 
     } else 
-#endif	/* PJMEDIA_SOUND_IMPLEMENTATION */
+#endif	/* PJMEDIA_AUDIO_DEV_HAS_PORTAUDIO */
 
     /* See if the error comes from WMME */
 #if PJMEDIA_AUDIO_DEV_HAS_WMME

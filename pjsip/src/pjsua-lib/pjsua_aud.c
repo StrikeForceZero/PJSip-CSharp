@@ -1,4 +1,4 @@
-/* $Id: pjsua_aud.c 5677 2017-10-27 06:30:50Z ming $ */
+/* $Id: pjsua_aud.c 5842 2018-07-26 03:05:10Z ming $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -501,6 +501,9 @@ void pjsua_aud_stop_stream(pjsua_call_media *call_med)
     pjmedia_rtcp_stat stat;
 
     if (strm) {
+	/* Unsubscribe from stream events */
+	pjmedia_event_unsubscribe(NULL, &call_media_on_event, call_med, strm);
+
 	pjmedia_stream_send_rtcp_bye(strm);
 
 	if (call_med->strm.a.conf_slot != PJSUA_INVALID_ID) {
@@ -553,15 +556,23 @@ static void dtmf_callback(pjmedia_stream *strm, void *user_data,
 
     pj_log_push_indent();
 
-    /* For discussions about call mutex protection related to this
-     * callback, please see ticket #460:
-     *	http://trac.pjsip.org/repos/ticket/460#comment:4
-     */
-    if (pjsua_var.ua_cfg.cb.on_dtmf_digit) {
+    if (pjsua_var.ua_cfg.cb.on_dtmf_digit2) {
+	pjsua_call_id call_id;
+	pjsua_dtmf_info info;
+
+	call_id = (pjsua_call_id)(pj_ssize_t)user_data;
+	info.method = PJSUA_DTMF_METHOD_RFC2833;
+	info.digit = digit;
+	(*pjsua_var.ua_cfg.cb.on_dtmf_digit2)(call_id, &info);
+    } else if (pjsua_var.ua_cfg.cb.on_dtmf_digit) {
+	/* For discussions about call mutex protection related to this
+	 * callback, please see ticket #460:
+	 *	http://trac.pjsip.org/repos/ticket/460#comment:4
+	 */    
 	pjsua_call_id call_id;
 
 	call_id = (pjsua_call_id)(pj_ssize_t)user_data;
-	pjsua_var.ua_cfg.cb.on_dtmf_digit(call_id, digit);
+	(*pjsua_var.ua_cfg.cb.on_dtmf_digit)(call_id, digit);
     }
 
     pj_log_pop_indent();
@@ -603,8 +614,9 @@ pj_status_t pjsua_aud_channel_update(pjsua_call_media *call_med,
 	si->jb_max_pre = pjsua_var.media_cfg.jb_max_pre;
 	si->jb_max = pjsua_var.media_cfg.jb_max;
 
-	/* Set SSRC */
+	/* Set SSRC and CNAME */
 	si->ssrc = call_med->ssrc;
+	si->cname = call->cname;
 
 	/* Set RTP timestamp & sequence, normally these value are intialized
 	 * automatically when stream session created, but for some cases (e.g:
@@ -640,7 +652,9 @@ pj_status_t pjsua_aud_channel_update(pjsua_call_media *call_med,
 	/* If DTMF callback is installed by application, install our
 	 * callback to the session.
 	 */
-	if (pjsua_var.ua_cfg.cb.on_dtmf_digit) {
+	if (pjsua_var.ua_cfg.cb.on_dtmf_digit || 
+	    pjsua_var.ua_cfg.cb.on_dtmf_digit2) 
+	{
 	    pjmedia_stream_set_dtmf_callback(call_med->strm.a.stream,
 					     &dtmf_callback,
 					     (void*)(pj_ssize_t)(call->index));
@@ -699,6 +713,10 @@ pj_status_t pjsua_aud_channel_update(pjsua_call_media *call_med,
 		goto on_return;
 	    }
 	}
+
+	/* Subscribe to stream events */
+	pjmedia_event_subscribe(NULL, &call_media_on_event, call_med,
+				call_med->strm.a.stream);
     }
 
 on_return:
@@ -711,6 +729,12 @@ PJ_DEF(void) pjsua_snd_dev_param_default(pjsua_snd_dev_param *prm)
     pj_bzero(prm, sizeof(*prm));
     prm->capture_dev = PJMEDIA_AUD_DEFAULT_CAPTURE_DEV;
     prm->playback_dev = PJMEDIA_AUD_DEFAULT_PLAYBACK_DEV;
+}
+
+PJ_DEF(void) pjsua_conf_connect_param_default(pjsua_conf_connect_param *prm)
+{
+    pj_bzero(prm, sizeof(*prm));
+    prm->level = 1.0;
 }
 
 /*
@@ -823,6 +847,20 @@ PJ_DEF(pj_status_t) pjsua_conf_remove_port(pjsua_conf_port_id id)
  */
 PJ_DEF(pj_status_t) pjsua_conf_connect( pjsua_conf_port_id source,
 					pjsua_conf_port_id sink)
+{
+    pjsua_conf_connect_param prm;
+
+    pjsua_conf_connect_param_default(&prm);
+    return pjsua_conf_connect2(source, sink, &prm);
+}
+					
+/*
+ * Establish unidirectional media flow from souce to sink, with signal
+ * level adjustment.
+ */
+PJ_DEF(pj_status_t) pjsua_conf_connect2( pjsua_conf_port_id source,
+					 pjsua_conf_port_id sink,
+					 const pjsua_conf_connect_param *prm)
 {
     pj_status_t status = PJ_SUCCESS;
 
@@ -956,7 +994,14 @@ on_return:
     PJSUA_UNLOCK();
 
     if (status == PJ_SUCCESS) {
-	status = pjmedia_conf_connect_port(pjsua_var.mconf, source, sink, 0);
+    	pjsua_conf_connect_param cc_param;
+    	
+    	if (!prm)
+    	    pjsua_conf_connect_param_default(&cc_param);
+    	else
+    	    pj_memcpy(&cc_param, prm, sizeof(cc_param));
+	status = pjmedia_conf_connect_port(pjsua_var.mconf, source, sink, 
+					   (int)((cc_param.level-1) * 128));
     }
 
     pj_log_pop_indent();
@@ -2019,7 +2064,7 @@ PJ_DEF(pj_status_t) pjsua_set_snd_dev2(pjsua_snd_dev_param *snd_param)
 
     pjsua_var.snd_mode = snd_param->mode;
 
-    if (!pjsua_var.no_snd &&
+    if (!pjsua_var.no_snd && !pjsua_var.snd_is_on &&
 	(snd_param->mode & PJSUA_SND_DEV_NO_IMMEDIATE_OPEN))
     {
 	pjsua_var.cap_dev = snd_param->capture_dev;
@@ -2308,5 +2353,153 @@ PJ_DEF(pj_status_t) pjsua_snd_get_setting( pjmedia_aud_dev_cap cap,
     PJSUA_UNLOCK();
     return status;
 }
+
+
+/*
+ * Extra sound device
+ */
+struct pjsua_ext_snd_dev
+{
+    pj_pool_t		*pool;
+    pjmedia_port	*splitcomb;
+    pjmedia_port	*rev_port;
+    pjmedia_snd_port	*snd_port;
+    pjsua_conf_port_id	 port_id;
+};
+
+
+/*
+ * Create an extra sound device and register it to conference bridge.
+ */
+PJ_DEF(pj_status_t) pjsua_ext_snd_dev_create( pjmedia_snd_port_param *param,
+					      pjsua_ext_snd_dev **p_snd)
+{
+    pjsua_ext_snd_dev *snd = NULL;
+    pj_pool_t *pool;
+    pj_status_t status;
+
+    PJ_ASSERT_RETURN(param && p_snd, PJ_EINVAL);
+
+    pool = pjsua_pool_create("extsnd%p", 512, 512);
+    if (!pool)
+	return PJ_ENOMEM;
+
+    snd = PJ_POOL_ZALLOC_T(pool, pjsua_ext_snd_dev);
+    if (!snd) {
+	pj_pool_release(pool);
+	return PJ_ENOMEM;
+    }
+
+    snd->pool = pool;
+    snd->port_id = PJSUA_INVALID_ID;
+
+    /* Create mono splitter/combiner */
+    status = pjmedia_splitcomb_create(
+				    pool, 
+				    param->base.clock_rate,
+				    param->base.channel_count,
+				    param->base.samples_per_frame,
+				    param->base.bits_per_sample,
+				    0,	/* options */
+				    &snd->splitcomb);
+    if (status != PJ_SUCCESS)
+	goto on_return;
+
+    /* Create reverse channel */
+    status = pjmedia_splitcomb_create_rev_channel(
+				    pool,
+				    snd->splitcomb,
+				    0	/* channel #1 */,
+				    0	/* options */,
+				    &snd->rev_port);
+    if (status != PJ_SUCCESS)
+	goto on_return;
+
+    /* And register it to conference bridge */
+    status = pjsua_conf_add_port(pool, snd->rev_port, &snd->port_id);
+    if (status != PJ_SUCCESS)
+	goto on_return;
+
+    /* Create sound device */
+    status = pjmedia_snd_port_create2(pool, param, &snd->snd_port);
+    if (status != PJ_SUCCESS)
+	goto on_return;
+
+    /* Connect the splitter to the sound device */
+    status = pjmedia_snd_port_connect(snd->snd_port, snd->splitcomb);
+    if (status != PJ_SUCCESS)
+	goto on_return;
+
+    /* Finally */
+    *p_snd = snd;
+    PJ_LOG(4,(THIS_FILE, "Extra sound device created"));
+
+on_return:
+    if (status != PJ_SUCCESS) {
+	PJ_LOG(3,(THIS_FILE, "Failed creating extra sound device"));
+	pjsua_ext_snd_dev_destroy(snd);
+    }
+
+    return status;
+}
+
+
+/*
+ * Destroy an extra sound device and unregister it from conference bridge.
+ */
+PJ_DEF(pj_status_t) pjsua_ext_snd_dev_destroy(pjsua_ext_snd_dev *snd)
+{
+    PJ_ASSERT_RETURN(snd, PJ_EINVAL);
+
+    /* Unregister from the conference bridge */
+    if (snd->port_id != PJSUA_INVALID_ID) {
+	pjsua_conf_remove_port(snd->port_id);
+	snd->port_id = PJSUA_INVALID_ID;
+    }
+
+    /* Destroy all components */
+    if (snd->snd_port) {
+	pjmedia_snd_port_disconnect(snd->snd_port);
+	pjmedia_snd_port_destroy(snd->snd_port);
+	snd->snd_port = NULL;
+    }
+    if (snd->rev_port) {
+	pjmedia_port_destroy(snd->rev_port);
+	snd->rev_port = NULL;
+    }
+    if (snd->splitcomb) {
+	pjmedia_port_destroy(snd->splitcomb);
+	snd->splitcomb = NULL;
+    }
+
+    /* Finally */
+    pj_pool_safe_release(&snd->pool);
+
+    PJ_LOG(4,(THIS_FILE, "Extra sound device destroyed"));
+
+    return PJ_SUCCESS;
+}
+
+
+/*
+ * Get sound port instance of an extra sound device.
+ */
+PJ_DEF(pjmedia_snd_port*) pjsua_ext_snd_dev_get_snd_port(
+					    pjsua_ext_snd_dev *snd)
+{
+    PJ_ASSERT_RETURN(snd, NULL);
+    return snd->snd_port;
+}
+
+/*
+ * Get conference port ID of an extra sound device.
+ */
+PJ_DEF(pjsua_conf_port_id) pjsua_ext_snd_dev_get_conf_port(
+					    pjsua_ext_snd_dev *snd)
+{
+    PJ_ASSERT_RETURN(snd, PJSUA_INVALID_ID);
+    return snd->port_id;
+}
+
 
 #endif /* PJSUA_MEDIA_HAS_PJMEDIA */

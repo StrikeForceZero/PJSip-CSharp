@@ -1,4 +1,4 @@
-# $Id: importsym.py 5148 2015-08-06 06:37:49Z ming $
+# $Id: importsym.py 5776 2018-04-06 00:52:35Z ming $
 #
 # importsym.py: Import C symbol decls (structs, enums, etc) and write them
 #               to another file 
@@ -55,7 +55,7 @@ if not CPP_PATH:
 
 # Hardcoded!
 if sys.platform == 'win32':
-	PYCPARSER_DIR="C:/Python27/Lib/site-packages/pycparser"
+	PYCPARSER_DIR="C:/devs/tools/pycparser"
 elif sys.platform == "linux2":
 	PYCPARSER_DIR="/home/bennylp/Desktop/opt/src/pycparser-master"
 else:
@@ -68,7 +68,7 @@ if not os.path.exists(PYCPARSER_DIR + '/utils/fake_libc_include'):
 # Heading, to be placed before the source files
 C_HEADING_SECTION = """
 #define PJ_AUTOCONF		1
-// #define jmp_buf			int
+#define jmp_buf			int
 #define __attribute__(x)
 """
 
@@ -168,7 +168,7 @@ class SymbolImporter:
 		for name in names:
 			node = visitor.nodeDict[name]
 			if not node:
-				print "  ** Warning: declaration for '%s' is not found **" % k
+				print "  warning: declaration for '%s' is not found **" % k
 			else:
 				print "  writing '%s'.." % name
 				output = gen.visit(node) + ";\n\n"

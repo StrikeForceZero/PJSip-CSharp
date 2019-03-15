@@ -234,11 +234,21 @@ public class MainActivity extends Activity
 
 	    CallInfo ci = (CallInfo) m.obj;
 
-	    /* Forward the message to CallActivity */
+	    if (currentCall == null || ci == null || ci.getId() != currentCall.getId()) {
+		System.out.println("Call state event received, but call info is invalid");
+		return true;
+	    }
+
+	    /* Forward the call info to CallActivity */
 	    if (CallActivity.handler_ != null) {
-		Message m2 = Message.obtain(CallActivity.handler_,
-		    MSG_TYPE.CALL_STATE, ci);
+		Message m2 = Message.obtain(CallActivity.handler_, MSG_TYPE.CALL_STATE, ci);
 		m2.sendToTarget();
+	    }
+
+	    if (ci.getState() == pjsip_inv_state.PJSIP_INV_STATE_DISCONNECTED)
+	    {
+		currentCall.delete();
+		currentCall = null;
 	    }
 
 	} else if (m.what == MSG_TYPE.CALL_MEDIA_STATE) {
@@ -595,20 +605,16 @@ public class MainActivity extends Activity
 	if (currentCall == null || call.getId() != currentCall.getId())
 	    return;
 
-	CallInfo ci;
+	CallInfo ci = null;
 	try {
 	    ci = call.getInfo();
-	} catch (Exception e) {
-	    ci = null;
-	}
+	} catch (Exception e) {}
+        
+	if (ci != null)
+	    return;
+
 	Message m = Message.obtain(handler, MSG_TYPE.CALL_STATE, ci);
 	m.sendToTarget();
-
-	if (ci != null &&
-	    ci.getState() == pjsip_inv_state.PJSIP_INV_STATE_DISCONNECTED)
-	{
-	    currentCall = null;
-	}
     }
 
     public void notifyCallMediaState(MyCall call)

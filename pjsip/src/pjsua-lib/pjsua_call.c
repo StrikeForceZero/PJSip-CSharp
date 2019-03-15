@@ -1,4 +1,4 @@
-/* $Id: pjsua_call.c 5635 2017-08-01 07:49:34Z nanang $ */
+/* $Id: pjsua_call.c 5834 2018-07-23 07:32:54Z riza $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -79,7 +79,14 @@ static void pjsua_call_on_media_update(pjsip_inv_session *inv,
  * Called when session received new offer.
  */
 static void pjsua_call_on_rx_offer(pjsip_inv_session *inv,
-				   const pjmedia_sdp_session *offer);
+				struct pjsip_inv_on_rx_offer_cb_param *param);
+
+/*
+ * Called when receiving re-INVITE.
+ */
+static pj_status_t pjsua_call_on_rx_reinvite(pjsip_inv_session *inv,
+    		                  	     const pjmedia_sdp_session *offer,
+                                  	     pjsip_rx_data *rdata);
 
 /*
  * Called to generate new offer.
@@ -137,6 +144,8 @@ static void reset_call(pjsua_call_id id)
     pj_bzero(call, sizeof(*call));
     call->index = id;
     call->last_text.ptr = call->last_text_buf_;
+    call->cname.ptr = call->cname_buf;
+    call->cname.slen = sizeof(call->cname_buf);
     for (i=0; i<PJ_ARRAY_SIZE(call->media); ++i) {
 	pjsua_call_media *call_med = &call->media[i];
 	call_med->ssrc = pj_rand();
@@ -152,6 +161,17 @@ static void reset_call(pjsua_call_id id)
 			(void*)(pj_size_t)id, &reinv_timer_cb);
 }
 
+/* Get DTMF method type name */
+static const char* get_dtmf_method_name(int type)
+{
+    switch (type) {
+	case PJSUA_DTMF_METHOD_RFC2833:   
+	    return "RFC2833";
+	case PJSUA_DTMF_METHOD_SIP_INFO:  
+	    return "SIP INFO";
+    }
+    return "(Unknown)";
+}
 
 /*
  * Init call subsystem.
@@ -188,10 +208,13 @@ pj_status_t pjsua_call_subsys_init(const pjsua_config *cfg)
     inv_cb.on_state_changed = &pjsua_call_on_state_changed;
     inv_cb.on_new_session = &pjsua_call_on_forked;
     inv_cb.on_media_update = &pjsua_call_on_media_update;
-    inv_cb.on_rx_offer = &pjsua_call_on_rx_offer;
+    inv_cb.on_rx_offer2 = &pjsua_call_on_rx_offer;
     inv_cb.on_create_offer = &pjsua_call_on_create_offer;
     inv_cb.on_tsx_state_changed = &pjsua_call_on_tsx_state_changed;
     inv_cb.on_redirected = &pjsua_call_on_redirected;
+    if (pjsua_var.ua_cfg.cb.on_call_rx_reinvite) {
+    	inv_cb.on_rx_reinvite = &pjsua_call_on_rx_reinvite;
+    }
 
     /* Initialize invite session module: */
     status = pjsip_inv_usage_init(pjsua_var.endpt, &inv_cb);
@@ -596,6 +619,16 @@ PJ_DEF(void) pjsua_call_setting_default(pjsua_call_setting *opt)
 #endif
 }
 
+/* 
+ * Initialize pjsua_call_send_dtmf_param default values. 
+ */
+PJ_DEF(void) pjsua_call_send_dtmf_param_default(
+					     pjsua_call_send_dtmf_param *param)
+{
+    pj_bzero(param, sizeof(*param));
+    param->duration = PJSUA_CALL_SEND_DTMF_DURATION_DEFAULT;
+}
+
 static pj_status_t apply_call_setting(pjsua_call *call,
 				      const pjsua_call_setting *opt,
 				      const pjmedia_sdp_session *rem_sdp)
@@ -663,6 +696,64 @@ static void dlg_set_via(pjsip_dialog *dlg, pjsua_acc *acc)
    	}
     }
 }
+
+
+static pj_status_t dlg_set_target(pjsip_dialog *dlg, const pj_str_t *target)
+{
+    pjsip_uri *target_uri;
+    pj_str_t tmp;
+    pj_status_t status;
+
+    /* Parse target & verify */
+    pj_strdup_with_null(dlg->pool, &tmp, target);
+    target_uri = pjsip_parse_uri(dlg->pool, tmp.ptr, tmp.slen, 0);
+    if (!target_uri) {
+	return PJSIP_EINVALIDURI;
+    }
+    if (!PJSIP_URI_SCHEME_IS_SIP(target_uri) &&
+	!PJSIP_URI_SCHEME_IS_SIPS(target_uri))
+    {
+	return PJSIP_EINVALIDSCHEME;
+    }
+
+    /* Add the new target */
+    status = pjsip_target_set_add_uri(&dlg->target_set, dlg->pool,
+				      target_uri, 0);
+    if (status != PJ_SUCCESS)
+	return status;
+
+    /* Set it as current target */
+    status = pjsip_target_set_set_current(&dlg->target_set,
+			    pjsip_target_set_get_next(&dlg->target_set));
+    if (status != PJ_SUCCESS)
+	return status;
+
+    /* Update dialog target URI */
+    dlg->target = target_uri;
+
+    return PJ_SUCCESS;
+}
+
+
+/* Get account contact for call and update dialog transport */
+void call_update_contact(pjsua_call *call, pj_str_t **new_contact)
+{
+    pjsip_tpselector tp_sel;
+    pjsua_acc *acc = &pjsua_var.acc[call->acc_id];
+
+    if (acc->cfg.force_contact.slen)
+	*new_contact = &acc->cfg.force_contact;
+    else if (acc->contact.slen)
+	*new_contact = &acc->contact;
+
+    /* When contact is changed, the account transport may have been
+     * changed too, so let's update the dialog's transport too.
+     */
+    pjsua_init_tpselector(acc->cfg.transport_id, &tp_sel);
+    pjsip_dlg_set_transport(call->inv->dlg, &tp_sel);
+}
+
+
 
 /*
  * Make outgoing call to the specified URI using the specified account.
@@ -734,6 +825,9 @@ PJ_DEF(pj_status_t) pjsua_call_make_call(pjsua_acc_id acc_id,
     /* Associate session with account */
     call->acc_id = acc_id;
     call->call_hold_type = acc->cfg.call_hold_type;
+
+    /* Generate per-session RTCP CNAME, according to RFC 7022. */
+    pj_create_random_string(call->cname_buf, call->cname.slen);
 
     /* Apply call setting */
     status = apply_call_setting(call, opt, NULL);
@@ -1165,6 +1259,9 @@ pj_bool_t pjsua_call_on_incoming(pjsip_rx_data *rdata)
 
     call = &pjsua_var.calls[call_id];
 
+    /* Generate per-session RTCP CNAME, according to RFC 7022. */
+    pj_create_random_string(call->cname_buf, call->cname.slen);
+
     /* Mark call start time. */
     pj_gettimeofday(&call->start_time);
 
@@ -1253,6 +1350,16 @@ pj_bool_t pjsua_call_on_incoming(pjsip_rx_data *rdata)
      * the call.
      */
     acc_id = call->acc_id = pjsua_acc_find_for_incoming(rdata);
+    if (acc_id == PJSUA_INVALID_ID) {
+	pjsip_endpt_respond_stateless(pjsua_var.endpt, rdata,
+				      PJSIP_SC_TEMPORARILY_UNAVAILABLE, NULL,
+				      NULL, NULL);
+
+	PJ_LOG(2,(THIS_FILE,
+		  "Unable to accept incoming call (no available account)"));
+
+	goto on_return;
+    }
     call->call_hold_type = pjsua_var.acc[acc_id].cfg.call_hold_type;
 
     /* Get call's secure level */
@@ -2327,6 +2434,40 @@ on_return:
 
 
 /*
+ * Send response to incoming INVITE request.
+ */
+PJ_DEF(pj_status_t)
+pjsua_call_answer_with_sdp(pjsua_call_id call_id,
+			   const pjmedia_sdp_session *sdp, 
+			   const pjsua_call_setting *opt,
+			   unsigned code,
+			   const pj_str_t *reason,
+			   const pjsua_msg_data *msg_data)
+{
+    pjsua_call *call;
+    pjsip_dialog *dlg = NULL;
+    pj_status_t status;
+
+    PJ_ASSERT_RETURN(call_id>=0 && call_id<(int)pjsua_var.ua_cfg.max_calls,
+		     PJ_EINVAL);
+
+    status = acquire_call("pjsua_call_answer_with_sdp()",
+    			  call_id, &call, &dlg);
+    if (status != PJ_SUCCESS)
+	return status;
+
+    status = pjsip_inv_set_sdp_answer(call->inv, sdp);
+
+    pjsip_dlg_dec_lock(dlg);
+    
+    if (status != PJ_SUCCESS)
+    	return status;
+    
+    return pjsua_call_answer2(call_id, opt, code, reason, msg_data);
+}
+
+
+/*
  * Hangup call by using method that is appropriate according to the
  * call state.
  */
@@ -2367,7 +2508,7 @@ PJ_DEF(pj_status_t) pjsua_call_hangup(pjsua_call_id call_id,
         PJ_LOG(4,(THIS_FILE, "Pending call %d hangup upon completion "
                              "of media transport", call_id));
 
-	if (call->inv->role == PJSIP_ROLE_UAS)
+	if (call->inv && call->inv->role == PJSIP_ROLE_UAS)
 	    call->async_call.call_var.inc_call.hangup = PJ_TRUE;
 	else
 	    call->async_call.call_var.out_call.hangup = PJ_TRUE;
@@ -2511,13 +2652,23 @@ PJ_DEF(pj_status_t) pjsua_call_set_hold2(pjsua_call_id call_id,
     if ((options & PJSUA_CALL_UPDATE_CONTACT) &&
 	pjsua_acc_is_valid(call->acc_id))
     {
-	new_contact = &pjsua_var.acc[call->acc_id].contact;
+	call_update_contact(call, &new_contact);
     }
 
     if ((options & PJSUA_CALL_UPDATE_VIA) &&
 	pjsua_acc_is_valid(call->acc_id))
     {
     	dlg_set_via(call->inv->dlg, &pjsua_var.acc[call->acc_id]);
+    }
+
+    if ((call->opt.flag & PJSUA_CALL_UPDATE_TARGET) &&
+	msg_data && msg_data->target_uri.slen)
+    {
+	status = dlg_set_target(dlg, &msg_data->target_uri);
+	if (status != PJ_SUCCESS) {
+	    pjsua_perror(THIS_FILE, "Unable to set new target", status);
+	    goto on_return;
+	}
     }
 
     /* Create re-INVITE with new offer */
@@ -2638,13 +2789,23 @@ PJ_DEF(pj_status_t) pjsua_call_reinvite2(pjsua_call_id call_id,
     if ((call->opt.flag & PJSUA_CALL_UPDATE_CONTACT) &&
 	    pjsua_acc_is_valid(call->acc_id))
     {
-	new_contact = &pjsua_var.acc[call->acc_id].contact;
+	call_update_contact(call, &new_contact);
     }
 
     if ((call->opt.flag & PJSUA_CALL_UPDATE_VIA) &&
 	pjsua_acc_is_valid(call->acc_id))
     {
     	dlg_set_via(call->inv->dlg, &pjsua_var.acc[call->acc_id]);
+    }
+
+    if ((call->opt.flag & PJSUA_CALL_UPDATE_TARGET) &&
+	msg_data && msg_data->target_uri.slen)
+    {
+	status = dlg_set_target(dlg, &msg_data->target_uri);
+	if (status != PJ_SUCCESS) {
+	    pjsua_perror(THIS_FILE, "Unable to set new target", status);
+	    goto on_return;
+	}
     }
 
     /* Create re-INVITE with new offer */
@@ -2756,13 +2917,23 @@ PJ_DEF(pj_status_t) pjsua_call_update2(pjsua_call_id call_id,
     if ((call->opt.flag & PJSUA_CALL_UPDATE_CONTACT) &&
 	    pjsua_acc_is_valid(call->acc_id))
     {
-	new_contact = &pjsua_var.acc[call->acc_id].contact;
+	call_update_contact(call, &new_contact);
     }
 
     if ((call->opt.flag & PJSUA_CALL_UPDATE_VIA) &&
 	pjsua_acc_is_valid(call->acc_id))
     {
 	dlg_set_via(call->inv->dlg, &pjsua_var.acc[call->acc_id]);
+    }
+
+    if ((call->opt.flag & PJSUA_CALL_UPDATE_TARGET) &&
+	msg_data && msg_data->target_uri.slen)
+    {
+	status = dlg_set_target(dlg, &msg_data->target_uri);
+	if (status != PJ_SUCCESS) {
+	    pjsua_perror(THIS_FILE, "Unable to set new target", status);
+	    goto on_return;
+	}
     }
 
     /* Create UPDATE with new offer */
@@ -2982,6 +3153,46 @@ on_error:
     return status;
 }
 
+/*
+ * Send DTMF digits to remote.
+ */
+PJ_DEF(pj_status_t) pjsua_call_send_dtmf(pjsua_call_id call_id,
+ 				       const pjsua_call_send_dtmf_param *param)
+{
+    pj_status_t status = PJ_EINVAL;    
+
+    PJ_ASSERT_RETURN(call_id>=0 && call_id<(int)pjsua_var.ua_cfg.max_calls &&
+		     param, PJ_EINVAL);
+
+    PJ_LOG(4,(THIS_FILE, "Call %d sending DTMF %.*s using %s method",
+    		       call_id, (int)param->digits.slen, param->digits.ptr,
+		       get_dtmf_method_name(param->method)));
+
+    if (param->method == PJSUA_DTMF_METHOD_RFC2833) {
+	status = pjsua_call_dial_dtmf(call_id, &param->digits);
+    } else if (param->method == PJSUA_DTMF_METHOD_SIP_INFO) {
+	const pj_str_t SIP_INFO = pj_str("INFO");
+	int i;
+
+	for (i = 0; i < param->digits.slen; ++i) {
+	    char body[80];
+	    pjsua_msg_data msg_data_;
+
+	    pjsua_msg_data_init(&msg_data_);
+	    msg_data_.content_type = pj_str("application/dtmf-relay");
+
+	    pj_ansi_snprintf(body, sizeof(body),
+			     "Signal=%c\r\n"
+			     "Duration=%d",
+			     param->digits.ptr[i], param->duration);
+	    msg_data_.msg_body = pj_str(body);
+
+	    status = pjsua_call_send_request(call_id, &SIP_INFO, &msg_data_);
+	}
+    }
+
+    return status;
+}
 
 /**
  * Send instant messaging inside INVITE session.
@@ -3664,6 +3875,7 @@ static void pjsua_call_on_state_changed(pjsip_inv_session *inv,
 					pjsip_event *e)
 {
     pjsua_call *call;
+    unsigned num_locks = 0;
 
     pj_log_push_indent();
 
@@ -3798,6 +4010,12 @@ static void pjsua_call_on_state_changed(pjsip_inv_session *inv,
 	}
     }
 
+    /* Release locks before calling callbacks, to avoid deadlock. */
+    while (PJSUA_LOCK_IS_LOCKED()) {
+    	num_locks++;
+    	PJSUA_UNLOCK();
+    }
+
     /* Ticket #1627: Invoke on_call_tsx_state() when call is disconnected. */
     if (inv->state == PJSIP_INV_STATE_DISCONNECTED &&
 	e->type == PJSIP_EVENT_TSX_STATE &&
@@ -3810,6 +4028,10 @@ static void pjsua_call_on_state_changed(pjsip_inv_session *inv,
 
     if (pjsua_var.ua_cfg.cb.on_call_state)
 	(*pjsua_var.ua_cfg.cb.on_call_state)(call->index, e);
+
+    /* Re-acquire the locks. */
+    for (;num_locks > 0; num_locks--)
+    	PJSUA_LOCK();
 
     /* call->inv may be NULL now */
 
@@ -3872,7 +4094,7 @@ pjsip_dialog* on_dlg_forked(pjsip_dialog *dlg, pjsip_rx_data *res)
 	pjsip_dlg_inc_lock(forked_dlg);
 
 	/* Disconnect the call */
-	status = pjsip_dlg_create_request(forked_dlg, &pjsip_bye_method,
+	status = pjsip_dlg_create_request(forked_dlg, pjsip_get_bye_method(),
 					  -1, &bye);
 	if (status == PJ_SUCCESS) {
 	    status = pjsip_dlg_send_request(forked_dlg, bye, -1, NULL);
@@ -4146,12 +4368,15 @@ static pj_status_t create_sdp_of_call_hold(pjsua_call *call,
  * Called when session received new offer.
  */
 static void pjsua_call_on_rx_offer(pjsip_inv_session *inv,
-				   const pjmedia_sdp_session *offer)
+				struct pjsip_inv_on_rx_offer_cb_param *param)
 {
     pjsua_call *call;
     pjmedia_sdp_session *answer;
     unsigned i;
     pj_status_t status;
+    const pjmedia_sdp_session *offer = param->offer;
+    pjsua_call_setting opt;
+    pj_bool_t async = PJ_FALSE;
 
     call = (pjsua_call*) inv->dlg->mod_data[pjsua_var.mod.id];
 
@@ -4167,12 +4392,53 @@ static void pjsua_call_on_rx_offer(pjsip_inv_session *inv,
     }
 
     cleanup_call_setting_flag(&call->opt);
+    opt = call->opt;
 
-    if (pjsua_var.ua_cfg.cb.on_call_rx_offer) {
+    if (pjsua_var.ua_cfg.cb.on_call_rx_reinvite &&
+        param->rdata->msg_info.msg->type == PJSIP_REQUEST_MSG &&
+        param->rdata->msg_info.msg->line.req.method.id == PJSIP_INVITE_METHOD)
+    {
+        pjsip_status_code code = PJSIP_SC_OK;
+
+    	/* If on_call_rx_reinvite() callback is implemented,
+    	 * call it first.
+    	 */
+	(*pjsua_var.ua_cfg.cb.on_call_rx_reinvite)(
+						call->index, offer,
+						(pjsip_rx_data *)param->rdata,
+						NULL, &async, &code, &opt);
+	if (async) {
+    	    pjsip_tx_data *response;
+
+    	    status = pjsip_inv_initial_answer(inv,
+    	    				      (pjsip_rx_data *)param->rdata,
+				      	      100, NULL, NULL, &response);
+    	    if (status != PJ_SUCCESS) {
+		PJ_LOG(3, (THIS_FILE, "Failed to create initial answer")); 
+    	    	goto on_return;
+    	    }
+
+	    status = pjsip_inv_send_msg(inv, response);
+    	    if (status != PJ_SUCCESS) {
+		PJ_LOG(3, (THIS_FILE, "Failed to send initial answer")); 
+    	    	goto on_return;
+    	    }
+
+	    PJ_LOG(4,(THIS_FILE, "App will manually answer the re-INVITE "
+	    			 "on call %d", call->index));
+	}
+	if (code != PJSIP_SC_OK) {
+	    PJ_LOG(4,(THIS_FILE, "Rejecting re-INVITE updated media offer "
+	    			 "on call %d", call->index));
+	    goto on_return;
+	}
+
+	call->opt = opt;
+    }
+
+    if (pjsua_var.ua_cfg.cb.on_call_rx_offer && !async) {
 	pjsip_status_code code = PJSIP_SC_OK;
-	pjsua_call_setting opt;
 
-	opt = call->opt;
 	(*pjsua_var.ua_cfg.cb.on_call_rx_offer)(call->index, offer, NULL,
 						&code, &opt);
 
@@ -4195,6 +4461,11 @@ static void pjsua_call_on_rx_offer(pjsip_inv_session *inv,
 					    offer, &answer, NULL);
     if (status != PJ_SUCCESS) {
 	pjsua_perror(THIS_FILE, "Unable to create local SDP", status);
+	goto on_return;
+    }
+
+    if (async) {
+	call->rx_reinv_async = async;
 	goto on_return;
     }
 
@@ -4247,6 +4518,27 @@ on_return:
 
 
 /*
+ * Called when receiving re-INVITE.
+ */
+static pj_status_t pjsua_call_on_rx_reinvite(pjsip_inv_session *inv,
+    		                  	     const pjmedia_sdp_session *offer,
+                                  	     pjsip_rx_data *rdata)
+{
+    pjsua_call *call;
+    pj_bool_t async;
+
+    PJ_UNUSED_ARG(offer);
+    PJ_UNUSED_ARG(rdata);
+
+    call = (pjsua_call*) inv->dlg->mod_data[pjsua_var.mod.id];
+    async = call->rx_reinv_async;
+    call->rx_reinv_async = PJ_FALSE;
+
+    return (async? PJ_SUCCESS: !PJ_SUCCESS);
+}
+
+
+/*
  * Called to generate new offer.
  */
 static void pjsua_call_on_create_offer(pjsip_inv_session *inv,
@@ -4292,7 +4584,9 @@ static void pjsua_call_on_create_offer(pjsip_inv_session *inv,
          */
         pjmedia_transport_media_stop(call_med->tp);
         pjmedia_transport_media_create(call_med->tp, call->inv->pool_prov,
-                                       0, NULL, mi);
+                                       (call_med->enable_rtcp_mux?
+            			    	PJMEDIA_TPMED_RTCP_MUX: 0),
+            			       NULL, mi);
 
         PJ_LOG(4, (THIS_FILE, "Restarting ICE for media %d", mi));
     }
@@ -4409,7 +4703,8 @@ static void xfer_client_on_evsub_state( pjsip_evsub *sub, pjsip_event *event)
 	}
     }
     /*
-     * On incoming NOTIFY, notify application about call transfer progress.
+     * On incoming NOTIFY or an error response, notify application about call 
+     * transfer progress.
      */
     else if (pjsip_evsub_get_state(sub) == PJSIP_EVSUB_STATE_ACTIVE ||
 	     pjsip_evsub_get_state(sub) == PJSIP_EVSUB_STATE_TERMINATED)
@@ -4437,44 +4732,51 @@ static void xfer_client_on_evsub_state( pjsip_evsub *sub, pjsip_event *event)
 	    /* Application is not interested with call progress status */
 	    goto on_return;
 	}
-
-	/* This better be a NOTIFY request */
+	
 	if (event->type == PJSIP_EVENT_TSX_STATE &&
 	    event->body.tsx_state.type == PJSIP_EVENT_RX_MSG)
 	{
 	    pjsip_rx_data *rdata;
 
 	    rdata = event->body.tsx_state.src.rdata;
-
-	    /* Check if there's body */
 	    msg = rdata->msg_info.msg;
-	    body = msg->body;
-	    if (!body) {
-		PJ_LOG(2,(THIS_FILE,
-			  "Warning: received NOTIFY without message body"));
-		goto on_return;
-	    }
 
-	    /* Check for appropriate content */
-	    if (pj_stricmp2(&body->content_type.type, "message") != 0 ||
-		pj_stricmp2(&body->content_type.subtype, "sipfrag") != 0)
+	    /* This better be a NOTIFY request */
+	    if (pjsip_method_cmp(&msg->line.req.method, 
+				 pjsip_get_notify_method()) == 0) 
 	    {
-		PJ_LOG(2,(THIS_FILE,
-			  "Warning: received NOTIFY with non message/sipfrag "
-			  "content"));
-		goto on_return;
-	    }
+		/* Check if there's body */
+		body = msg->body;
+		if (!body) {
+		    PJ_LOG(2, (THIS_FILE,
+			       "Warning: received NOTIFY without message "
+			       "body"));
+		    goto on_return;
+		}
 
-	    /* Try to parse the content */
-	    status = pjsip_parse_status_line((char*)body->data, body->len,
-					     &status_line);
-	    if (status != PJ_SUCCESS) {
-		PJ_LOG(2,(THIS_FILE,
-			  "Warning: received NOTIFY with invalid "
-			  "message/sipfrag content"));
-		goto on_return;
-	    }
+		/* Check for appropriate content */
+		if (pj_stricmp2(&body->content_type.type, "message") != 0 ||
+		    pj_stricmp2(&body->content_type.subtype, "sipfrag") != 0)
+		{
+		    PJ_LOG(2, (THIS_FILE,
+			       "Warning: received NOTIFY with non "
+			       "message/sipfrag content"));
+		    goto on_return;
+		}
 
+		/* Try to parse the content */
+		status = pjsip_parse_status_line((char*)body->data, body->len,
+						 &status_line);
+		if (status != PJ_SUCCESS) {
+		    PJ_LOG(2, (THIS_FILE,
+			       "Warning: received NOTIFY with invalid "
+			       "message/sipfrag content"));
+		    goto on_return;
+		}
+	    } else {
+		status_line.code = msg->line.status.code;
+		status_line.reason = msg->line.status.reason;
+	    }
 	} else {
 	    status_line.code = 500;
 	    status_line.reason = *pjsip_get_status_text(500);
@@ -4498,7 +4800,7 @@ static void xfer_client_on_evsub_state( pjsip_evsub *sub, pjsip_event *event)
 	if (status_line.code/100 == 2 && !is_last) {
 	    pjsip_tx_data *tdata;
 
-	    status = pjsip_evsub_initiate(sub, &pjsip_subscribe_method,
+	    status = pjsip_evsub_initiate(sub, pjsip_get_subscribe_method(),
 					  0, &tdata);
 	    if (status == PJ_SUCCESS)
 		status = pjsip_evsub_send_request(sub, tdata);
@@ -4891,7 +5193,7 @@ static void pjsua_call_on_tsx_state_changed(pjsip_inv_session *inv,
 	    }
 	}
     } else if (tsx->role == PJSIP_ROLE_UAC &&
-               pjsip_method_cmp(&tsx->method, &pjsip_invite_method)==0 &&
+               pjsip_method_cmp(&tsx->method, pjsip_get_invite_method())==0 &&
                tsx->state >= PJSIP_TSX_STATE_COMPLETED &&
 	       e->body.tsx_state.prev_state < PJSIP_TSX_STATE_COMPLETED &&
                (!PJSIP_IS_STATUS_IN_CLASS(tsx->status_code, 300) &&
@@ -4962,6 +5264,11 @@ static void pjsua_call_on_tsx_state_changed(pjsip_inv_session *inv,
 	 */
 	const pj_str_t STR_APPLICATION	     = { "application", 11};
 	const pj_str_t STR_MEDIA_CONTROL_XML = { "media_control+xml", 17 };
+	/*
+	 * Incoming INFO request for DTMF.
+	 */	
+	const pj_str_t STR_DTMF_RELAY  = { "dtmf-relay", 10 };
+
 	pjsip_rx_data *rdata = e->body.tsx_state.src.rdata;
 	pjsip_msg_body *body = rdata->msg_info.msg->body;
 
@@ -4986,6 +5293,105 @@ static void pjsua_call_on_tsx_state_changed(pjsip_inv_session *inv,
 						     400, NULL, &tdata);
 		if (status == PJ_SUCCESS)
 		    status = pjsip_tsx_send_msg(tsx, tdata);
+	    }
+	} else if (body && body->len &&
+	    pj_stricmp(&body->content_type.type, &STR_APPLICATION)==0 &&
+	    pj_stricmp(&body->content_type.subtype, &STR_DTMF_RELAY)==0)
+	{
+	    pjsip_tx_data *tdata;
+	    pj_status_t status;
+	    pj_bool_t is_handled = PJ_FALSE;
+
+	    if (pjsua_var.ua_cfg.cb.on_dtmf_digit2) {
+		pjsua_dtmf_info info;
+		pj_str_t delim, token, input;
+		pj_ssize_t found_idx;
+
+		delim = pj_str("\r\n");
+		input = pj_str(rdata->msg_info.msg->body->data);
+		found_idx = pj_strtok(&input, &delim, &token, 0);
+		if (found_idx != input.slen) {
+		    /* Get signal/digit */
+		    const pj_str_t STR_SIGNAL = { "Signal=", 7 };
+		    const pj_str_t STR_DURATION = { "Duration=", 9 };
+		    char *val;
+
+		    val = pj_strstr(&input, &STR_SIGNAL);
+		    if (val) {
+			info.digit = *(val+STR_SIGNAL.slen);
+			is_handled = PJ_TRUE;
+
+			/* Get duration */
+			input.ptr += token.slen + 2;
+			input.slen -= (token.slen + 2);
+
+			val = pj_strstr(&input, &STR_DURATION);
+			if (val) {
+			    pj_str_t val_str;
+
+			    val_str.ptr = val + STR_DURATION.slen;
+			    val_str.slen = input.slen - STR_DURATION.slen;
+			    info.duration = pj_strtoul(&val_str);
+			}
+		    	info.method = PJSUA_DTMF_METHOD_SIP_INFO;
+			(*pjsua_var.ua_cfg.cb.on_dtmf_digit2)(call->index, 
+							      &info);
+
+			status = pjsip_endpt_create_response(tsx->endpt, rdata,
+							    200, NULL, &tdata);
+			if (status == PJ_SUCCESS)
+			    status = pjsip_tsx_send_msg(tsx, tdata);
+		    }
+		}
+	    } 
+	    
+	    if (!is_handled) {
+		status = pjsip_endpt_create_response(tsx->endpt, rdata,
+						     400, NULL, &tdata);
+		if (status == PJ_SUCCESS)
+		    status = pjsip_tsx_send_msg(tsx, tdata);
+	    }
+	}
+    } else if (tsx->role == PJSIP_ROLE_UAC && 
+	       pjsip_method_cmp(&tsx->method, &pjsip_info_method)==0 &&
+	       (tsx->state == PJSIP_TSX_STATE_COMPLETED ||
+	       (tsx->state == PJSIP_TSX_STATE_TERMINATED &&
+	        e->body.tsx_state.prev_state != PJSIP_TSX_STATE_COMPLETED)))
+    {
+	const pj_str_t STR_APPLICATION = { "application", 11};
+	const pj_str_t STR_DTMF_RELAY  = { "dtmf-relay", 10 };
+	pjsip_msg_body *body = NULL;
+	pj_bool_t dtmf_info = PJ_FALSE;
+	
+	if (e->body.tsx_state.type == PJSIP_EVENT_TX_MSG)
+	    body = e->body.tsx_state.src.tdata->msg->body;
+	else
+	    body = e->body.tsx_state.tsx->last_tx->msg->body;
+
+	/* Check DTMF content in the INFO message */
+	if (body && body->len &&
+	    pj_stricmp(&body->content_type.type, &STR_APPLICATION)==0 &&
+	    pj_stricmp(&body->content_type.subtype, &STR_DTMF_RELAY)==0)
+	{
+	    dtmf_info = PJ_TRUE;
+	}
+
+	if (dtmf_info && (tsx->state == PJSIP_TSX_STATE_COMPLETED ||
+			 (tsx->state == PJSIP_TSX_STATE_TERMINATED &&
+	           e->body.tsx_state.prev_state != PJSIP_TSX_STATE_COMPLETED))) 
+	{
+	    /* Status of outgoing INFO request */
+	    if (tsx->status_code >= 200 && tsx->status_code < 300) {
+		PJ_LOG(4,(THIS_FILE, 
+			  "Call %d: DTMF sent successfully with INFO",
+			  call->index));
+	    } else if (tsx->status_code >= 300) {
+		PJ_LOG(4,(THIS_FILE, 
+			  "Call %d: Failed to send DTMF with INFO: %d/%.*s",
+			  call->index,
+		          tsx->status_code,
+			  (int)tsx->status_text.slen,
+			  tsx->status_text.ptr));
 	    }
 	}
     }

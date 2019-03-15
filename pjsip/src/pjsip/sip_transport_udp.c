@@ -1,4 +1,4 @@
-/* $Id: sip_transport_udp.c 5649 2017-09-15 05:32:08Z riza $ */
+/* $Id: sip_transport_udp.c 5833 2018-07-23 07:15:08Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -142,6 +142,27 @@ static void udp_on_read_complete( pj_ioqueue_key_t *key,
     if (tp->is_paused)
 	goto on_return;
 
+#if defined(PJ_IPHONE_OS_HAS_MULTITASKING_SUPPORT) && \
+    	    PJ_IPHONE_OS_HAS_MULTITASKING_SUPPORT!=0
+    if (-bytes_read == PJ_ESOCKETSTOP) {
+	--tp->read_loop_spin;
+	/* Try to recover by restarting the transport. */
+	PJ_LOG(4,(tp->base.obj_name, "Restarting SIP UDP transport"));
+	status = pjsip_udp_transport_restart2(
+			    &tp->base,
+			    PJSIP_UDP_TRANSPORT_DESTROY_SOCKET,
+			    PJ_INVALID_SOCKET,
+			    &tp->base.local_addr,
+			    &tp->base.local_name);
+
+	if (status != PJ_SUCCESS) {
+	    PJ_PERROR(1,(THIS_FILE, status,
+			 "Error restarting SIP UDP transport"));
+	}
+        return;
+    }
+#endif
+
     /*
      * The idea of the loop is to process immediate data received by
      * pj_ioqueue_recvfrom(), as long as i < MAX_IMMEDIATE_PACKET. When
@@ -261,7 +282,6 @@ static void udp_on_read_complete( pj_ioqueue_key_t *key,
 		    status != PJ_STATUS_FROM_OS(OSERR_EINPROGRESS) && 
 		    status != PJ_STATUS_FROM_OS(OSERR_ECONNRESET)) 
 		{
-
 		    PJSIP_ENDPT_LOG_ERROR((rdata->tp_info.transport->endpt,
 					   rdata->tp_info.transport->obj_name,
 					   status, 
@@ -303,6 +323,27 @@ static void udp_on_write_complete( pj_ioqueue_key_t *key,
     pjsip_tx_data_op_key *tdata_op_key = (pjsip_tx_data_op_key*)op_key;
 
     tdata_op_key->tdata = NULL;
+
+#if defined(PJ_IPHONE_OS_HAS_MULTITASKING_SUPPORT) && \
+    	    PJ_IPHONE_OS_HAS_MULTITASKING_SUPPORT!=0
+    if (-bytes_sent == PJ_ESOCKETSTOP) {
+	pj_status_t status;
+	/* Try to recover by restarting the transport. */
+	PJ_LOG(4,(tp->base.obj_name, "Restarting SIP UDP transport"));
+	status = pjsip_udp_transport_restart2(
+			    &tp->base,
+			    PJSIP_UDP_TRANSPORT_DESTROY_SOCKET,
+			    PJ_INVALID_SOCKET,
+			    &tp->base.local_addr,
+			    &tp->base.local_name);
+
+	if (status != PJ_SUCCESS) {
+	    PJ_PERROR(1,(THIS_FILE, status,
+			 "Error restarting SIP UDP transport"));
+	}
+        return;
+    }
+#endif
 
     if (tdata_op_key->callback) {
 	tdata_op_key->callback(&tp->base, tdata_op_key->token, bytes_sent);
@@ -559,8 +600,16 @@ static void udp_set_pub_name(struct udp_transport *tp,
 {
     enum { INFO_LEN = 80 };
     char local_addr[PJ_INET6_ADDRSTRLEN+10];
+    char pub_addr[PJ_INET6_ADDRSTRLEN+10];
 
     pj_assert(a_name->host.slen != 0);
+    
+    if (pj_strcmp(&tp->base.local_name.host, &a_name->host) == 0 &&
+        tp->base.local_name.port == a_name->port)
+    {
+        return;
+    }
+    
     pj_strdup_with_null(tp->base.pool, &tp->base.local_name.host, 
 			&a_name->host);
     tp->base.local_name.port = a_name->port;
@@ -571,12 +620,12 @@ static void udp_set_pub_name(struct udp_transport *tp,
     }
 
     pj_sockaddr_print(&tp->base.local_addr, local_addr, sizeof(local_addr), 3);
+    pj_addr_str_print(&tp->base.local_name.host, 
+		      tp->base.local_name.port, 
+		      pub_addr, sizeof(pub_addr), 1),
 
-    pj_ansi_snprintf( 
-	tp->base.info, INFO_LEN, "udp %s [published as %s:%d]",
-	local_addr,
-	tp->base.local_name.host.ptr,
-	tp->base.local_name.port);
+    pj_ansi_snprintf( tp->base.info, INFO_LEN, "udp %s [published as %s]",
+		      local_addr, pub_addr);
 }
 
 /* Set the socket handle of the transport */
@@ -1098,6 +1147,7 @@ PJ_DEF(pj_status_t) pjsip_udp_transport_restart2(pjsip_transport *transport,
 {
     struct udp_transport *tp;
     pj_status_t status;
+    char addr[PJ_INET6_ADDRSTRLEN+10];
 
     PJ_ASSERT_RETURN(transport != NULL, PJ_EINVAL);
     /* Flag must be specified */
@@ -1132,8 +1182,9 @@ PJ_DEF(pj_status_t) pjsip_udp_transport_restart2(pjsip_transport *transport,
 
 	/* Create the socket if it's not specified */
 	if (sock == PJ_INVALID_SOCKET) {
-	    status = create_socket(local->addr.sa_family, local, 
-				   pj_sockaddr_get_len(local), &sock);
+	    status = create_socket(local?local->addr.sa_family:pj_AF_UNSPEC(), 
+				   local, local?pj_sockaddr_get_len(local):0, 
+				   &sock);
 	    if (status != PJ_SUCCESS)
 		return status;
 	}
@@ -1192,11 +1243,11 @@ PJ_DEF(pj_status_t) pjsip_udp_transport_restart2(pjsip_transport *transport,
     /* Everything has been set up */
     tp->is_paused = PJ_FALSE;
 
-    PJ_LOG(4,(tp->base.obj_name, 
-	      "SIP UDP transport restarted, published address is %.*s:%d",
-	      (int)tp->base.local_name.host.slen,
-	      tp->base.local_name.host.ptr,
-	      tp->base.local_name.port));
+    PJ_LOG(4, (tp->base.obj_name,
+	       "SIP UDP transport restarted, published address is %s",
+	       pj_addr_str_print(&tp->base.local_name.host,
+				 tp->base.local_name.port,
+				 addr, sizeof(addr), 1)));
 
     return PJ_SUCCESS;
 }

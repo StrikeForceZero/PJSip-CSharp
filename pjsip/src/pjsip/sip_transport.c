@@ -1,4 +1,4 @@
-/* $Id: sip_transport.c 5682 2017-11-08 02:58:18Z riza $ */
+/* $Id: sip_transport.c 5851 2018-08-01 09:22:26Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -643,6 +643,53 @@ PJ_DEF(pj_status_t) pjsip_tx_data_set_transport(pjsip_tx_data *tdata,
     return PJ_SUCCESS;
 }
 
+/* Clone pjsip_tx_data. */
+PJ_DEF(pj_status_t) pjsip_tx_data_clone(const pjsip_tx_data *src,
+                                        unsigned flags,
+				  	pjsip_tx_data ** p_tdata)
+{
+    pjsip_tx_data *dst;
+    const pjsip_hdr *hsrc;
+    pjsip_msg *msg;
+    pj_status_t status;
+
+    PJ_UNUSED_ARG(flags);
+
+    status = pjsip_tx_data_create(src->mgr, p_tdata);
+    if (status != PJ_SUCCESS)
+	return status;
+
+    dst = *p_tdata;
+
+    msg = pjsip_msg_create(dst->pool, PJSIP_RESPONSE_MSG);
+    dst->msg = msg;
+    pjsip_tx_data_add_ref(dst);
+
+    /* Duplicate status line */
+    msg->line.status.code = src->msg->line.status.code;
+    pj_strdup(dst->pool, &msg->line.status.reason,
+	      &src->msg->line.status.reason);
+
+    /* Duplicate all headers */
+    hsrc = src->msg->hdr.next;
+    while (hsrc != &src->msg->hdr) {
+	pjsip_hdr *h = (pjsip_hdr*) pjsip_hdr_clone(dst->pool, hsrc);
+	pjsip_msg_add_hdr(msg, h);
+	hsrc = hsrc->next;
+    }
+
+    /* Duplicate message body */
+    if (src->msg->body)
+	msg->body = pjsip_msg_body_clone(dst->pool, src->msg->body);
+
+    dst->is_pending = src->is_pending;
+
+    PJ_LOG(5,(THIS_FILE,
+	     "Tx data %s cloned",
+	     pjsip_tx_data_get_info(dst)));
+
+    return PJ_SUCCESS;
+}
 
 PJ_DEF(char*) pjsip_rx_data_get_info(pjsip_rx_data *rdata)
 {
@@ -974,7 +1021,21 @@ static pj_bool_t is_transport_valid(pjsip_transport *tp, pjsip_tpmgr *tpmgr,
 				    const pjsip_transport_key *key,
 				    int key_len)
 {
-    return (pj_hash_get(tpmgr->table, key, key_len, NULL) == (void*)tp);
+    transport *tp_iter;
+
+    if (pj_hash_get(tpmgr->table, key, key_len, NULL) == (void*)tp) {
+        return PJ_TRUE;
+    }
+
+    tp_iter = tpmgr->tp_list.next;
+    while (tp_iter != &tpmgr->tp_list) {
+        if (tp_iter->tp == tp) {
+            return PJ_TRUE;
+        }
+        tp_iter = tp_iter->next;
+    }
+
+    return PJ_FALSE;
 }
 
 /*
@@ -1409,7 +1470,7 @@ static pj_status_t get_net_interface(pjsip_transport_type_e tp_type,
     pj_sockaddr itf_addr;
     pj_status_t status = -1;
 
-    af = (tp_type & PJSIP_TRANSPORT_IPV6)? PJ_AF_INET6 : PJ_AF_INET;
+    af = (tp_type & PJSIP_TRANSPORT_IPV6)? pj_AF_INET6() : pj_AF_INET();
 
     if (pjsip_cfg()->endpt.resolve_hostname_to_get_interface) {
 	status = pj_getipinterface(af, dst, &itf_addr, PJ_TRUE, NULL);

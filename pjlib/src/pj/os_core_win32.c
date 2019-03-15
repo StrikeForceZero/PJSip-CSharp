@@ -1,4 +1,4 @@
-/* $Id: os_core_win32.c 5539 2017-01-23 04:32:34Z nanang $ */
+/* $Id: os_core_win32.c 5815 2018-06-29 02:49:04Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -30,12 +30,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#if defined(PJ_HAS_WINSOCK_H) && PJ_HAS_WINSOCK_H != 0
-#  include <winsock.h>
-#endif
-
 #if defined(PJ_HAS_WINSOCK2_H) && PJ_HAS_WINSOCK2_H != 0
 #  include <winsock2.h>
+#endif
+
+#if defined(PJ_HAS_WINSOCK_H) && PJ_HAS_WINSOCK_H != 0
+#  include <winsock.h>
 #endif
 
 #if defined(PJ_WIN32_WINPHONE8) && PJ_WIN32_WINPHONE8
@@ -750,6 +750,7 @@ PJ_DEF(pj_status_t) pj_atomic_destroy( pj_atomic_t *var )
 PJ_DEF(void) pj_atomic_set( pj_atomic_t *atomic_var, pj_atomic_value_t value)
 {
     PJ_CHECK_STACK();
+    PJ_ASSERT_ON_FAIL(atomic_var, return);
 
     InterlockedExchange(&atomic_var->value, value);
 }
@@ -784,6 +785,7 @@ PJ_DEF(pj_atomic_value_t) pj_atomic_inc_and_get(pj_atomic_t *atomic_var)
  */
 PJ_DEF(void) pj_atomic_inc(pj_atomic_t *atomic_var)
 {
+    PJ_ASSERT_ON_FAIL(atomic_var, return);
     pj_atomic_inc_and_get(atomic_var);
 }
 
@@ -806,6 +808,7 @@ PJ_DEF(pj_atomic_value_t) pj_atomic_dec_and_get(pj_atomic_t *atomic_var)
  */
 PJ_DEF(void) pj_atomic_dec(pj_atomic_t *atomic_var)
 {
+    PJ_ASSERT_ON_FAIL(atomic_var, return);
     pj_atomic_dec_and_get(atomic_var);
 }
 
@@ -815,6 +818,7 @@ PJ_DEF(void) pj_atomic_dec(pj_atomic_t *atomic_var)
 PJ_DEF(void) pj_atomic_add( pj_atomic_t *atomic_var,
 			    pj_atomic_value_t value )
 {
+    PJ_ASSERT_ON_FAIL(atomic_var, return);
 #if defined(PJ_WIN32_WINNT) && PJ_WIN32_WINNT >= 0x0400
     InterlockedExchangeAdd( &atomic_var->value, value );
 #else

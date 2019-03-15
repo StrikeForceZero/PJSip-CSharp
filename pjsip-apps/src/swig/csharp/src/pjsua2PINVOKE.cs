@@ -569,14 +569,14 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_TimeVal")]
   public static extern void delete_TimeVal(global::System.Runtime.InteropServices.HandleRef jarg1);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_PersistentObject")]
+  public static extern void delete_PersistentObject(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_PersistentObject_readObject")]
   public static extern void PersistentObject_readObject(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_PersistentObject_writeObject")]
   public static extern void PersistentObject_writeObject(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
-
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_PersistentObject")]
-  public static extern void delete_PersistentObject(global::System.Runtime.InteropServices.HandleRef jarg1);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_PersistentDocument")]
   public static extern void delete_PersistentDocument(global::System.Runtime.InteropServices.HandleRef jarg1);
@@ -838,6 +838,24 @@ class pjsua2PINVOKE {
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_TlsConfig_password_get")]
   public static extern string TlsConfig_password_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_TlsConfig_CaBuf_set")]
+  public static extern void TlsConfig_CaBuf_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_TlsConfig_CaBuf_get")]
+  public static extern string TlsConfig_CaBuf_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_TlsConfig_certBuf_set")]
+  public static extern void TlsConfig_certBuf_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_TlsConfig_certBuf_get")]
+  public static extern string TlsConfig_certBuf_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_TlsConfig_privKeyBuf_set")]
+  public static extern void TlsConfig_privKeyBuf_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_TlsConfig_privKeyBuf_get")]
+  public static extern string TlsConfig_privKeyBuf_get(global::System.Runtime.InteropServices.HandleRef jarg1);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_TlsConfig_method_set")]
   public static extern void TlsConfig_method_set(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
@@ -1627,6 +1645,72 @@ class pjsua2PINVOKE {
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_AuthCredInfoVector")]
   public static extern void delete_AuthCredInfoVector(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_Clear")]
+  public static extern void SrtpCryptoVector_Clear(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_Add")]
+  public static extern void SrtpCryptoVector_Add(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_size")]
+  public static extern uint SrtpCryptoVector_size(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_capacity")]
+  public static extern uint SrtpCryptoVector_capacity(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_reserve")]
+  public static extern void SrtpCryptoVector_reserve(global::System.Runtime.InteropServices.HandleRef jarg1, uint jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_SrtpCryptoVector__SWIG_0")]
+  public static extern global::System.IntPtr new_SrtpCryptoVector__SWIG_0();
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_SrtpCryptoVector__SWIG_1")]
+  public static extern global::System.IntPtr new_SrtpCryptoVector__SWIG_1(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_SrtpCryptoVector__SWIG_2")]
+  public static extern global::System.IntPtr new_SrtpCryptoVector__SWIG_2(int jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_getitemcopy")]
+  public static extern global::System.IntPtr SrtpCryptoVector_getitemcopy(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_getitem")]
+  public static extern global::System.IntPtr SrtpCryptoVector_getitem(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_setitem")]
+  public static extern void SrtpCryptoVector_setitem(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2, global::System.Runtime.InteropServices.HandleRef jarg3);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_AddRange")]
+  public static extern void SrtpCryptoVector_AddRange(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_GetRange")]
+  public static extern global::System.IntPtr SrtpCryptoVector_GetRange(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2, int jarg3);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_Insert")]
+  public static extern void SrtpCryptoVector_Insert(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2, global::System.Runtime.InteropServices.HandleRef jarg3);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_InsertRange")]
+  public static extern void SrtpCryptoVector_InsertRange(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2, global::System.Runtime.InteropServices.HandleRef jarg3);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_RemoveAt")]
+  public static extern void SrtpCryptoVector_RemoveAt(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_RemoveRange")]
+  public static extern void SrtpCryptoVector_RemoveRange(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2, int jarg3);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_Repeat")]
+  public static extern global::System.IntPtr SrtpCryptoVector_Repeat(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_Reverse__SWIG_0")]
+  public static extern void SrtpCryptoVector_Reverse__SWIG_0(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_Reverse__SWIG_1")]
+  public static extern void SrtpCryptoVector_Reverse__SWIG_1(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2, int jarg3);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCryptoVector_SetRange")]
+  public static extern void SrtpCryptoVector_SetRange(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2, global::System.Runtime.InteropServices.HandleRef jarg3);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_SrtpCryptoVector")]
+  public static extern void delete_SrtpCryptoVector(global::System.Runtime.InteropServices.HandleRef jarg1);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SipMultipartPartVector_Clear")]
   public static extern void SipMultipartPartVector_Clear(global::System.Runtime.InteropServices.HandleRef jarg1);
@@ -2576,6 +2660,18 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Media_getType")]
   public static extern int Media_getType(global::System.Runtime.InteropServices.HandleRef jarg1);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AudioMediaTransmitParam_level_set")]
+  public static extern void AudioMediaTransmitParam_level_set(global::System.Runtime.InteropServices.HandleRef jarg1, float jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AudioMediaTransmitParam_level_get")]
+  public static extern float AudioMediaTransmitParam_level_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_AudioMediaTransmitParam")]
+  public static extern global::System.IntPtr new_AudioMediaTransmitParam();
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_AudioMediaTransmitParam")]
+  public static extern void delete_AudioMediaTransmitParam(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AudioMedia_getPortInfo")]
   public static extern global::System.IntPtr AudioMedia_getPortInfo(global::System.Runtime.InteropServices.HandleRef jarg1);
 
@@ -2587,6 +2683,9 @@ class pjsua2PINVOKE {
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AudioMedia_startTransmit")]
   public static extern void AudioMedia_startTransmit(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AudioMedia_startTransmit2")]
+  public static extern void AudioMedia_startTransmit2(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2, global::System.Runtime.InteropServices.HandleRef jarg3);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AudioMedia_stopTransmit")]
   public static extern void AudioMedia_stopTransmit(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
@@ -2983,6 +3082,21 @@ class pjsua2PINVOKE {
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AudDevManager_getPlc")]
   public static extern bool AudDevManager_getPlc(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_ExtraAudioDevice")]
+  public static extern global::System.IntPtr new_ExtraAudioDevice(int jarg1, int jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_ExtraAudioDevice")]
+  public static extern void delete_ExtraAudioDevice(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_ExtraAudioDevice_open")]
+  public static extern void ExtraAudioDevice_open(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_ExtraAudioDevice_close")]
+  public static extern void ExtraAudioDevice_close(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_ExtraAudioDevice_isOpened")]
+  public static extern bool ExtraAudioDevice_isOpened(global::System.Runtime.InteropServices.HandleRef jarg1);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_MediaCoordinate_x_set")]
   public static extern void MediaCoordinate_x_set(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
@@ -4085,6 +4199,108 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_AccountNatConfig")]
   public static extern void delete_AccountNatConfig(global::System.Runtime.InteropServices.HandleRef jarg1);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_key_set")]
+  public static extern void SrtpCrypto_key_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_key_get")]
+  public static extern string SrtpCrypto_key_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_name_set")]
+  public static extern void SrtpCrypto_name_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_name_get")]
+  public static extern string SrtpCrypto_name_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_flags_set")]
+  public static extern void SrtpCrypto_flags_set(global::System.Runtime.InteropServices.HandleRef jarg1, uint jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_flags_get")]
+  public static extern uint SrtpCrypto_flags_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_SrtpCrypto")]
+  public static extern global::System.IntPtr new_SrtpCrypto();
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_SrtpCrypto")]
+  public static extern void delete_SrtpCrypto(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpOpt_cryptos_set")]
+  public static extern void SrtpOpt_cryptos_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpOpt_cryptos_get")]
+  public static extern global::System.IntPtr SrtpOpt_cryptos_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpOpt_keyings_set")]
+  public static extern void SrtpOpt_keyings_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpOpt_keyings_get")]
+  public static extern global::System.IntPtr SrtpOpt_keyings_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_SrtpOpt")]
+  public static extern global::System.IntPtr new_SrtpOpt();
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpOpt_readObject")]
+  public static extern void SrtpOpt_readObject(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpOpt_writeObject")]
+  public static extern void SrtpOpt_writeObject(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_SrtpOpt")]
+  public static extern void delete_SrtpOpt(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbCap_codecId_set")]
+  public static extern void RtcpFbCap_codecId_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbCap_codecId_get")]
+  public static extern string RtcpFbCap_codecId_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbCap_type_set")]
+  public static extern void RtcpFbCap_type_set(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbCap_type_get")]
+  public static extern int RtcpFbCap_type_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbCap_typeName_set")]
+  public static extern void RtcpFbCap_typeName_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbCap_typeName_get")]
+  public static extern string RtcpFbCap_typeName_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbCap_param_set")]
+  public static extern void RtcpFbCap_param_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbCap_param_get")]
+  public static extern string RtcpFbCap_param_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_RtcpFbCap")]
+  public static extern global::System.IntPtr new_RtcpFbCap();
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_RtcpFbCap")]
+  public static extern void delete_RtcpFbCap(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbConfig_dontUseAvpf_set")]
+  public static extern void RtcpFbConfig_dontUseAvpf_set(global::System.Runtime.InteropServices.HandleRef jarg1, bool jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbConfig_dontUseAvpf_get")]
+  public static extern bool RtcpFbConfig_dontUseAvpf_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbConfig_caps_set")]
+  public static extern void RtcpFbConfig_caps_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbConfig_caps_get")]
+  public static extern global::System.IntPtr RtcpFbConfig_caps_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_RtcpFbConfig")]
+  public static extern global::System.IntPtr new_RtcpFbConfig();
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbConfig_readObject")]
+  public static extern void RtcpFbConfig_readObject(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbConfig_writeObject")]
+  public static extern void RtcpFbConfig_writeObject(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_RtcpFbConfig")]
+  public static extern void delete_RtcpFbConfig(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_transportConfig_set")]
   public static extern void AccountMediaConfig_transportConfig_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
@@ -4115,11 +4331,29 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_srtpSecureSignaling_get")]
   public static extern int AccountMediaConfig_srtpSecureSignaling_get(global::System.Runtime.InteropServices.HandleRef jarg1);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_srtpOpt_set")]
+  public static extern void AccountMediaConfig_srtpOpt_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_srtpOpt_get")]
+  public static extern global::System.IntPtr AccountMediaConfig_srtpOpt_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_ipv6Use_set")]
   public static extern void AccountMediaConfig_ipv6Use_set(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_ipv6Use_get")]
   public static extern int AccountMediaConfig_ipv6Use_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_rtcpMuxEnabled_set")]
+  public static extern void AccountMediaConfig_rtcpMuxEnabled_set(global::System.Runtime.InteropServices.HandleRef jarg1, bool jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_rtcpMuxEnabled_get")]
+  public static extern bool AccountMediaConfig_rtcpMuxEnabled_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_rtcpFbConfig_set")]
+  public static extern void AccountMediaConfig_rtcpFbConfig_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_rtcpFbConfig_get")]
+  public static extern global::System.IntPtr AccountMediaConfig_rtcpFbConfig_get(global::System.Runtime.InteropServices.HandleRef jarg1);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_readObject")]
   public static extern void AccountMediaConfig_readObject(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
@@ -4217,6 +4451,9 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountIpChangeConfig_reinviteFlags_get")]
   public static extern uint AccountIpChangeConfig_reinviteFlags_get(global::System.Runtime.InteropServices.HandleRef jarg1);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_AccountIpChangeConfig")]
+  public static extern void delete_AccountIpChangeConfig(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountIpChangeConfig_readObject")]
   public static extern void AccountIpChangeConfig_readObject(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
@@ -4225,9 +4462,6 @@ class pjsua2PINVOKE {
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_AccountIpChangeConfig")]
   public static extern global::System.IntPtr new_AccountIpChangeConfig();
-
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_AccountIpChangeConfig")]
-  public static extern void delete_AccountIpChangeConfig(global::System.Runtime.InteropServices.HandleRef jarg1);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountConfig_priority_set")]
   public static extern void AccountConfig_priority_set(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
@@ -4694,6 +4928,9 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Account_create__SWIG_1")]
   public static extern void Account_create__SWIG_1(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Account_shutdown")]
+  public static extern void Account_shutdown(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Account_modify")]
   public static extern void Account_modify(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
@@ -4735,12 +4972,6 @@ class pjsua2PINVOKE {
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Account_findBuddy__SWIG_1")]
   public static extern global::System.IntPtr Account_findBuddy__SWIG_1(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
-
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Account_addBuddy")]
-  public static extern void Account_addBuddy(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
-
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Account_removeBuddy")]
-  public static extern void Account_removeBuddy(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Account_onIncomingCall")]
   public static extern void Account_onIncomingCall(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
@@ -5195,6 +5426,18 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_MediaEvent")]
   public static extern void delete_MediaEvent(global::System.Runtime.InteropServices.HandleRef jarg1);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_MediaTransportInfo_localRtpName_set")]
+  public static extern void MediaTransportInfo_localRtpName_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_MediaTransportInfo_localRtpName_get")]
+  public static extern string MediaTransportInfo_localRtpName_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_MediaTransportInfo_localRtcpName_set")]
+  public static extern void MediaTransportInfo_localRtcpName_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_MediaTransportInfo_localRtcpName_get")]
+  public static extern string MediaTransportInfo_localRtcpName_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_MediaTransportInfo_srcRtpName_set")]
   public static extern void MediaTransportInfo_srcRtpName_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
 
@@ -5615,11 +5858,23 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_OnStreamDestroyedParam")]
   public static extern void delete_OnStreamDestroyedParam(global::System.Runtime.InteropServices.HandleRef jarg1);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnDtmfDigitParam_method_set")]
+  public static extern void OnDtmfDigitParam_method_set(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnDtmfDigitParam_method_get")]
+  public static extern int OnDtmfDigitParam_method_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnDtmfDigitParam_digit_set")]
   public static extern void OnDtmfDigitParam_digit_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnDtmfDigitParam_digit_get")]
   public static extern string OnDtmfDigitParam_digit_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnDtmfDigitParam_duration_set")]
+  public static extern void OnDtmfDigitParam_duration_set(global::System.Runtime.InteropServices.HandleRef jarg1, uint jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnDtmfDigitParam_duration_get")]
+  public static extern uint OnDtmfDigitParam_duration_get(global::System.Runtime.InteropServices.HandleRef jarg1);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_OnDtmfDigitParam")]
   public static extern global::System.IntPtr new_OnDtmfDigitParam();
@@ -5747,6 +6002,42 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_OnCallRxOfferParam")]
   public static extern void delete_OnCallRxOfferParam(global::System.Runtime.InteropServices.HandleRef jarg1);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCallRxReinviteParam_offer_set")]
+  public static extern void OnCallRxReinviteParam_offer_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCallRxReinviteParam_offer_get")]
+  public static extern global::System.IntPtr OnCallRxReinviteParam_offer_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCallRxReinviteParam_rdata_set")]
+  public static extern void OnCallRxReinviteParam_rdata_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCallRxReinviteParam_rdata_get")]
+  public static extern global::System.IntPtr OnCallRxReinviteParam_rdata_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCallRxReinviteParam_async_set")]
+  public static extern void OnCallRxReinviteParam_async_set(global::System.Runtime.InteropServices.HandleRef jarg1, bool jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCallRxReinviteParam_async_get")]
+  public static extern bool OnCallRxReinviteParam_async_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCallRxReinviteParam_statusCode_set")]
+  public static extern void OnCallRxReinviteParam_statusCode_set(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCallRxReinviteParam_statusCode_get")]
+  public static extern int OnCallRxReinviteParam_statusCode_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCallRxReinviteParam_opt_set")]
+  public static extern void OnCallRxReinviteParam_opt_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCallRxReinviteParam_opt_get")]
+  public static extern global::System.IntPtr OnCallRxReinviteParam_opt_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_OnCallRxReinviteParam")]
+  public static extern global::System.IntPtr new_OnCallRxReinviteParam();
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_OnCallRxReinviteParam")]
+  public static extern void delete_OnCallRxReinviteParam(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCallTxOfferParam_opt_set")]
   public static extern void OnCallTxOfferParam_opt_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
@@ -5849,30 +6140,6 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_OnCreateMediaTransportParam")]
   public static extern void delete_OnCreateMediaTransportParam(global::System.Runtime.InteropServices.HandleRef jarg1);
 
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_key_set")]
-  public static extern void SrtpCrypto_key_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
-
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_key_get")]
-  public static extern string SrtpCrypto_key_get(global::System.Runtime.InteropServices.HandleRef jarg1);
-
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_name_set")]
-  public static extern void SrtpCrypto_name_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
-
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_name_get")]
-  public static extern string SrtpCrypto_name_get(global::System.Runtime.InteropServices.HandleRef jarg1);
-
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_flags_set")]
-  public static extern void SrtpCrypto_flags_set(global::System.Runtime.InteropServices.HandleRef jarg1, uint jarg2);
-
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpCrypto_flags_get")]
-  public static extern uint SrtpCrypto_flags_get(global::System.Runtime.InteropServices.HandleRef jarg1);
-
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_SrtpCrypto")]
-  public static extern global::System.IntPtr new_SrtpCrypto();
-
-  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_SrtpCrypto")]
-  public static extern void delete_SrtpCrypto(global::System.Runtime.InteropServices.HandleRef jarg1);
-
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_OnCreateMediaTransportSrtpParam_mediaIdx_set")]
   public static extern void OnCreateMediaTransportSrtpParam_mediaIdx_set(global::System.Runtime.InteropServices.HandleRef jarg1, uint jarg2);
 
@@ -5927,6 +6194,12 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_CallOpParam_txOption_get")]
   public static extern global::System.IntPtr CallOpParam_txOption_get(global::System.Runtime.InteropServices.HandleRef jarg1);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_CallOpParam_sdp_set")]
+  public static extern void CallOpParam_sdp_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_CallOpParam_sdp_get")]
+  public static extern global::System.IntPtr CallOpParam_sdp_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_CallOpParam__SWIG_0")]
   public static extern global::System.IntPtr new_CallOpParam__SWIG_0(bool jarg1);
 
@@ -5977,6 +6250,30 @@ class pjsua2PINVOKE {
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_CallVidSetStreamParam")]
   public static extern void delete_CallVidSetStreamParam(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_CallSendDtmfParam_method_set")]
+  public static extern void CallSendDtmfParam_method_set(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_CallSendDtmfParam_method_get")]
+  public static extern int CallSendDtmfParam_method_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_CallSendDtmfParam_duration_set")]
+  public static extern void CallSendDtmfParam_duration_set(global::System.Runtime.InteropServices.HandleRef jarg1, uint jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_CallSendDtmfParam_duration_get")]
+  public static extern uint CallSendDtmfParam_duration_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_CallSendDtmfParam_digits_set")]
+  public static extern void CallSendDtmfParam_digits_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_CallSendDtmfParam_digits_get")]
+  public static extern string CallSendDtmfParam_digits_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_CallSendDtmfParam")]
+  public static extern global::System.IntPtr new_CallSendDtmfParam();
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_delete_CallSendDtmfParam")]
+  public static extern void delete_CallSendDtmfParam(global::System.Runtime.InteropServices.HandleRef jarg1);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_new_Call__SWIG_0")]
   public static extern global::System.IntPtr new_Call__SWIG_0(global::System.Runtime.InteropServices.HandleRef jarg1, int jarg2);
@@ -6046,6 +6343,9 @@ class pjsua2PINVOKE {
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Call_dialDtmf")]
   public static extern void Call_dialDtmf(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Call_sendDtmf")]
+  public static extern void Call_sendDtmf(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Call_sendInstantMessage")]
   public static extern void Call_sendInstantMessage(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
@@ -6155,6 +6455,12 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Call_onCallRxOfferSwigExplicitCall")]
   public static extern void Call_onCallRxOfferSwigExplicitCall(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Call_onCallRxReinvite")]
+  public static extern void Call_onCallRxReinvite(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Call_onCallRxReinviteSwigExplicitCall")]
+  public static extern void Call_onCallRxReinviteSwigExplicitCall(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Call_onCallTxOffer")]
   public static extern void Call_onCallTxOffer(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
@@ -6210,7 +6516,7 @@ class pjsua2PINVOKE {
   public static extern void Call_onCreateMediaTransportSrtpSwigExplicitCall(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Call_director_connect")]
-  public static extern void Call_director_connect(global::System.Runtime.InteropServices.HandleRef jarg1, Call.SwigDelegateCall_0 delegate0, Call.SwigDelegateCall_1 delegate1, Call.SwigDelegateCall_2 delegate2, Call.SwigDelegateCall_3 delegate3, Call.SwigDelegateCall_4 delegate4, Call.SwigDelegateCall_5 delegate5, Call.SwigDelegateCall_6 delegate6, Call.SwigDelegateCall_7 delegate7, Call.SwigDelegateCall_8 delegate8, Call.SwigDelegateCall_9 delegate9, Call.SwigDelegateCall_10 delegate10, Call.SwigDelegateCall_11 delegate11, Call.SwigDelegateCall_12 delegate12, Call.SwigDelegateCall_13 delegate13, Call.SwigDelegateCall_14 delegate14, Call.SwigDelegateCall_15 delegate15, Call.SwigDelegateCall_16 delegate16, Call.SwigDelegateCall_17 delegate17, Call.SwigDelegateCall_18 delegate18, Call.SwigDelegateCall_19 delegate19, Call.SwigDelegateCall_20 delegate20);
+  public static extern void Call_director_connect(global::System.Runtime.InteropServices.HandleRef jarg1, Call.SwigDelegateCall_0 delegate0, Call.SwigDelegateCall_1 delegate1, Call.SwigDelegateCall_2 delegate2, Call.SwigDelegateCall_3 delegate3, Call.SwigDelegateCall_4 delegate4, Call.SwigDelegateCall_5 delegate5, Call.SwigDelegateCall_6 delegate6, Call.SwigDelegateCall_7 delegate7, Call.SwigDelegateCall_8 delegate8, Call.SwigDelegateCall_9 delegate9, Call.SwigDelegateCall_10 delegate10, Call.SwigDelegateCall_11 delegate11, Call.SwigDelegateCall_12 delegate12, Call.SwigDelegateCall_13 delegate13, Call.SwigDelegateCall_14 delegate14, Call.SwigDelegateCall_15 delegate15, Call.SwigDelegateCall_16 delegate16, Call.SwigDelegateCall_17 delegate17, Call.SwigDelegateCall_18 delegate18, Call.SwigDelegateCall_19 delegate19, Call.SwigDelegateCall_20 delegate20, Call.SwigDelegateCall_21 delegate21);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_CallMediaInfoVector_Clear")]
   public static extern void CallMediaInfoVector_Clear(global::System.Runtime.InteropServices.HandleRef jarg1);
@@ -6694,6 +7000,12 @@ class pjsua2PINVOKE {
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_UaConfig_nameserver_get")]
   public static extern global::System.IntPtr UaConfig_nameserver_get(global::System.Runtime.InteropServices.HandleRef jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_UaConfig_outboundProxies_set")]
+  public static extern void UaConfig_outboundProxies_set(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_UaConfig_outboundProxies_get")]
+  public static extern global::System.IntPtr UaConfig_outboundProxies_get(global::System.Runtime.InteropServices.HandleRef jarg1);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_UaConfig_userAgent_set")]
   public static extern void UaConfig_userAgent_set(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
@@ -7184,6 +7496,9 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Endpoint_resetVideoCodecParam")]
   public static extern void Endpoint_resetVideoCodecParam(global::System.Runtime.InteropServices.HandleRef jarg1, string jarg2);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Endpoint_srtpCryptoEnum")]
+  public static extern global::System.IntPtr Endpoint_srtpCryptoEnum(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_Endpoint_handleIpChange")]
   public static extern void Endpoint_handleIpChange(global::System.Runtime.InteropServices.HandleRef jarg1, global::System.Runtime.InteropServices.HandleRef jarg2);
 
@@ -7259,6 +7574,9 @@ class pjsua2PINVOKE {
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_ToneGenerator_SWIGUpcast")]
   public static extern global::System.IntPtr ToneGenerator_SWIGUpcast(global::System.IntPtr jarg1);
 
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_ExtraAudioDevice_SWIGUpcast")]
+  public static extern global::System.IntPtr ExtraAudioDevice_SWIGUpcast(global::System.IntPtr jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_BuddyConfig_SWIGUpcast")]
   public static extern global::System.IntPtr BuddyConfig_SWIGUpcast(global::System.IntPtr jarg1);
 
@@ -7279,6 +7597,12 @@ class pjsua2PINVOKE {
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountNatConfig_SWIGUpcast")]
   public static extern global::System.IntPtr AccountNatConfig_SWIGUpcast(global::System.IntPtr jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_SrtpOpt_SWIGUpcast")]
+  public static extern global::System.IntPtr SrtpOpt_SWIGUpcast(global::System.IntPtr jarg1);
+
+  [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_RtcpFbConfig_SWIGUpcast")]
+  public static extern global::System.IntPtr RtcpFbConfig_SWIGUpcast(global::System.IntPtr jarg1);
 
   [global::System.Runtime.InteropServices.DllImport("pjsua2", EntryPoint="CSharp_PJSIP_AccountMediaConfig_SWIGUpcast")]
   public static extern global::System.IntPtr AccountMediaConfig_SWIGUpcast(global::System.IntPtr jarg1);

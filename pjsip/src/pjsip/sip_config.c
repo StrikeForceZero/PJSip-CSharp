@@ -1,4 +1,4 @@
-/* $Id: sip_config.c 5090 2015-05-11 05:57:50Z ming $ */
+/* $Id: sip_config.c 5812 2018-06-25 02:58:18Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -34,7 +34,9 @@ pjsip_cfg_t pjsip_sip_cfg_var =
        PJSIP_FOLLOW_EARLY_MEDIA_FORK,
        PJSIP_REQ_HAS_VIA_ALIAS,
        PJSIP_RESOLVE_HOSTNAME_TO_GET_INTERFACE,
-       0
+       0,
+       PJSIP_ENCODE_SHORT_HNAME,
+       PJSIP_ACCEPT_MULTIPLE_SDP_ANSWERS
     },
 
     /* Transaction settings */

@@ -1,4 +1,4 @@
-/* $Id: siprtp_report.c 3553 2011-05-05 06:14:19Z nanang $ */
+/* $Id: siprtp_report.c 5729 2018-01-18 05:44:41Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -35,7 +35,7 @@ static void print_call(int call_index)
     pjsip_inv_session *inv = call->inv;
     pjsip_dialog *dlg = inv->dlg;
     struct media_stream *audio = &call->media[0];
-    char userinfo[128];
+    char userinfo[PJSIP_MAX_URL_SIZE];
     char duration[80], last_update[80];
     char bps[16], ipbps[16], packets[16], bytes[16], ipbytes[16];
     unsigned decor;

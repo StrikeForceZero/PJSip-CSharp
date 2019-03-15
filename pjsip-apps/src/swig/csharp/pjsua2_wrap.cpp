@@ -791,6 +791,97 @@ SWIGINTERN void std_vector_Sl_pj_AuthCredInfo_Sg__SetRange(std::vector< pj::Auth
           throw std::out_of_range("index");
         std::copy(values.begin(), values.end(), self->begin()+index);
       }
+SWIGINTERN std::vector< pj::SrtpCrypto > *new_std_vector_Sl_pj_SrtpCrypto_Sg___SWIG_2(int capacity){
+        std::vector< pj::SrtpCrypto >* pv = 0;
+        if (capacity >= 0) {
+          pv = new std::vector< pj::SrtpCrypto >();
+          pv->reserve(capacity);
+       } else {
+          throw std::out_of_range("capacity");
+       }
+       return pv;
+      }
+SWIGINTERN pj::SrtpCrypto std_vector_Sl_pj_SrtpCrypto_Sg__getitemcopy(std::vector< pj::SrtpCrypto > *self,int index){
+        if (index>=0 && index<(int)self->size())
+          return (*self)[index];
+        else
+          throw std::out_of_range("index");
+      }
+SWIGINTERN pj::SrtpCrypto const &std_vector_Sl_pj_SrtpCrypto_Sg__getitem(std::vector< pj::SrtpCrypto > *self,int index){
+        if (index>=0 && index<(int)self->size())
+          return (*self)[index];
+        else
+          throw std::out_of_range("index");
+      }
+SWIGINTERN void std_vector_Sl_pj_SrtpCrypto_Sg__setitem(std::vector< pj::SrtpCrypto > *self,int index,pj::SrtpCrypto const &val){
+        if (index>=0 && index<(int)self->size())
+          (*self)[index] = val;
+        else
+          throw std::out_of_range("index");
+      }
+SWIGINTERN void std_vector_Sl_pj_SrtpCrypto_Sg__AddRange(std::vector< pj::SrtpCrypto > *self,std::vector< pj::SrtpCrypto > const &values){
+        self->insert(self->end(), values.begin(), values.end());
+      }
+SWIGINTERN std::vector< pj::SrtpCrypto > *std_vector_Sl_pj_SrtpCrypto_Sg__GetRange(std::vector< pj::SrtpCrypto > *self,int index,int count){
+        if (index < 0)
+          throw std::out_of_range("index");
+        if (count < 0)
+          throw std::out_of_range("count");
+        if (index >= (int)self->size()+1 || index+count > (int)self->size())
+          throw std::invalid_argument("invalid range");
+        return new std::vector< pj::SrtpCrypto >(self->begin()+index, self->begin()+index+count);
+      }
+SWIGINTERN void std_vector_Sl_pj_SrtpCrypto_Sg__Insert(std::vector< pj::SrtpCrypto > *self,int index,pj::SrtpCrypto const &x){
+        if (index>=0 && index<(int)self->size()+1)
+          self->insert(self->begin()+index, x);
+        else
+          throw std::out_of_range("index");
+      }
+SWIGINTERN void std_vector_Sl_pj_SrtpCrypto_Sg__InsertRange(std::vector< pj::SrtpCrypto > *self,int index,std::vector< pj::SrtpCrypto > const &values){
+        if (index>=0 && index<(int)self->size()+1)
+          self->insert(self->begin()+index, values.begin(), values.end());
+        else
+          throw std::out_of_range("index");
+      }
+SWIGINTERN void std_vector_Sl_pj_SrtpCrypto_Sg__RemoveAt(std::vector< pj::SrtpCrypto > *self,int index){
+        if (index>=0 && index<(int)self->size())
+          self->erase(self->begin() + index);
+        else
+          throw std::out_of_range("index");
+      }
+SWIGINTERN void std_vector_Sl_pj_SrtpCrypto_Sg__RemoveRange(std::vector< pj::SrtpCrypto > *self,int index,int count){
+        if (index < 0)
+          throw std::out_of_range("index");
+        if (count < 0)
+          throw std::out_of_range("count");
+        if (index >= (int)self->size()+1 || index+count > (int)self->size())
+          throw std::invalid_argument("invalid range");
+        self->erase(self->begin()+index, self->begin()+index+count);
+      }
+SWIGINTERN std::vector< pj::SrtpCrypto > *std_vector_Sl_pj_SrtpCrypto_Sg__Repeat(pj::SrtpCrypto const &value,int count){
+        if (count < 0)
+          throw std::out_of_range("count");
+        return new std::vector< pj::SrtpCrypto >(count, value);
+      }
+SWIGINTERN void std_vector_Sl_pj_SrtpCrypto_Sg__Reverse__SWIG_0(std::vector< pj::SrtpCrypto > *self){
+        std::reverse(self->begin(), self->end());
+      }
+SWIGINTERN void std_vector_Sl_pj_SrtpCrypto_Sg__Reverse__SWIG_1(std::vector< pj::SrtpCrypto > *self,int index,int count){
+        if (index < 0)
+          throw std::out_of_range("index");
+        if (count < 0)
+          throw std::out_of_range("count");
+        if (index >= (int)self->size()+1 || index+count > (int)self->size())
+          throw std::invalid_argument("invalid range");
+        std::reverse(self->begin()+index, self->begin()+index+count);
+      }
+SWIGINTERN void std_vector_Sl_pj_SrtpCrypto_Sg__SetRange(std::vector< pj::SrtpCrypto > *self,int index,std::vector< pj::SrtpCrypto > const &values){
+        if (index < 0)
+          throw std::out_of_range("index");
+        if (index+values.size() > self->size())
+          throw std::out_of_range("index");
+        std::copy(values.begin(), values.end(), self->begin()+index);
+      }
 SWIGINTERN std::vector< pj::SipMultipartPart > *new_std_vector_Sl_pj_SipMultipartPart_Sg___SWIG_2(int capacity){
         std::vector< pj::SipMultipartPart >* pv = 0;
         if (capacity >= 0) {
@@ -2426,6 +2517,18 @@ void SwigDirector_Call::onCallRxOffer(pj::OnCallRxOfferParam &prm) {
   }
 }
 
+void SwigDirector_Call::onCallRxReinvite(pj::OnCallRxReinviteParam &prm) {
+  void * jprm = 0 ;
+  
+  if (!swig_callbackonCallRxReinvite) {
+    pj::Call::onCallRxReinvite(prm);
+    return;
+  } else {
+    jprm = (pj::OnCallRxReinviteParam *) &prm; 
+    swig_callbackonCallRxReinvite(jprm);
+  }
+}
+
 void SwigDirector_Call::onCallTxOffer(pj::OnCallTxOfferParam &prm) {
   void * jprm = 0 ;
   
@@ -2537,7 +2640,7 @@ void SwigDirector_Call::onCreateMediaTransportSrtp(pj::OnCreateMediaTransportSrt
   }
 }
 
-void SwigDirector_Call::swig_connect_director(SWIG_Callback0_t callbackonCallState, SWIG_Callback1_t callbackonCallTsxState, SWIG_Callback2_t callbackonCallMediaState, SWIG_Callback3_t callbackonCallSdpCreated, SWIG_Callback4_t callbackonStreamCreated, SWIG_Callback5_t callbackonStreamDestroyed, SWIG_Callback6_t callbackonDtmfDigit, SWIG_Callback7_t callbackonCallTransferRequest, SWIG_Callback8_t callbackonCallTransferStatus, SWIG_Callback9_t callbackonCallReplaceRequest, SWIG_Callback10_t callbackonCallReplaced, SWIG_Callback11_t callbackonCallRxOffer, SWIG_Callback12_t callbackonCallTxOffer, SWIG_Callback13_t callbackonInstantMessage, SWIG_Callback14_t callbackonInstantMessageStatus, SWIG_Callback15_t callbackonTypingIndication, SWIG_Callback16_t callbackonCallRedirected, SWIG_Callback17_t callbackonCallMediaTransportState, SWIG_Callback18_t callbackonCallMediaEvent, SWIG_Callback19_t callbackonCreateMediaTransport, SWIG_Callback20_t callbackonCreateMediaTransportSrtp) {
+void SwigDirector_Call::swig_connect_director(SWIG_Callback0_t callbackonCallState, SWIG_Callback1_t callbackonCallTsxState, SWIG_Callback2_t callbackonCallMediaState, SWIG_Callback3_t callbackonCallSdpCreated, SWIG_Callback4_t callbackonStreamCreated, SWIG_Callback5_t callbackonStreamDestroyed, SWIG_Callback6_t callbackonDtmfDigit, SWIG_Callback7_t callbackonCallTransferRequest, SWIG_Callback8_t callbackonCallTransferStatus, SWIG_Callback9_t callbackonCallReplaceRequest, SWIG_Callback10_t callbackonCallReplaced, SWIG_Callback11_t callbackonCallRxOffer, SWIG_Callback12_t callbackonCallRxReinvite, SWIG_Callback13_t callbackonCallTxOffer, SWIG_Callback14_t callbackonInstantMessage, SWIG_Callback15_t callbackonInstantMessageStatus, SWIG_Callback16_t callbackonTypingIndication, SWIG_Callback17_t callbackonCallRedirected, SWIG_Callback18_t callbackonCallMediaTransportState, SWIG_Callback19_t callbackonCallMediaEvent, SWIG_Callback20_t callbackonCreateMediaTransport, SWIG_Callback21_t callbackonCreateMediaTransportSrtp) {
   swig_callbackonCallState = callbackonCallState;
   swig_callbackonCallTsxState = callbackonCallTsxState;
   swig_callbackonCallMediaState = callbackonCallMediaState;
@@ -2550,6 +2653,7 @@ void SwigDirector_Call::swig_connect_director(SWIG_Callback0_t callbackonCallSta
   swig_callbackonCallReplaceRequest = callbackonCallReplaceRequest;
   swig_callbackonCallReplaced = callbackonCallReplaced;
   swig_callbackonCallRxOffer = callbackonCallRxOffer;
+  swig_callbackonCallRxReinvite = callbackonCallRxReinvite;
   swig_callbackonCallTxOffer = callbackonCallTxOffer;
   swig_callbackonInstantMessage = callbackonInstantMessage;
   swig_callbackonInstantMessageStatus = callbackonInstantMessageStatus;
@@ -2574,6 +2678,7 @@ void SwigDirector_Call::swig_init_callbacks() {
   swig_callbackonCallReplaceRequest = 0;
   swig_callbackonCallReplaced = 0;
   swig_callbackonCallRxOffer = 0;
+  swig_callbackonCallRxReinvite = 0;
   swig_callbackonCallTxOffer = 0;
   swig_callbackonInstantMessage = 0;
   swig_callbackonInstantMessageStatus = 0;
@@ -4461,6 +4566,14 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_TimeVal(void * jarg1) {
 }
 
 
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_PersistentObject(void * jarg1) {
+  pj::PersistentObject *arg1 = (pj::PersistentObject *) 0 ;
+  
+  arg1 = (pj::PersistentObject *)jarg1; 
+  delete arg1;
+}
+
+
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_PersistentObject_readObject(void * jarg1, void * jarg2) {
   pj::PersistentObject *arg1 = (pj::PersistentObject *) 0 ;
   pj::ContainerNode *arg2 = 0 ;
@@ -4502,14 +4615,6 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_PersistentObject_writeObject(void * jar
     return ; 
   }
   
-}
-
-
-SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_PersistentObject(void * jarg1) {
-  pj::PersistentObject *arg1 = (pj::PersistentObject *) 0 ;
-  
-  arg1 = (pj::PersistentObject *)jarg1; 
-  delete arg1;
 }
 
 
@@ -6241,6 +6346,87 @@ SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_TlsConfig_password_get(void * jarg1) 
   
   arg1 = (pj::TlsConfig *)jarg1; 
   result = (pj::string *) & ((arg1)->password);
+  jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_TlsConfig_CaBuf_set(void * jarg1, char * jarg2) {
+  pj::TlsConfig *arg1 = (pj::TlsConfig *) 0 ;
+  pj::string *arg2 = 0 ;
+  
+  arg1 = (pj::TlsConfig *)jarg1; 
+  if (!jarg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
+    return ;
+  }
+  pj::string arg2_str(jarg2);
+  arg2 = &arg2_str; 
+  if (arg1) (arg1)->CaBuf = *arg2;
+}
+
+
+SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_TlsConfig_CaBuf_get(void * jarg1) {
+  char * jresult ;
+  pj::TlsConfig *arg1 = (pj::TlsConfig *) 0 ;
+  pj::string *result = 0 ;
+  
+  arg1 = (pj::TlsConfig *)jarg1; 
+  result = (pj::string *) & ((arg1)->CaBuf);
+  jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_TlsConfig_certBuf_set(void * jarg1, char * jarg2) {
+  pj::TlsConfig *arg1 = (pj::TlsConfig *) 0 ;
+  pj::string *arg2 = 0 ;
+  
+  arg1 = (pj::TlsConfig *)jarg1; 
+  if (!jarg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
+    return ;
+  }
+  pj::string arg2_str(jarg2);
+  arg2 = &arg2_str; 
+  if (arg1) (arg1)->certBuf = *arg2;
+}
+
+
+SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_TlsConfig_certBuf_get(void * jarg1) {
+  char * jresult ;
+  pj::TlsConfig *arg1 = (pj::TlsConfig *) 0 ;
+  pj::string *result = 0 ;
+  
+  arg1 = (pj::TlsConfig *)jarg1; 
+  result = (pj::string *) & ((arg1)->certBuf);
+  jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_TlsConfig_privKeyBuf_set(void * jarg1, char * jarg2) {
+  pj::TlsConfig *arg1 = (pj::TlsConfig *) 0 ;
+  pj::string *arg2 = 0 ;
+  
+  arg1 = (pj::TlsConfig *)jarg1; 
+  if (!jarg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
+    return ;
+  }
+  pj::string arg2_str(jarg2);
+  arg2 = &arg2_str; 
+  if (arg1) (arg1)->privKeyBuf = *arg2;
+}
+
+
+SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_TlsConfig_privKeyBuf_get(void * jarg1) {
+  char * jresult ;
+  pj::TlsConfig *arg1 = (pj::TlsConfig *) 0 ;
+  pj::string *result = 0 ;
+  
+  arg1 = (pj::TlsConfig *)jarg1; 
+  result = (pj::string *) & ((arg1)->privKeyBuf);
   jresult = SWIG_csharp_string_callback(result->c_str()); 
   return jresult;
 }
@@ -9492,6 +9678,386 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_AuthCredInfoVector(void * jarg1)
   std::vector< pj::AuthCredInfo > *arg1 = (std::vector< pj::AuthCredInfo > *) 0 ;
   
   arg1 = (std::vector< pj::AuthCredInfo > *)jarg1; 
+  delete arg1;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_Clear(void * jarg1) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  (arg1)->clear();
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_Add(void * jarg1, void * jarg2) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  pj::SrtpCrypto *arg2 = 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (pj::SrtpCrypto *)jarg2;
+  if (!arg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::SrtpCrypto const & type is null", 0);
+    return ;
+  } 
+  (arg1)->push_back((pj::SrtpCrypto const &)*arg2);
+}
+
+
+SWIGEXPORT unsigned long SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_size(void * jarg1) {
+  unsigned long jresult ;
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  std::vector< pj::SrtpCrypto >::size_type result;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  result = ((std::vector< pj::SrtpCrypto > const *)arg1)->size();
+  jresult = (unsigned long)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT unsigned long SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_capacity(void * jarg1) {
+  unsigned long jresult ;
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  std::vector< pj::SrtpCrypto >::size_type result;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  result = ((std::vector< pj::SrtpCrypto > const *)arg1)->capacity();
+  jresult = (unsigned long)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_reserve(void * jarg1, unsigned long jarg2) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  std::vector< pj::SrtpCrypto >::size_type arg2 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (std::vector< pj::SrtpCrypto >::size_type)jarg2; 
+  (arg1)->reserve(arg2);
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_SrtpCryptoVector__SWIG_0() {
+  void * jresult ;
+  std::vector< pj::SrtpCrypto > *result = 0 ;
+  
+  result = (std::vector< pj::SrtpCrypto > *)new std::vector< pj::SrtpCrypto >();
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_SrtpCryptoVector__SWIG_1(void * jarg1) {
+  void * jresult ;
+  std::vector< pj::SrtpCrypto > *arg1 = 0 ;
+  std::vector< pj::SrtpCrypto > *result = 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1;
+  if (!arg1) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "std::vector< pj::SrtpCrypto > const & type is null", 0);
+    return 0;
+  } 
+  result = (std::vector< pj::SrtpCrypto > *)new std::vector< pj::SrtpCrypto >((std::vector< pj::SrtpCrypto > const &)*arg1);
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_SrtpCryptoVector__SWIG_2(int jarg1) {
+  void * jresult ;
+  int arg1 ;
+  std::vector< pj::SrtpCrypto > *result = 0 ;
+  
+  arg1 = (int)jarg1; 
+  try {
+    result = (std::vector< pj::SrtpCrypto > *)new_std_vector_Sl_pj_SrtpCrypto_Sg___SWIG_2(arg1);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return 0;
+  }
+  
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_getitemcopy(void * jarg1, int jarg2) {
+  void * jresult ;
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  int arg2 ;
+  pj::SrtpCrypto result;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (int)jarg2; 
+  try {
+    result = std_vector_Sl_pj_SrtpCrypto_Sg__getitemcopy(arg1,arg2);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return 0;
+  }
+  
+  jresult = new pj::SrtpCrypto((const pj::SrtpCrypto &)result); 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_getitem(void * jarg1, int jarg2) {
+  void * jresult ;
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  int arg2 ;
+  pj::SrtpCrypto *result = 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (int)jarg2; 
+  try {
+    result = (pj::SrtpCrypto *) &std_vector_Sl_pj_SrtpCrypto_Sg__getitem(arg1,arg2);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return 0;
+  }
+  
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_setitem(void * jarg1, int jarg2, void * jarg3) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  int arg2 ;
+  pj::SrtpCrypto *arg3 = 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (int)jarg2; 
+  arg3 = (pj::SrtpCrypto *)jarg3;
+  if (!arg3) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::SrtpCrypto const & type is null", 0);
+    return ;
+  } 
+  try {
+    std_vector_Sl_pj_SrtpCrypto_Sg__setitem(arg1,arg2,(pj::SrtpCrypto const &)*arg3);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return ;
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_AddRange(void * jarg1, void * jarg2) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  std::vector< pj::SrtpCrypto > *arg2 = 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (std::vector< pj::SrtpCrypto > *)jarg2;
+  if (!arg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "std::vector< pj::SrtpCrypto > const & type is null", 0);
+    return ;
+  } 
+  std_vector_Sl_pj_SrtpCrypto_Sg__AddRange(arg1,(std::vector< pj::SrtpCrypto > const &)*arg2);
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_GetRange(void * jarg1, int jarg2, int jarg3) {
+  void * jresult ;
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  int arg2 ;
+  int arg3 ;
+  std::vector< pj::SrtpCrypto > *result = 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (int)jarg2; 
+  arg3 = (int)jarg3; 
+  try {
+    result = (std::vector< pj::SrtpCrypto > *)std_vector_Sl_pj_SrtpCrypto_Sg__GetRange(arg1,arg2,arg3);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return 0;
+  }
+  catch(std::invalid_argument &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentException, (&_e)->what(), "");
+    return 0;
+  }
+  
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_Insert(void * jarg1, int jarg2, void * jarg3) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  int arg2 ;
+  pj::SrtpCrypto *arg3 = 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (int)jarg2; 
+  arg3 = (pj::SrtpCrypto *)jarg3;
+  if (!arg3) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::SrtpCrypto const & type is null", 0);
+    return ;
+  } 
+  try {
+    std_vector_Sl_pj_SrtpCrypto_Sg__Insert(arg1,arg2,(pj::SrtpCrypto const &)*arg3);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return ;
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_InsertRange(void * jarg1, int jarg2, void * jarg3) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  int arg2 ;
+  std::vector< pj::SrtpCrypto > *arg3 = 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (int)jarg2; 
+  arg3 = (std::vector< pj::SrtpCrypto > *)jarg3;
+  if (!arg3) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "std::vector< pj::SrtpCrypto > const & type is null", 0);
+    return ;
+  } 
+  try {
+    std_vector_Sl_pj_SrtpCrypto_Sg__InsertRange(arg1,arg2,(std::vector< pj::SrtpCrypto > const &)*arg3);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return ;
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_RemoveAt(void * jarg1, int jarg2) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  int arg2 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (int)jarg2; 
+  try {
+    std_vector_Sl_pj_SrtpCrypto_Sg__RemoveAt(arg1,arg2);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return ;
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_RemoveRange(void * jarg1, int jarg2, int jarg3) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  int arg2 ;
+  int arg3 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (int)jarg2; 
+  arg3 = (int)jarg3; 
+  try {
+    std_vector_Sl_pj_SrtpCrypto_Sg__RemoveRange(arg1,arg2,arg3);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return ;
+  }
+  catch(std::invalid_argument &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentException, (&_e)->what(), "");
+    return ;
+  }
+  
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_Repeat(void * jarg1, int jarg2) {
+  void * jresult ;
+  pj::SrtpCrypto *arg1 = 0 ;
+  int arg2 ;
+  std::vector< pj::SrtpCrypto > *result = 0 ;
+  
+  arg1 = (pj::SrtpCrypto *)jarg1;
+  if (!arg1) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::SrtpCrypto const & type is null", 0);
+    return 0;
+  } 
+  arg2 = (int)jarg2; 
+  try {
+    result = (std::vector< pj::SrtpCrypto > *)std_vector_Sl_pj_SrtpCrypto_Sg__Repeat((pj::SrtpCrypto const &)*arg1,arg2);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return 0;
+  }
+  
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_Reverse__SWIG_0(void * jarg1) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  std_vector_Sl_pj_SrtpCrypto_Sg__Reverse__SWIG_0(arg1);
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_Reverse__SWIG_1(void * jarg1, int jarg2, int jarg3) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  int arg2 ;
+  int arg3 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (int)jarg2; 
+  arg3 = (int)jarg3; 
+  try {
+    std_vector_Sl_pj_SrtpCrypto_Sg__Reverse__SWIG_1(arg1,arg2,arg3);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return ;
+  }
+  catch(std::invalid_argument &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentException, (&_e)->what(), "");
+    return ;
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCryptoVector_SetRange(void * jarg1, int jarg2, void * jarg3) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  int arg2 ;
+  std::vector< pj::SrtpCrypto > *arg3 = 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
+  arg2 = (int)jarg2; 
+  arg3 = (std::vector< pj::SrtpCrypto > *)jarg3;
+  if (!arg3) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "std::vector< pj::SrtpCrypto > const & type is null", 0);
+    return ;
+  } 
+  try {
+    std_vector_Sl_pj_SrtpCrypto_Sg__SetRange(arg1,arg2,(std::vector< pj::SrtpCrypto > const &)*arg3);
+  }
+  catch(std::out_of_range &_e) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentOutOfRangeException, 0, (&_e)->what());
+    return ;
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_SrtpCryptoVector(void * jarg1) {
+  std::vector< pj::SrtpCrypto > *arg1 = (std::vector< pj::SrtpCrypto > *) 0 ;
+  
+  arg1 = (std::vector< pj::SrtpCrypto > *)jarg1; 
   delete arg1;
 }
 
@@ -14549,6 +15115,46 @@ SWIGEXPORT int SWIGSTDCALL CSharp_PJSIP_Media_getType(void * jarg1) {
 }
 
 
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_AudioMediaTransmitParam_level_set(void * jarg1, float jarg2) {
+  pj::AudioMediaTransmitParam *arg1 = (pj::AudioMediaTransmitParam *) 0 ;
+  float arg2 ;
+  
+  arg1 = (pj::AudioMediaTransmitParam *)jarg1; 
+  arg2 = (float)jarg2; 
+  if (arg1) (arg1)->level = arg2;
+}
+
+
+SWIGEXPORT float SWIGSTDCALL CSharp_PJSIP_AudioMediaTransmitParam_level_get(void * jarg1) {
+  float jresult ;
+  pj::AudioMediaTransmitParam *arg1 = (pj::AudioMediaTransmitParam *) 0 ;
+  float result;
+  
+  arg1 = (pj::AudioMediaTransmitParam *)jarg1; 
+  result = (float) ((arg1)->level);
+  jresult = result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_AudioMediaTransmitParam() {
+  void * jresult ;
+  pj::AudioMediaTransmitParam *result = 0 ;
+  
+  result = (pj::AudioMediaTransmitParam *)new pj::AudioMediaTransmitParam();
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_AudioMediaTransmitParam(void * jarg1) {
+  pj::AudioMediaTransmitParam *arg1 = (pj::AudioMediaTransmitParam *) 0 ;
+  
+  arg1 = (pj::AudioMediaTransmitParam *)jarg1; 
+  delete arg1;
+}
+
+
 SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_AudioMedia_getPortInfo(void * jarg1) {
   void * jresult ;
   pj::AudioMedia *arg1 = (pj::AudioMedia *) 0 ;
@@ -14613,6 +15219,34 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_AudioMedia_startTransmit(void * jarg1, 
   } 
   try {
     ((pj::AudioMedia const *)arg1)->startTransmit((pj::AudioMedia const &)*arg2);
+  }
+  catch(pj::Error &_e) {
+    (void)_e;
+    SWIG_CSharpSetPendingException(SWIG_CSharpApplicationException, "C++ pj::Error exception thrown");
+    return ; 
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_AudioMedia_startTransmit2(void * jarg1, void * jarg2, void * jarg3) {
+  pj::AudioMedia *arg1 = (pj::AudioMedia *) 0 ;
+  pj::AudioMedia *arg2 = 0 ;
+  pj::AudioMediaTransmitParam *arg3 = 0 ;
+  
+  arg1 = (pj::AudioMedia *)jarg1; 
+  arg2 = (pj::AudioMedia *)jarg2;
+  if (!arg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::AudioMedia const & type is null", 0);
+    return ;
+  } 
+  arg3 = (pj::AudioMediaTransmitParam *)jarg3;
+  if (!arg3) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::AudioMediaTransmitParam const & type is null", 0);
+    return ;
+  } 
+  try {
+    ((pj::AudioMedia const *)arg1)->startTransmit2((pj::AudioMedia const &)*arg2,(pj::AudioMediaTransmitParam const &)*arg3);
   }
   catch(pj::Error &_e) {
     (void)_e;
@@ -16778,6 +17412,56 @@ SWIGEXPORT unsigned int SWIGSTDCALL CSharp_PJSIP_AudDevManager_getPlc(void * jar
     return 0; 
   }
   
+  jresult = result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_ExtraAudioDevice(int jarg1, int jarg2) {
+  void * jresult ;
+  int arg1 ;
+  int arg2 ;
+  pj::ExtraAudioDevice *result = 0 ;
+  
+  arg1 = (int)jarg1; 
+  arg2 = (int)jarg2; 
+  result = (pj::ExtraAudioDevice *)new pj::ExtraAudioDevice(arg1,arg2);
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_ExtraAudioDevice(void * jarg1) {
+  pj::ExtraAudioDevice *arg1 = (pj::ExtraAudioDevice *) 0 ;
+  
+  arg1 = (pj::ExtraAudioDevice *)jarg1; 
+  delete arg1;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_ExtraAudioDevice_open(void * jarg1) {
+  pj::ExtraAudioDevice *arg1 = (pj::ExtraAudioDevice *) 0 ;
+  
+  arg1 = (pj::ExtraAudioDevice *)jarg1; 
+  (arg1)->open();
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_ExtraAudioDevice_close(void * jarg1) {
+  pj::ExtraAudioDevice *arg1 = (pj::ExtraAudioDevice *) 0 ;
+  
+  arg1 = (pj::ExtraAudioDevice *)jarg1; 
+  (arg1)->close();
+}
+
+
+SWIGEXPORT unsigned int SWIGSTDCALL CSharp_PJSIP_ExtraAudioDevice_isOpened(void * jarg1) {
+  unsigned int jresult ;
+  pj::ExtraAudioDevice *arg1 = (pj::ExtraAudioDevice *) 0 ;
+  bool result;
+  
+  arg1 = (pj::ExtraAudioDevice *)jarg1; 
+  result = (bool)(arg1)->isOpened();
   jresult = result; 
   return jresult;
 }
@@ -21305,6 +21989,433 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_AccountNatConfig(void * jarg1) {
 }
 
 
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_key_set(void * jarg1, char * jarg2) {
+  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
+  pj::string *arg2 = 0 ;
+  
+  arg1 = (pj::SrtpCrypto *)jarg1; 
+  if (!jarg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
+    return ;
+  }
+  pj::string arg2_str(jarg2);
+  arg2 = &arg2_str; 
+  if (arg1) (arg1)->key = *arg2;
+}
+
+
+SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_key_get(void * jarg1) {
+  char * jresult ;
+  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
+  pj::string *result = 0 ;
+  
+  arg1 = (pj::SrtpCrypto *)jarg1; 
+  result = (pj::string *) & ((arg1)->key);
+  jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_name_set(void * jarg1, char * jarg2) {
+  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
+  pj::string *arg2 = 0 ;
+  
+  arg1 = (pj::SrtpCrypto *)jarg1; 
+  if (!jarg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
+    return ;
+  }
+  pj::string arg2_str(jarg2);
+  arg2 = &arg2_str; 
+  if (arg1) (arg1)->name = *arg2;
+}
+
+
+SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_name_get(void * jarg1) {
+  char * jresult ;
+  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
+  pj::string *result = 0 ;
+  
+  arg1 = (pj::SrtpCrypto *)jarg1; 
+  result = (pj::string *) & ((arg1)->name);
+  jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_flags_set(void * jarg1, unsigned int jarg2) {
+  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
+  unsigned int arg2 ;
+  
+  arg1 = (pj::SrtpCrypto *)jarg1; 
+  arg2 = (unsigned int)jarg2; 
+  if (arg1) (arg1)->flags = arg2;
+}
+
+
+SWIGEXPORT unsigned int SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_flags_get(void * jarg1) {
+  unsigned int jresult ;
+  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
+  unsigned int result;
+  
+  arg1 = (pj::SrtpCrypto *)jarg1; 
+  result = (unsigned int) ((arg1)->flags);
+  jresult = result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_SrtpCrypto() {
+  void * jresult ;
+  pj::SrtpCrypto *result = 0 ;
+  
+  result = (pj::SrtpCrypto *)new pj::SrtpCrypto();
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_SrtpCrypto(void * jarg1) {
+  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
+  
+  arg1 = (pj::SrtpCrypto *)jarg1; 
+  delete arg1;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpOpt_cryptos_set(void * jarg1, void * jarg2) {
+  pj::SrtpOpt *arg1 = (pj::SrtpOpt *) 0 ;
+  pj::SrtpCryptoVector *arg2 = (pj::SrtpCryptoVector *) 0 ;
+  
+  arg1 = (pj::SrtpOpt *)jarg1; 
+  arg2 = (pj::SrtpCryptoVector *)jarg2; 
+  if (arg1) (arg1)->cryptos = *arg2;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_SrtpOpt_cryptos_get(void * jarg1) {
+  void * jresult ;
+  pj::SrtpOpt *arg1 = (pj::SrtpOpt *) 0 ;
+  pj::SrtpCryptoVector *result = 0 ;
+  
+  arg1 = (pj::SrtpOpt *)jarg1; 
+  result = (pj::SrtpCryptoVector *)& ((arg1)->cryptos);
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpOpt_keyings_set(void * jarg1, void * jarg2) {
+  pj::SrtpOpt *arg1 = (pj::SrtpOpt *) 0 ;
+  pj::IntVector *arg2 = (pj::IntVector *) 0 ;
+  
+  arg1 = (pj::SrtpOpt *)jarg1; 
+  arg2 = (pj::IntVector *)jarg2; 
+  if (arg1) (arg1)->keyings = *arg2;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_SrtpOpt_keyings_get(void * jarg1) {
+  void * jresult ;
+  pj::SrtpOpt *arg1 = (pj::SrtpOpt *) 0 ;
+  pj::IntVector *result = 0 ;
+  
+  arg1 = (pj::SrtpOpt *)jarg1; 
+  result = (pj::IntVector *)& ((arg1)->keyings);
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_SrtpOpt() {
+  void * jresult ;
+  pj::SrtpOpt *result = 0 ;
+  
+  result = (pj::SrtpOpt *)new pj::SrtpOpt();
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpOpt_readObject(void * jarg1, void * jarg2) {
+  pj::SrtpOpt *arg1 = (pj::SrtpOpt *) 0 ;
+  pj::ContainerNode *arg2 = 0 ;
+  
+  arg1 = (pj::SrtpOpt *)jarg1; 
+  arg2 = (pj::ContainerNode *)jarg2;
+  if (!arg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::ContainerNode const & type is null", 0);
+    return ;
+  } 
+  try {
+    (arg1)->readObject((pj::ContainerNode const &)*arg2);
+  }
+  catch(pj::Error &_e) {
+    (void)_e;
+    SWIG_CSharpSetPendingException(SWIG_CSharpApplicationException, "C++ pj::Error exception thrown");
+    return ; 
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpOpt_writeObject(void * jarg1, void * jarg2) {
+  pj::SrtpOpt *arg1 = (pj::SrtpOpt *) 0 ;
+  pj::ContainerNode *arg2 = 0 ;
+  
+  arg1 = (pj::SrtpOpt *)jarg1; 
+  arg2 = (pj::ContainerNode *)jarg2;
+  if (!arg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::ContainerNode & type is null", 0);
+    return ;
+  } 
+  try {
+    ((pj::SrtpOpt const *)arg1)->writeObject(*arg2);
+  }
+  catch(pj::Error &_e) {
+    (void)_e;
+    SWIG_CSharpSetPendingException(SWIG_CSharpApplicationException, "C++ pj::Error exception thrown");
+    return ; 
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_SrtpOpt(void * jarg1) {
+  pj::SrtpOpt *arg1 = (pj::SrtpOpt *) 0 ;
+  
+  arg1 = (pj::SrtpOpt *)jarg1; 
+  delete arg1;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_RtcpFbCap_codecId_set(void * jarg1, char * jarg2) {
+  pj::RtcpFbCap *arg1 = (pj::RtcpFbCap *) 0 ;
+  pj::string *arg2 = 0 ;
+  
+  arg1 = (pj::RtcpFbCap *)jarg1; 
+  if (!jarg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
+    return ;
+  }
+  pj::string arg2_str(jarg2);
+  arg2 = &arg2_str; 
+  if (arg1) (arg1)->codecId = *arg2;
+}
+
+
+SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_RtcpFbCap_codecId_get(void * jarg1) {
+  char * jresult ;
+  pj::RtcpFbCap *arg1 = (pj::RtcpFbCap *) 0 ;
+  pj::string *result = 0 ;
+  
+  arg1 = (pj::RtcpFbCap *)jarg1; 
+  result = (pj::string *) & ((arg1)->codecId);
+  jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_RtcpFbCap_type_set(void * jarg1, int jarg2) {
+  pj::RtcpFbCap *arg1 = (pj::RtcpFbCap *) 0 ;
+  pjmedia_rtcp_fb_type arg2 ;
+  
+  arg1 = (pj::RtcpFbCap *)jarg1; 
+  arg2 = (pjmedia_rtcp_fb_type)jarg2; 
+  if (arg1) (arg1)->type = arg2;
+}
+
+
+SWIGEXPORT int SWIGSTDCALL CSharp_PJSIP_RtcpFbCap_type_get(void * jarg1) {
+  int jresult ;
+  pj::RtcpFbCap *arg1 = (pj::RtcpFbCap *) 0 ;
+  pjmedia_rtcp_fb_type result;
+  
+  arg1 = (pj::RtcpFbCap *)jarg1; 
+  result = (pjmedia_rtcp_fb_type) ((arg1)->type);
+  jresult = (int)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_RtcpFbCap_typeName_set(void * jarg1, char * jarg2) {
+  pj::RtcpFbCap *arg1 = (pj::RtcpFbCap *) 0 ;
+  pj::string *arg2 = 0 ;
+  
+  arg1 = (pj::RtcpFbCap *)jarg1; 
+  if (!jarg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
+    return ;
+  }
+  pj::string arg2_str(jarg2);
+  arg2 = &arg2_str; 
+  if (arg1) (arg1)->typeName = *arg2;
+}
+
+
+SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_RtcpFbCap_typeName_get(void * jarg1) {
+  char * jresult ;
+  pj::RtcpFbCap *arg1 = (pj::RtcpFbCap *) 0 ;
+  pj::string *result = 0 ;
+  
+  arg1 = (pj::RtcpFbCap *)jarg1; 
+  result = (pj::string *) & ((arg1)->typeName);
+  jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_RtcpFbCap_param_set(void * jarg1, char * jarg2) {
+  pj::RtcpFbCap *arg1 = (pj::RtcpFbCap *) 0 ;
+  pj::string *arg2 = 0 ;
+  
+  arg1 = (pj::RtcpFbCap *)jarg1; 
+  if (!jarg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
+    return ;
+  }
+  pj::string arg2_str(jarg2);
+  arg2 = &arg2_str; 
+  if (arg1) (arg1)->param = *arg2;
+}
+
+
+SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_RtcpFbCap_param_get(void * jarg1) {
+  char * jresult ;
+  pj::RtcpFbCap *arg1 = (pj::RtcpFbCap *) 0 ;
+  pj::string *result = 0 ;
+  
+  arg1 = (pj::RtcpFbCap *)jarg1; 
+  result = (pj::string *) & ((arg1)->param);
+  jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_RtcpFbCap() {
+  void * jresult ;
+  pj::RtcpFbCap *result = 0 ;
+  
+  result = (pj::RtcpFbCap *)new pj::RtcpFbCap();
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_RtcpFbCap(void * jarg1) {
+  pj::RtcpFbCap *arg1 = (pj::RtcpFbCap *) 0 ;
+  
+  arg1 = (pj::RtcpFbCap *)jarg1; 
+  delete arg1;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_RtcpFbConfig_dontUseAvpf_set(void * jarg1, unsigned int jarg2) {
+  pj::RtcpFbConfig *arg1 = (pj::RtcpFbConfig *) 0 ;
+  bool arg2 ;
+  
+  arg1 = (pj::RtcpFbConfig *)jarg1; 
+  arg2 = jarg2 ? true : false; 
+  if (arg1) (arg1)->dontUseAvpf = arg2;
+}
+
+
+SWIGEXPORT unsigned int SWIGSTDCALL CSharp_PJSIP_RtcpFbConfig_dontUseAvpf_get(void * jarg1) {
+  unsigned int jresult ;
+  pj::RtcpFbConfig *arg1 = (pj::RtcpFbConfig *) 0 ;
+  bool result;
+  
+  arg1 = (pj::RtcpFbConfig *)jarg1; 
+  result = (bool) ((arg1)->dontUseAvpf);
+  jresult = result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_RtcpFbConfig_caps_set(void * jarg1, void * jarg2) {
+  pj::RtcpFbConfig *arg1 = (pj::RtcpFbConfig *) 0 ;
+  pj::RtcpFbCapVector *arg2 = (pj::RtcpFbCapVector *) 0 ;
+  
+  arg1 = (pj::RtcpFbConfig *)jarg1; 
+  arg2 = (pj::RtcpFbCapVector *)jarg2; 
+  if (arg1) (arg1)->caps = *arg2;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_RtcpFbConfig_caps_get(void * jarg1) {
+  void * jresult ;
+  pj::RtcpFbConfig *arg1 = (pj::RtcpFbConfig *) 0 ;
+  pj::RtcpFbCapVector *result = 0 ;
+  
+  arg1 = (pj::RtcpFbConfig *)jarg1; 
+  result = (pj::RtcpFbCapVector *)& ((arg1)->caps);
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_RtcpFbConfig() {
+  void * jresult ;
+  pj::RtcpFbConfig *result = 0 ;
+  
+  result = (pj::RtcpFbConfig *)new pj::RtcpFbConfig();
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_RtcpFbConfig_readObject(void * jarg1, void * jarg2) {
+  pj::RtcpFbConfig *arg1 = (pj::RtcpFbConfig *) 0 ;
+  pj::ContainerNode *arg2 = 0 ;
+  
+  arg1 = (pj::RtcpFbConfig *)jarg1; 
+  arg2 = (pj::ContainerNode *)jarg2;
+  if (!arg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::ContainerNode const & type is null", 0);
+    return ;
+  } 
+  try {
+    (arg1)->readObject((pj::ContainerNode const &)*arg2);
+  }
+  catch(pj::Error &_e) {
+    (void)_e;
+    SWIG_CSharpSetPendingException(SWIG_CSharpApplicationException, "C++ pj::Error exception thrown");
+    return ; 
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_RtcpFbConfig_writeObject(void * jarg1, void * jarg2) {
+  pj::RtcpFbConfig *arg1 = (pj::RtcpFbConfig *) 0 ;
+  pj::ContainerNode *arg2 = 0 ;
+  
+  arg1 = (pj::RtcpFbConfig *)jarg1; 
+  arg2 = (pj::ContainerNode *)jarg2;
+  if (!arg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::ContainerNode & type is null", 0);
+    return ;
+  } 
+  try {
+    ((pj::RtcpFbConfig const *)arg1)->writeObject(*arg2);
+  }
+  catch(pj::Error &_e) {
+    (void)_e;
+    SWIG_CSharpSetPendingException(SWIG_CSharpApplicationException, "C++ pj::Error exception thrown");
+    return ; 
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_RtcpFbConfig(void * jarg1) {
+  pj::RtcpFbConfig *arg1 = (pj::RtcpFbConfig *) 0 ;
+  
+  arg1 = (pj::RtcpFbConfig *)jarg1; 
+  delete arg1;
+}
+
+
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_AccountMediaConfig_transportConfig_set(void * jarg1, void * jarg2) {
   pj::AccountMediaConfig *arg1 = (pj::AccountMediaConfig *) 0 ;
   pj::TransportConfig *arg2 = (pj::TransportConfig *) 0 ;
@@ -21415,6 +22526,28 @@ SWIGEXPORT int SWIGSTDCALL CSharp_PJSIP_AccountMediaConfig_srtpSecureSignaling_g
 }
 
 
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_AccountMediaConfig_srtpOpt_set(void * jarg1, void * jarg2) {
+  pj::AccountMediaConfig *arg1 = (pj::AccountMediaConfig *) 0 ;
+  pj::SrtpOpt *arg2 = (pj::SrtpOpt *) 0 ;
+  
+  arg1 = (pj::AccountMediaConfig *)jarg1; 
+  arg2 = (pj::SrtpOpt *)jarg2; 
+  if (arg1) (arg1)->srtpOpt = *arg2;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_AccountMediaConfig_srtpOpt_get(void * jarg1) {
+  void * jresult ;
+  pj::AccountMediaConfig *arg1 = (pj::AccountMediaConfig *) 0 ;
+  pj::SrtpOpt *result = 0 ;
+  
+  arg1 = (pj::AccountMediaConfig *)jarg1; 
+  result = (pj::SrtpOpt *)& ((arg1)->srtpOpt);
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_AccountMediaConfig_ipv6Use_set(void * jarg1, int jarg2) {
   pj::AccountMediaConfig *arg1 = (pj::AccountMediaConfig *) 0 ;
   pjsua_ipv6_use arg2 ;
@@ -21433,6 +22566,50 @@ SWIGEXPORT int SWIGSTDCALL CSharp_PJSIP_AccountMediaConfig_ipv6Use_get(void * ja
   arg1 = (pj::AccountMediaConfig *)jarg1; 
   result = (pjsua_ipv6_use) ((arg1)->ipv6Use);
   jresult = (int)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_AccountMediaConfig_rtcpMuxEnabled_set(void * jarg1, unsigned int jarg2) {
+  pj::AccountMediaConfig *arg1 = (pj::AccountMediaConfig *) 0 ;
+  bool arg2 ;
+  
+  arg1 = (pj::AccountMediaConfig *)jarg1; 
+  arg2 = jarg2 ? true : false; 
+  if (arg1) (arg1)->rtcpMuxEnabled = arg2;
+}
+
+
+SWIGEXPORT unsigned int SWIGSTDCALL CSharp_PJSIP_AccountMediaConfig_rtcpMuxEnabled_get(void * jarg1) {
+  unsigned int jresult ;
+  pj::AccountMediaConfig *arg1 = (pj::AccountMediaConfig *) 0 ;
+  bool result;
+  
+  arg1 = (pj::AccountMediaConfig *)jarg1; 
+  result = (bool) ((arg1)->rtcpMuxEnabled);
+  jresult = result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_AccountMediaConfig_rtcpFbConfig_set(void * jarg1, void * jarg2) {
+  pj::AccountMediaConfig *arg1 = (pj::AccountMediaConfig *) 0 ;
+  pj::RtcpFbConfig *arg2 = (pj::RtcpFbConfig *) 0 ;
+  
+  arg1 = (pj::AccountMediaConfig *)jarg1; 
+  arg2 = (pj::RtcpFbConfig *)jarg2; 
+  if (arg1) (arg1)->rtcpFbConfig = *arg2;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_AccountMediaConfig_rtcpFbConfig_get(void * jarg1) {
+  void * jresult ;
+  pj::AccountMediaConfig *arg1 = (pj::AccountMediaConfig *) 0 ;
+  pj::RtcpFbConfig *result = 0 ;
+  
+  arg1 = (pj::AccountMediaConfig *)jarg1; 
+  result = (pj::RtcpFbConfig *)& ((arg1)->rtcpFbConfig);
+  jresult = (void *)result; 
   return jresult;
 }
 
@@ -21825,6 +23002,14 @@ SWIGEXPORT unsigned int SWIGSTDCALL CSharp_PJSIP_AccountIpChangeConfig_reinviteF
 }
 
 
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_AccountIpChangeConfig(void * jarg1) {
+  pj::AccountIpChangeConfig *arg1 = (pj::AccountIpChangeConfig *) 0 ;
+  
+  arg1 = (pj::AccountIpChangeConfig *)jarg1; 
+  delete arg1;
+}
+
+
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_AccountIpChangeConfig_readObject(void * jarg1, void * jarg2) {
   pj::AccountIpChangeConfig *arg1 = (pj::AccountIpChangeConfig *) 0 ;
   pj::ContainerNode *arg2 = 0 ;
@@ -21876,14 +23061,6 @@ SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_AccountIpChangeConfig() {
   result = (pj::AccountIpChangeConfig *)new pj::AccountIpChangeConfig();
   jresult = (void *)result; 
   return jresult;
-}
-
-
-SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_AccountIpChangeConfig(void * jarg1) {
-  pj::AccountIpChangeConfig *arg1 = (pj::AccountIpChangeConfig *) 0 ;
-  
-  arg1 = (pj::AccountIpChangeConfig *)jarg1; 
-  delete arg1;
 }
 
 
@@ -23712,6 +24889,14 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Account_create__SWIG_1(void * jarg1, vo
 }
 
 
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Account_shutdown(void * jarg1) {
+  pj::Account *arg1 = (pj::Account *) 0 ;
+  
+  arg1 = (pj::Account *)jarg1; 
+  (arg1)->shutdown();
+}
+
+
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Account_modify(void * jarg1, void * jarg2) {
   pj::Account *arg1 = (pj::Account *) 0 ;
   pj::AccountConfig *arg2 = 0 ;
@@ -23969,26 +25154,6 @@ SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_Account_findBuddy__SWIG_1(void * jarg
   
   jresult = (void *)result; 
   return jresult;
-}
-
-
-SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Account_addBuddy(void * jarg1, void * jarg2) {
-  pj::Account *arg1 = (pj::Account *) 0 ;
-  pj::Buddy *arg2 = (pj::Buddy *) 0 ;
-  
-  arg1 = (pj::Account *)jarg1; 
-  arg2 = (pj::Buddy *)jarg2; 
-  (arg1)->addBuddy(arg2);
-}
-
-
-SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Account_removeBuddy(void * jarg1, void * jarg2) {
-  pj::Account *arg1 = (pj::Account *) 0 ;
-  pj::Buddy *arg2 = (pj::Buddy *) 0 ;
-  
-  arg1 = (pj::Account *)jarg1; 
-  arg2 = (pj::Buddy *)jarg2; 
-  (arg1)->removeBuddy(arg2);
 }
 
 
@@ -25699,6 +26864,60 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_MediaEvent(void * jarg1) {
 }
 
 
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_MediaTransportInfo_localRtpName_set(void * jarg1, char * jarg2) {
+  pj::MediaTransportInfo *arg1 = (pj::MediaTransportInfo *) 0 ;
+  pj::SocketAddress *arg2 = 0 ;
+  
+  arg1 = (pj::MediaTransportInfo *)jarg1; 
+  if (!jarg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
+    return ;
+  }
+  pj::SocketAddress arg2_str(jarg2);
+  arg2 = &arg2_str; 
+  if (arg1) (arg1)->localRtpName = *arg2;
+}
+
+
+SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_MediaTransportInfo_localRtpName_get(void * jarg1) {
+  char * jresult ;
+  pj::MediaTransportInfo *arg1 = (pj::MediaTransportInfo *) 0 ;
+  pj::SocketAddress *result = 0 ;
+  
+  arg1 = (pj::MediaTransportInfo *)jarg1; 
+  result = (pj::SocketAddress *) & ((arg1)->localRtpName);
+  jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_MediaTransportInfo_localRtcpName_set(void * jarg1, char * jarg2) {
+  pj::MediaTransportInfo *arg1 = (pj::MediaTransportInfo *) 0 ;
+  pj::SocketAddress *arg2 = 0 ;
+  
+  arg1 = (pj::MediaTransportInfo *)jarg1; 
+  if (!jarg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
+    return ;
+  }
+  pj::SocketAddress arg2_str(jarg2);
+  arg2 = &arg2_str; 
+  if (arg1) (arg1)->localRtcpName = *arg2;
+}
+
+
+SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_MediaTransportInfo_localRtcpName_get(void * jarg1) {
+  char * jresult ;
+  pj::MediaTransportInfo *arg1 = (pj::MediaTransportInfo *) 0 ;
+  pj::SocketAddress *result = 0 ;
+  
+  arg1 = (pj::MediaTransportInfo *)jarg1; 
+  result = (pj::SocketAddress *) & ((arg1)->localRtcpName);
+  jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_MediaTransportInfo_srcRtpName_set(void * jarg1, char * jarg2) {
   pj::MediaTransportInfo *arg1 = (pj::MediaTransportInfo *) 0 ;
   pj::SocketAddress *arg2 = 0 ;
@@ -27259,6 +28478,28 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_OnStreamDestroyedParam(void * ja
 }
 
 
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_OnDtmfDigitParam_method_set(void * jarg1, int jarg2) {
+  pj::OnDtmfDigitParam *arg1 = (pj::OnDtmfDigitParam *) 0 ;
+  pjsua_dtmf_method arg2 ;
+  
+  arg1 = (pj::OnDtmfDigitParam *)jarg1; 
+  arg2 = (pjsua_dtmf_method)jarg2; 
+  if (arg1) (arg1)->method = arg2;
+}
+
+
+SWIGEXPORT int SWIGSTDCALL CSharp_PJSIP_OnDtmfDigitParam_method_get(void * jarg1) {
+  int jresult ;
+  pj::OnDtmfDigitParam *arg1 = (pj::OnDtmfDigitParam *) 0 ;
+  pjsua_dtmf_method result;
+  
+  arg1 = (pj::OnDtmfDigitParam *)jarg1; 
+  result = (pjsua_dtmf_method) ((arg1)->method);
+  jresult = (int)result; 
+  return jresult;
+}
+
+
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_OnDtmfDigitParam_digit_set(void * jarg1, char * jarg2) {
   pj::OnDtmfDigitParam *arg1 = (pj::OnDtmfDigitParam *) 0 ;
   pj::string *arg2 = 0 ;
@@ -27282,6 +28523,28 @@ SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_OnDtmfDigitParam_digit_get(void * jar
   arg1 = (pj::OnDtmfDigitParam *)jarg1; 
   result = (pj::string *) & ((arg1)->digit);
   jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_OnDtmfDigitParam_duration_set(void * jarg1, unsigned int jarg2) {
+  pj::OnDtmfDigitParam *arg1 = (pj::OnDtmfDigitParam *) 0 ;
+  unsigned int arg2 ;
+  
+  arg1 = (pj::OnDtmfDigitParam *)jarg1; 
+  arg2 = (unsigned int)jarg2; 
+  if (arg1) (arg1)->duration = arg2;
+}
+
+
+SWIGEXPORT unsigned int SWIGSTDCALL CSharp_PJSIP_OnDtmfDigitParam_duration_get(void * jarg1) {
+  unsigned int jresult ;
+  pj::OnDtmfDigitParam *arg1 = (pj::OnDtmfDigitParam *) 0 ;
+  unsigned int result;
+  
+  arg1 = (pj::OnDtmfDigitParam *)jarg1; 
+  result = (unsigned int) ((arg1)->duration);
+  jresult = result; 
   return jresult;
 }
 
@@ -27739,6 +29002,134 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_OnCallRxOfferParam(void * jarg1)
 }
 
 
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_OnCallRxReinviteParam_offer_set(void * jarg1, void * jarg2) {
+  pj::OnCallRxReinviteParam *arg1 = (pj::OnCallRxReinviteParam *) 0 ;
+  pj::SdpSession *arg2 = (pj::SdpSession *) 0 ;
+  
+  arg1 = (pj::OnCallRxReinviteParam *)jarg1; 
+  arg2 = (pj::SdpSession *)jarg2; 
+  if (arg1) (arg1)->offer = *arg2;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_OnCallRxReinviteParam_offer_get(void * jarg1) {
+  void * jresult ;
+  pj::OnCallRxReinviteParam *arg1 = (pj::OnCallRxReinviteParam *) 0 ;
+  pj::SdpSession *result = 0 ;
+  
+  arg1 = (pj::OnCallRxReinviteParam *)jarg1; 
+  result = (pj::SdpSession *)& ((arg1)->offer);
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_OnCallRxReinviteParam_rdata_set(void * jarg1, void * jarg2) {
+  pj::OnCallRxReinviteParam *arg1 = (pj::OnCallRxReinviteParam *) 0 ;
+  pj::SipRxData *arg2 = (pj::SipRxData *) 0 ;
+  
+  arg1 = (pj::OnCallRxReinviteParam *)jarg1; 
+  arg2 = (pj::SipRxData *)jarg2; 
+  if (arg1) (arg1)->rdata = *arg2;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_OnCallRxReinviteParam_rdata_get(void * jarg1) {
+  void * jresult ;
+  pj::OnCallRxReinviteParam *arg1 = (pj::OnCallRxReinviteParam *) 0 ;
+  pj::SipRxData *result = 0 ;
+  
+  arg1 = (pj::OnCallRxReinviteParam *)jarg1; 
+  result = (pj::SipRxData *)& ((arg1)->rdata);
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_OnCallRxReinviteParam_async_set(void * jarg1, unsigned int jarg2) {
+  pj::OnCallRxReinviteParam *arg1 = (pj::OnCallRxReinviteParam *) 0 ;
+  bool arg2 ;
+  
+  arg1 = (pj::OnCallRxReinviteParam *)jarg1; 
+  arg2 = jarg2 ? true : false; 
+  if (arg1) (arg1)->async = arg2;
+}
+
+
+SWIGEXPORT unsigned int SWIGSTDCALL CSharp_PJSIP_OnCallRxReinviteParam_async_get(void * jarg1) {
+  unsigned int jresult ;
+  pj::OnCallRxReinviteParam *arg1 = (pj::OnCallRxReinviteParam *) 0 ;
+  bool result;
+  
+  arg1 = (pj::OnCallRxReinviteParam *)jarg1; 
+  result = (bool) ((arg1)->async);
+  jresult = result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_OnCallRxReinviteParam_statusCode_set(void * jarg1, int jarg2) {
+  pj::OnCallRxReinviteParam *arg1 = (pj::OnCallRxReinviteParam *) 0 ;
+  pjsip_status_code arg2 ;
+  
+  arg1 = (pj::OnCallRxReinviteParam *)jarg1; 
+  arg2 = (pjsip_status_code)jarg2; 
+  if (arg1) (arg1)->statusCode = arg2;
+}
+
+
+SWIGEXPORT int SWIGSTDCALL CSharp_PJSIP_OnCallRxReinviteParam_statusCode_get(void * jarg1) {
+  int jresult ;
+  pj::OnCallRxReinviteParam *arg1 = (pj::OnCallRxReinviteParam *) 0 ;
+  pjsip_status_code result;
+  
+  arg1 = (pj::OnCallRxReinviteParam *)jarg1; 
+  result = (pjsip_status_code) ((arg1)->statusCode);
+  jresult = (int)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_OnCallRxReinviteParam_opt_set(void * jarg1, void * jarg2) {
+  pj::OnCallRxReinviteParam *arg1 = (pj::OnCallRxReinviteParam *) 0 ;
+  pj::CallSetting *arg2 = (pj::CallSetting *) 0 ;
+  
+  arg1 = (pj::OnCallRxReinviteParam *)jarg1; 
+  arg2 = (pj::CallSetting *)jarg2; 
+  if (arg1) (arg1)->opt = *arg2;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_OnCallRxReinviteParam_opt_get(void * jarg1) {
+  void * jresult ;
+  pj::OnCallRxReinviteParam *arg1 = (pj::OnCallRxReinviteParam *) 0 ;
+  pj::CallSetting *result = 0 ;
+  
+  arg1 = (pj::OnCallRxReinviteParam *)jarg1; 
+  result = (pj::CallSetting *)& ((arg1)->opt);
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_OnCallRxReinviteParam() {
+  void * jresult ;
+  pj::OnCallRxReinviteParam *result = 0 ;
+  
+  result = (pj::OnCallRxReinviteParam *)new pj::OnCallRxReinviteParam();
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_OnCallRxReinviteParam(void * jarg1) {
+  pj::OnCallRxReinviteParam *arg1 = (pj::OnCallRxReinviteParam *) 0 ;
+  
+  arg1 = (pj::OnCallRxReinviteParam *)jarg1; 
+  delete arg1;
+}
+
+
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_OnCallTxOfferParam_opt_set(void * jarg1, void * jarg2) {
   pj::OnCallTxOfferParam *arg1 = (pj::OnCallTxOfferParam *) 0 ;
   pj::CallSetting *arg2 = (pj::CallSetting *) 0 ;
@@ -28098,100 +29489,6 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_OnCreateMediaTransportParam(void
 }
 
 
-SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_key_set(void * jarg1, char * jarg2) {
-  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
-  pj::string *arg2 = 0 ;
-  
-  arg1 = (pj::SrtpCrypto *)jarg1; 
-  if (!jarg2) {
-    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
-    return ;
-  }
-  pj::string arg2_str(jarg2);
-  arg2 = &arg2_str; 
-  if (arg1) (arg1)->key = *arg2;
-}
-
-
-SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_key_get(void * jarg1) {
-  char * jresult ;
-  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
-  pj::string *result = 0 ;
-  
-  arg1 = (pj::SrtpCrypto *)jarg1; 
-  result = (pj::string *) & ((arg1)->key);
-  jresult = SWIG_csharp_string_callback(result->c_str()); 
-  return jresult;
-}
-
-
-SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_name_set(void * jarg1, char * jarg2) {
-  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
-  pj::string *arg2 = 0 ;
-  
-  arg1 = (pj::SrtpCrypto *)jarg1; 
-  if (!jarg2) {
-    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
-    return ;
-  }
-  pj::string arg2_str(jarg2);
-  arg2 = &arg2_str; 
-  if (arg1) (arg1)->name = *arg2;
-}
-
-
-SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_name_get(void * jarg1) {
-  char * jresult ;
-  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
-  pj::string *result = 0 ;
-  
-  arg1 = (pj::SrtpCrypto *)jarg1; 
-  result = (pj::string *) & ((arg1)->name);
-  jresult = SWIG_csharp_string_callback(result->c_str()); 
-  return jresult;
-}
-
-
-SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_flags_set(void * jarg1, unsigned int jarg2) {
-  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
-  unsigned int arg2 ;
-  
-  arg1 = (pj::SrtpCrypto *)jarg1; 
-  arg2 = (unsigned int)jarg2; 
-  if (arg1) (arg1)->flags = arg2;
-}
-
-
-SWIGEXPORT unsigned int SWIGSTDCALL CSharp_PJSIP_SrtpCrypto_flags_get(void * jarg1) {
-  unsigned int jresult ;
-  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
-  unsigned int result;
-  
-  arg1 = (pj::SrtpCrypto *)jarg1; 
-  result = (unsigned int) ((arg1)->flags);
-  jresult = result; 
-  return jresult;
-}
-
-
-SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_SrtpCrypto() {
-  void * jresult ;
-  pj::SrtpCrypto *result = 0 ;
-  
-  result = (pj::SrtpCrypto *)new pj::SrtpCrypto();
-  jresult = (void *)result; 
-  return jresult;
-}
-
-
-SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_SrtpCrypto(void * jarg1) {
-  pj::SrtpCrypto *arg1 = (pj::SrtpCrypto *) 0 ;
-  
-  arg1 = (pj::SrtpCrypto *)jarg1; 
-  delete arg1;
-}
-
-
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_OnCreateMediaTransportSrtpParam_mediaIdx_set(void * jarg1, unsigned int jarg2) {
   pj::OnCreateMediaTransportSrtpParam *arg1 = (pj::OnCreateMediaTransportSrtpParam *) 0 ;
   unsigned int arg2 ;
@@ -28391,6 +29688,28 @@ SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_CallOpParam_txOption_get(void * jarg1
 }
 
 
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_CallOpParam_sdp_set(void * jarg1, void * jarg2) {
+  pj::CallOpParam *arg1 = (pj::CallOpParam *) 0 ;
+  pj::SdpSession *arg2 = (pj::SdpSession *) 0 ;
+  
+  arg1 = (pj::CallOpParam *)jarg1; 
+  arg2 = (pj::SdpSession *)jarg2; 
+  if (arg1) (arg1)->sdp = *arg2;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_CallOpParam_sdp_get(void * jarg1) {
+  void * jresult ;
+  pj::CallOpParam *arg1 = (pj::CallOpParam *) 0 ;
+  pj::SdpSession *result = 0 ;
+  
+  arg1 = (pj::CallOpParam *)jarg1; 
+  result = (pj::SdpSession *)& ((arg1)->sdp);
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
 SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_CallOpParam__SWIG_0(unsigned int jarg1) {
   void * jresult ;
   bool arg1 ;
@@ -28568,6 +29887,95 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_CallVidSetStreamParam(void * jar
   pj::CallVidSetStreamParam *arg1 = (pj::CallVidSetStreamParam *) 0 ;
   
   arg1 = (pj::CallVidSetStreamParam *)jarg1; 
+  delete arg1;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_CallSendDtmfParam_method_set(void * jarg1, int jarg2) {
+  pj::CallSendDtmfParam *arg1 = (pj::CallSendDtmfParam *) 0 ;
+  pjsua_dtmf_method arg2 ;
+  
+  arg1 = (pj::CallSendDtmfParam *)jarg1; 
+  arg2 = (pjsua_dtmf_method)jarg2; 
+  if (arg1) (arg1)->method = arg2;
+}
+
+
+SWIGEXPORT int SWIGSTDCALL CSharp_PJSIP_CallSendDtmfParam_method_get(void * jarg1) {
+  int jresult ;
+  pj::CallSendDtmfParam *arg1 = (pj::CallSendDtmfParam *) 0 ;
+  pjsua_dtmf_method result;
+  
+  arg1 = (pj::CallSendDtmfParam *)jarg1; 
+  result = (pjsua_dtmf_method) ((arg1)->method);
+  jresult = (int)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_CallSendDtmfParam_duration_set(void * jarg1, unsigned int jarg2) {
+  pj::CallSendDtmfParam *arg1 = (pj::CallSendDtmfParam *) 0 ;
+  unsigned int arg2 ;
+  
+  arg1 = (pj::CallSendDtmfParam *)jarg1; 
+  arg2 = (unsigned int)jarg2; 
+  if (arg1) (arg1)->duration = arg2;
+}
+
+
+SWIGEXPORT unsigned int SWIGSTDCALL CSharp_PJSIP_CallSendDtmfParam_duration_get(void * jarg1) {
+  unsigned int jresult ;
+  pj::CallSendDtmfParam *arg1 = (pj::CallSendDtmfParam *) 0 ;
+  unsigned int result;
+  
+  arg1 = (pj::CallSendDtmfParam *)jarg1; 
+  result = (unsigned int) ((arg1)->duration);
+  jresult = result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_CallSendDtmfParam_digits_set(void * jarg1, char * jarg2) {
+  pj::CallSendDtmfParam *arg1 = (pj::CallSendDtmfParam *) 0 ;
+  pj::string *arg2 = 0 ;
+  
+  arg1 = (pj::CallSendDtmfParam *)jarg1; 
+  if (!jarg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
+    return ;
+  }
+  pj::string arg2_str(jarg2);
+  arg2 = &arg2_str; 
+  if (arg1) (arg1)->digits = *arg2;
+}
+
+
+SWIGEXPORT char * SWIGSTDCALL CSharp_PJSIP_CallSendDtmfParam_digits_get(void * jarg1) {
+  char * jresult ;
+  pj::CallSendDtmfParam *arg1 = (pj::CallSendDtmfParam *) 0 ;
+  pj::string *result = 0 ;
+  
+  arg1 = (pj::CallSendDtmfParam *)jarg1; 
+  result = (pj::string *) & ((arg1)->digits);
+  jresult = SWIG_csharp_string_callback(result->c_str()); 
+  return jresult;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_new_CallSendDtmfParam() {
+  void * jresult ;
+  pj::CallSendDtmfParam *result = 0 ;
+  
+  result = (pj::CallSendDtmfParam *)new pj::CallSendDtmfParam();
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_delete_CallSendDtmfParam(void * jarg1) {
+  pj::CallSendDtmfParam *arg1 = (pj::CallSendDtmfParam *) 0 ;
+  
+  arg1 = (pj::CallSendDtmfParam *)jarg1; 
   delete arg1;
 }
 
@@ -28993,6 +30401,28 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Call_dialDtmf(void * jarg1, char * jarg
   arg2 = &arg2_str; 
   try {
     (arg1)->dialDtmf((pj::string const &)*arg2);
+  }
+  catch(pj::Error &_e) {
+    (void)_e;
+    SWIG_CSharpSetPendingException(SWIG_CSharpApplicationException, "C++ pj::Error exception thrown");
+    return ; 
+  }
+  
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Call_sendDtmf(void * jarg1, void * jarg2) {
+  pj::Call *arg1 = (pj::Call *) 0 ;
+  pj::CallSendDtmfParam *arg2 = 0 ;
+  
+  arg1 = (pj::Call *)jarg1; 
+  arg2 = (pj::CallSendDtmfParam *)jarg2;
+  if (!arg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::CallSendDtmfParam const & type is null", 0);
+    return ;
+  } 
+  try {
+    (arg1)->sendDtmf((pj::CallSendDtmfParam const &)*arg2);
   }
   catch(pj::Error &_e) {
     (void)_e;
@@ -29579,6 +31009,34 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Call_onCallRxOfferSwigExplicitCall(void
 }
 
 
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Call_onCallRxReinvite(void * jarg1, void * jarg2) {
+  pj::Call *arg1 = (pj::Call *) 0 ;
+  pj::OnCallRxReinviteParam *arg2 = 0 ;
+  
+  arg1 = (pj::Call *)jarg1; 
+  arg2 = (pj::OnCallRxReinviteParam *)jarg2;
+  if (!arg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::OnCallRxReinviteParam & type is null", 0);
+    return ;
+  } 
+  (arg1)->onCallRxReinvite(*arg2);
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Call_onCallRxReinviteSwigExplicitCall(void * jarg1, void * jarg2) {
+  pj::Call *arg1 = (pj::Call *) 0 ;
+  pj::OnCallRxReinviteParam *arg2 = 0 ;
+  
+  arg1 = (pj::Call *)jarg1; 
+  arg2 = (pj::OnCallRxReinviteParam *)jarg2;
+  if (!arg2) {
+    SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "pj::OnCallRxReinviteParam & type is null", 0);
+    return ;
+  } 
+  (arg1)->pj::Call::onCallRxReinvite(*arg2);
+}
+
+
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Call_onCallTxOffer(void * jarg1, void * jarg2) {
   pj::Call *arg1 = (pj::Call *) 0 ;
   pj::OnCallTxOfferParam *arg2 = 0 ;
@@ -29839,11 +31297,11 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Call_onCreateMediaTransportSrtpSwigExpl
 }
 
 
-SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Call_director_connect(void *objarg, SwigDirector_Call::SWIG_Callback0_t callback0, SwigDirector_Call::SWIG_Callback1_t callback1, SwigDirector_Call::SWIG_Callback2_t callback2, SwigDirector_Call::SWIG_Callback3_t callback3, SwigDirector_Call::SWIG_Callback4_t callback4, SwigDirector_Call::SWIG_Callback5_t callback5, SwigDirector_Call::SWIG_Callback6_t callback6, SwigDirector_Call::SWIG_Callback7_t callback7, SwigDirector_Call::SWIG_Callback8_t callback8, SwigDirector_Call::SWIG_Callback9_t callback9, SwigDirector_Call::SWIG_Callback10_t callback10, SwigDirector_Call::SWIG_Callback11_t callback11, SwigDirector_Call::SWIG_Callback12_t callback12, SwigDirector_Call::SWIG_Callback13_t callback13, SwigDirector_Call::SWIG_Callback14_t callback14, SwigDirector_Call::SWIG_Callback15_t callback15, SwigDirector_Call::SWIG_Callback16_t callback16, SwigDirector_Call::SWIG_Callback17_t callback17, SwigDirector_Call::SWIG_Callback18_t callback18, SwigDirector_Call::SWIG_Callback19_t callback19, SwigDirector_Call::SWIG_Callback20_t callback20) {
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Call_director_connect(void *objarg, SwigDirector_Call::SWIG_Callback0_t callback0, SwigDirector_Call::SWIG_Callback1_t callback1, SwigDirector_Call::SWIG_Callback2_t callback2, SwigDirector_Call::SWIG_Callback3_t callback3, SwigDirector_Call::SWIG_Callback4_t callback4, SwigDirector_Call::SWIG_Callback5_t callback5, SwigDirector_Call::SWIG_Callback6_t callback6, SwigDirector_Call::SWIG_Callback7_t callback7, SwigDirector_Call::SWIG_Callback8_t callback8, SwigDirector_Call::SWIG_Callback9_t callback9, SwigDirector_Call::SWIG_Callback10_t callback10, SwigDirector_Call::SWIG_Callback11_t callback11, SwigDirector_Call::SWIG_Callback12_t callback12, SwigDirector_Call::SWIG_Callback13_t callback13, SwigDirector_Call::SWIG_Callback14_t callback14, SwigDirector_Call::SWIG_Callback15_t callback15, SwigDirector_Call::SWIG_Callback16_t callback16, SwigDirector_Call::SWIG_Callback17_t callback17, SwigDirector_Call::SWIG_Callback18_t callback18, SwigDirector_Call::SWIG_Callback19_t callback19, SwigDirector_Call::SWIG_Callback20_t callback20, SwigDirector_Call::SWIG_Callback21_t callback21) {
   pj::Call *obj = (pj::Call *)objarg;
   SwigDirector_Call *director = dynamic_cast<SwigDirector_Call *>(obj);
   if (director) {
-    director->swig_connect_director(callback0, callback1, callback2, callback3, callback4, callback5, callback6, callback7, callback8, callback9, callback10, callback11, callback12, callback13, callback14, callback15, callback16, callback17, callback18, callback19, callback20);
+    director->swig_connect_director(callback0, callback1, callback2, callback3, callback4, callback5, callback6, callback7, callback8, callback9, callback10, callback11, callback12, callback13, callback14, callback15, callback16, callback17, callback18, callback19, callback20, callback21);
   }
 }
 
@@ -31826,6 +33284,28 @@ SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_UaConfig_nameserver_get(void * jarg1)
   
   arg1 = (pj::UaConfig *)jarg1; 
   result = (pj::StringVector *)& ((arg1)->nameserver);
+  jresult = (void *)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_UaConfig_outboundProxies_set(void * jarg1, void * jarg2) {
+  pj::UaConfig *arg1 = (pj::UaConfig *) 0 ;
+  pj::StringVector *arg2 = (pj::StringVector *) 0 ;
+  
+  arg1 = (pj::UaConfig *)jarg1; 
+  arg2 = (pj::StringVector *)jarg2; 
+  if (arg1) (arg1)->outboundProxies = *arg2;
+}
+
+
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_UaConfig_outboundProxies_get(void * jarg1) {
+  void * jresult ;
+  pj::UaConfig *arg1 = (pj::UaConfig *) 0 ;
+  pj::StringVector *result = 0 ;
+  
+  arg1 = (pj::UaConfig *)jarg1; 
+  result = (pj::StringVector *)& ((arg1)->outboundProxies);
   jresult = (void *)result; 
   return jresult;
 }
@@ -34080,6 +35560,26 @@ SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Endpoint_resetVideoCodecParam(void * ja
 }
 
 
+SWIGEXPORT void * SWIGSTDCALL CSharp_PJSIP_Endpoint_srtpCryptoEnum(void * jarg1) {
+  void * jresult ;
+  pj::Endpoint *arg1 = (pj::Endpoint *) 0 ;
+  pj::StringVector result;
+  
+  arg1 = (pj::Endpoint *)jarg1; 
+  try {
+    result = (arg1)->srtpCryptoEnum();
+  }
+  catch(pj::Error &_e) {
+    (void)_e;
+    SWIG_CSharpSetPendingException(SWIG_CSharpApplicationException, "C++ pj::Error exception thrown");
+    return 0; 
+  }
+  
+  jresult = new pj::StringVector((const pj::StringVector &)result); 
+  return jresult;
+}
+
+
 SWIGEXPORT void SWIGSTDCALL CSharp_PJSIP_Endpoint_handleIpChange(void * jarg1, void * jarg2) {
   pj::Endpoint *arg1 = (pj::Endpoint *) 0 ;
   pj::IpChangeParam *arg2 = 0 ;
@@ -34323,6 +35823,10 @@ SWIGEXPORT pj::AudioMedia * SWIGSTDCALL CSharp_PJSIP_ToneGenerator_SWIGUpcast(pj
     return (pj::AudioMedia *)jarg1;
 }
 
+SWIGEXPORT pj::AudioMedia * SWIGSTDCALL CSharp_PJSIP_ExtraAudioDevice_SWIGUpcast(pj::ExtraAudioDevice *jarg1) {
+    return (pj::AudioMedia *)jarg1;
+}
+
 SWIGEXPORT pj::PersistentObject * SWIGSTDCALL CSharp_PJSIP_BuddyConfig_SWIGUpcast(pj::BuddyConfig *jarg1) {
     return (pj::PersistentObject *)jarg1;
 }
@@ -34348,6 +35852,14 @@ SWIGEXPORT pj::PersistentObject * SWIGSTDCALL CSharp_PJSIP_AccountMwiConfig_SWIG
 }
 
 SWIGEXPORT pj::PersistentObject * SWIGSTDCALL CSharp_PJSIP_AccountNatConfig_SWIGUpcast(pj::AccountNatConfig *jarg1) {
+    return (pj::PersistentObject *)jarg1;
+}
+
+SWIGEXPORT pj::PersistentObject * SWIGSTDCALL CSharp_PJSIP_SrtpOpt_SWIGUpcast(pj::SrtpOpt *jarg1) {
+    return (pj::PersistentObject *)jarg1;
+}
+
+SWIGEXPORT pj::PersistentObject * SWIGSTDCALL CSharp_PJSIP_RtcpFbConfig_SWIGUpcast(pj::RtcpFbConfig *jarg1) {
     return (pj::PersistentObject *)jarg1;
 }
 

@@ -1,4 +1,4 @@
-/* $Id: sip_msg.c 5468 2016-10-24 03:22:46Z nanang $ */
+/* $Id: sip_msg.c 5727 2018-01-17 11:30:52Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -26,6 +26,7 @@
 #include <pj/string.h>
 #include <pj/pool.h>
 #include <pj/assert.h>
+#include <pj/log.h>
 #include <pjlib-util/string.h>
 
 PJ_DEF_DATA(const pjsip_method) pjsip_invite_method =
@@ -143,8 +144,6 @@ const pjsip_hdr_name_info_t pjsip_hdr_names[] =
 
     { "_Unknown-Header",    15, NULL },   // PJSIP_H_OTHER,
 };
-
-pj_bool_t pjsip_use_compact_form = PJSIP_ENCODE_SHORT_HNAME;
 
 static pj_str_t status_phrase[710];
 static int print_media_type(char *buf, unsigned len,
@@ -403,7 +402,7 @@ PJ_DEF(pj_ssize_t) pjsip_msg_print( const pjsip_msg *msg,
     pjsip_hdr *hdr;
     pj_str_t clen_hdr =  { "Content-Length: ", 16};
 
-    if (pjsip_use_compact_form) {
+    if (pjsip_cfg()->endpt.use_compact_form) {
 	clen_hdr.ptr = "l: ";
 	clen_hdr.slen = 3;
     }
@@ -461,8 +460,13 @@ PJ_DEF(pj_ssize_t) pjsip_msg_print( const pjsip_msg *msg,
     /* Print each of the headers. */
     for (hdr=msg->hdr.next; hdr!=&msg->hdr; hdr=hdr->next) {
 	len = pjsip_hdr_print_on(hdr, p, end-p);
-	if (len < 0)
-	    return -1;
+	if (len < 0) {
+	   if (len == -2) {
+	       PJ_LOG(5, ("sip_msg", "Header with no vptr encountered!! "\
+			  "Current buffer: %.*s", (int)(p-buf), buf));
+	   }
+	   return len;
+	}
 
 	if (len > 0) {
 	    p += len;
@@ -486,7 +490,7 @@ PJ_DEF(pj_ssize_t) pjsip_msg_print( const pjsip_msg *msg,
 	    pj_str_t ctype_hdr = { "Content-Type: ", 14};
 	    const pjsip_media_type *media = &msg->body->content_type;
 
-	    if (pjsip_use_compact_form) {
+	    if (pjsip_cfg()->endpt.use_compact_form) {
 		ctype_hdr.ptr = "c: ";
 		ctype_hdr.slen = 3;
 	    }
@@ -578,6 +582,7 @@ PJ_DEF(void*) pjsip_hdr_shallow_clone( pj_pool_t *pool, const void *hdr_ptr )
 PJ_DEF(int) pjsip_hdr_print_on( void *hdr_ptr, char *buf, pj_size_t len)
 {
     pjsip_hdr *hdr = (pjsip_hdr*) hdr_ptr;
+    PJ_ASSERT_RETURN(hdr->vptr, -2);
     return (*hdr->vptr->print_on)(hdr_ptr, buf, len);
 }
 
@@ -749,7 +754,8 @@ static int pjsip_generic_string_hdr_print( pjsip_generic_string_hdr *hdr,
 					   char *buf, pj_size_t size)
 {
     char *p = buf;
-    const pj_str_t *hname = pjsip_use_compact_form? &hdr->sname : &hdr->name;
+    const pj_str_t *hname = pjsip_cfg()->endpt.use_compact_form? 
+			    &hdr->sname : &hdr->name;
     
     if ((pj_ssize_t)size < hname->slen + hdr->hvalue.slen + 5)
 	return -1;
@@ -832,7 +838,8 @@ static int pjsip_generic_int_hdr_print( pjsip_generic_int_hdr *hdr,
 					char *buf, pj_size_t size)
 {
     char *p = buf;
-    const pj_str_t *hname = pjsip_use_compact_form? &hdr->sname : &hdr->name;
+    const pj_str_t *hname = pjsip_cfg()->endpt.use_compact_form? 
+			    &hdr->sname : &hdr->name;
 
     if ((pj_ssize_t)size < hname->slen + 15)
 	return -1;
@@ -908,7 +915,8 @@ static int pjsip_generic_array_hdr_print( pjsip_generic_array_hdr *hdr,
 					  char *buf, pj_size_t size)
 {
     char *p = buf, *endbuf = buf+size;
-    const pj_str_t *hname = pjsip_use_compact_form? &hdr->sname : &hdr->name;
+    const pj_str_t *hname = pjsip_cfg()->endpt.use_compact_form? 
+			    &hdr->sname : &hdr->name;
 
     copy_advance(p, (*hname));
     *p++ = ':';
@@ -1057,7 +1065,8 @@ static int pjsip_clen_hdr_print( pjsip_clen_hdr *hdr,
 {
     char *p = buf;
     int len;
-    const pj_str_t *hname = pjsip_use_compact_form? &hdr->sname : &hdr->name;
+    const pj_str_t *hname = pjsip_cfg()->endpt.use_compact_form? 
+			    &hdr->sname : &hdr->name;
 
     if ((pj_ssize_t)size < hname->slen + 14)
 	return -1;
@@ -1200,7 +1209,8 @@ PJ_DEF(pjsip_contact_hdr*) pjsip_contact_hdr_create( pj_pool_t *pool )
 static int pjsip_contact_hdr_print( pjsip_contact_hdr *hdr, char *buf, 
 				    pj_size_t size)
 {
-    const pj_str_t *hname = pjsip_use_compact_form? &hdr->sname : &hdr->name;
+    const pj_str_t *hname = pjsip_cfg()->endpt.use_compact_form? 
+			    &hdr->sname : &hdr->name;
     const pjsip_parser_const_t *pc = pjsip_parser_const();
 
     if (hdr->star) {
@@ -1374,7 +1384,8 @@ static int pjsip_ctype_hdr_print( pjsip_ctype_hdr *hdr,
 {
     char *p = buf;
     int len;
-    const pj_str_t *hname = pjsip_use_compact_form? &hdr->sname : &hdr->name;
+    const pj_str_t *hname = pjsip_cfg()->endpt.use_compact_form? 
+			    &hdr->sname : &hdr->name;
 
     if ((pj_ssize_t)size < hname->slen + 
 			   hdr->media.type.slen + hdr->media.subtype.slen + 8)
@@ -1514,7 +1525,8 @@ static int pjsip_fromto_hdr_print( pjsip_fromto_hdr *hdr,
     pj_ssize_t printed;
     char *startbuf = buf;
     char *endbuf = buf + size;
-    const pj_str_t *hname = pjsip_use_compact_form? &hdr->sname : &hdr->name;
+    const pj_str_t *hname = pjsip_cfg()->endpt.use_compact_form? 
+			    &hdr->sname : &hdr->name;
     const pjsip_parser_const_t *pc = pjsip_parser_const();
 
     copy_advance(buf, (*hname));
@@ -1984,7 +1996,8 @@ static int pjsip_via_hdr_print( pjsip_via_hdr *hdr,
     char *startbuf = buf;
     char *endbuf = buf + size;
     pj_str_t sip_ver = { "SIP/2.0/", 8 };
-    const pj_str_t *hname = pjsip_use_compact_form? &hdr->sname : &hdr->name;
+    const pj_str_t *hname = pjsip_cfg()->endpt.use_compact_form? 
+			    &hdr->sname : &hdr->name;
     const pjsip_parser_const_t *pc = pjsip_parser_const();
 
     if ((pj_ssize_t)size < hname->slen + sip_ver.slen + 

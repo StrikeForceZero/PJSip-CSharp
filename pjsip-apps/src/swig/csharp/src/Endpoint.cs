@@ -311,6 +311,12 @@ public class Endpoint : global::System.IDisposable {
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
+  public StringVector srtpCryptoEnum() {
+    StringVector ret = new StringVector(pjsua2PINVOKE.Endpoint_srtpCryptoEnum(swigCPtr), true);
+    if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+    return ret;
+  }
+
   public void handleIpChange(IpChangeParam param) {
     pjsua2PINVOKE.Endpoint_handleIpChange(swigCPtr, IpChangeParam.getCPtr(param));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();

@@ -1,4 +1,4 @@
-/* $Id: vid_streamutil.c 5618 2017-07-04 13:00:42Z nanang $ */
+/* $Id: vid_streamutil.c 5747 2018-02-26 10:14:27Z nanang $ */
 /* 
  * Copyright (C) 2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -285,6 +285,8 @@ static pj_status_t create_stream( pj_pool_t *pool,
 	return status;
     }
 
+    /* Start media transport */
+    pjmedia_transport_media_start(transport, 0, 0, 0, 0);
 
     return PJ_SUCCESS;
 }

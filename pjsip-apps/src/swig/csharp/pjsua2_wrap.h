@@ -112,6 +112,7 @@ public:
     virtual void onCallReplaceRequest(pj::OnCallReplaceRequestParam &prm);
     virtual void onCallReplaced(pj::OnCallReplacedParam &prm);
     virtual void onCallRxOffer(pj::OnCallRxOfferParam &prm);
+    virtual void onCallRxReinvite(pj::OnCallRxReinviteParam &prm);
     virtual void onCallTxOffer(pj::OnCallTxOfferParam &prm);
     virtual void onInstantMessage(pj::OnInstantMessageParam &prm);
     virtual void onInstantMessageStatus(pj::OnInstantMessageStatusParam &prm);
@@ -138,12 +139,13 @@ public:
     typedef void (SWIGSTDCALL* SWIG_Callback13_t)(void *);
     typedef void (SWIGSTDCALL* SWIG_Callback14_t)(void *);
     typedef void (SWIGSTDCALL* SWIG_Callback15_t)(void *);
-    typedef int (SWIGSTDCALL* SWIG_Callback16_t)(void *);
-    typedef void (SWIGSTDCALL* SWIG_Callback17_t)(void *);
+    typedef void (SWIGSTDCALL* SWIG_Callback16_t)(void *);
+    typedef int (SWIGSTDCALL* SWIG_Callback17_t)(void *);
     typedef void (SWIGSTDCALL* SWIG_Callback18_t)(void *);
     typedef void (SWIGSTDCALL* SWIG_Callback19_t)(void *);
     typedef void (SWIGSTDCALL* SWIG_Callback20_t)(void *);
-    void swig_connect_director(SWIG_Callback0_t callbackonCallState, SWIG_Callback1_t callbackonCallTsxState, SWIG_Callback2_t callbackonCallMediaState, SWIG_Callback3_t callbackonCallSdpCreated, SWIG_Callback4_t callbackonStreamCreated, SWIG_Callback5_t callbackonStreamDestroyed, SWIG_Callback6_t callbackonDtmfDigit, SWIG_Callback7_t callbackonCallTransferRequest, SWIG_Callback8_t callbackonCallTransferStatus, SWIG_Callback9_t callbackonCallReplaceRequest, SWIG_Callback10_t callbackonCallReplaced, SWIG_Callback11_t callbackonCallRxOffer, SWIG_Callback12_t callbackonCallTxOffer, SWIG_Callback13_t callbackonInstantMessage, SWIG_Callback14_t callbackonInstantMessageStatus, SWIG_Callback15_t callbackonTypingIndication, SWIG_Callback16_t callbackonCallRedirected, SWIG_Callback17_t callbackonCallMediaTransportState, SWIG_Callback18_t callbackonCallMediaEvent, SWIG_Callback19_t callbackonCreateMediaTransport, SWIG_Callback20_t callbackonCreateMediaTransportSrtp);
+    typedef void (SWIGSTDCALL* SWIG_Callback21_t)(void *);
+    void swig_connect_director(SWIG_Callback0_t callbackonCallState, SWIG_Callback1_t callbackonCallTsxState, SWIG_Callback2_t callbackonCallMediaState, SWIG_Callback3_t callbackonCallSdpCreated, SWIG_Callback4_t callbackonStreamCreated, SWIG_Callback5_t callbackonStreamDestroyed, SWIG_Callback6_t callbackonDtmfDigit, SWIG_Callback7_t callbackonCallTransferRequest, SWIG_Callback8_t callbackonCallTransferStatus, SWIG_Callback9_t callbackonCallReplaceRequest, SWIG_Callback10_t callbackonCallReplaced, SWIG_Callback11_t callbackonCallRxOffer, SWIG_Callback12_t callbackonCallRxReinvite, SWIG_Callback13_t callbackonCallTxOffer, SWIG_Callback14_t callbackonInstantMessage, SWIG_Callback15_t callbackonInstantMessageStatus, SWIG_Callback16_t callbackonTypingIndication, SWIG_Callback17_t callbackonCallRedirected, SWIG_Callback18_t callbackonCallMediaTransportState, SWIG_Callback19_t callbackonCallMediaEvent, SWIG_Callback20_t callbackonCreateMediaTransport, SWIG_Callback21_t callbackonCreateMediaTransportSrtp);
 
 private:
     SWIG_Callback0_t swig_callbackonCallState;
@@ -158,15 +160,16 @@ private:
     SWIG_Callback9_t swig_callbackonCallReplaceRequest;
     SWIG_Callback10_t swig_callbackonCallReplaced;
     SWIG_Callback11_t swig_callbackonCallRxOffer;
-    SWIG_Callback12_t swig_callbackonCallTxOffer;
-    SWIG_Callback13_t swig_callbackonInstantMessage;
-    SWIG_Callback14_t swig_callbackonInstantMessageStatus;
-    SWIG_Callback15_t swig_callbackonTypingIndication;
-    SWIG_Callback16_t swig_callbackonCallRedirected;
-    SWIG_Callback17_t swig_callbackonCallMediaTransportState;
-    SWIG_Callback18_t swig_callbackonCallMediaEvent;
-    SWIG_Callback19_t swig_callbackonCreateMediaTransport;
-    SWIG_Callback20_t swig_callbackonCreateMediaTransportSrtp;
+    SWIG_Callback12_t swig_callbackonCallRxReinvite;
+    SWIG_Callback13_t swig_callbackonCallTxOffer;
+    SWIG_Callback14_t swig_callbackonInstantMessage;
+    SWIG_Callback15_t swig_callbackonInstantMessageStatus;
+    SWIG_Callback16_t swig_callbackonTypingIndication;
+    SWIG_Callback17_t swig_callbackonCallRedirected;
+    SWIG_Callback18_t swig_callbackonCallMediaTransportState;
+    SWIG_Callback19_t swig_callbackonCallMediaEvent;
+    SWIG_Callback20_t swig_callbackonCreateMediaTransport;
+    SWIG_Callback21_t swig_callbackonCreateMediaTransportSrtp;
     void swig_init_callbacks();
 };
 

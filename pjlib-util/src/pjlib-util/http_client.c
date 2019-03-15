@@ -1,4 +1,4 @@
-/* $Id: http_client.c 4713 2014-01-23 08:13:11Z nanang $ */
+/* $Id: http_client.c 5701 2017-11-22 06:59:47Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -930,9 +930,9 @@ PJ_DEF(pj_status_t) pj_http_req_create(pj_pool_t *pool,
          * drawback would be that you can't use this if the method is not 
          * officially supported
          */
-        PJ_ASSERT_RETURN(hreq->param.addr_family==PJ_AF_UNSPEC || 
-                         hreq->param.addr_family==PJ_AF_INET || 
-                         hreq->param.addr_family==PJ_AF_INET6, PJ_EAFNOTSUP);
+        PJ_ASSERT_RETURN(hreq->param.addr_family==pj_AF_UNSPEC() || 
+                         hreq->param.addr_family==pj_AF_INET() || 
+                         hreq->param.addr_family==pj_AF_INET6(), PJ_EAFNOTSUP);
         PJ_ASSERT_RETURN(!pj_strcmp2(&hreq->param.version, HTTP_1_0) || 
                          !pj_strcmp2(&hreq->param.version, HTTP_1_1), 
                          PJ_ENOTSUP); 

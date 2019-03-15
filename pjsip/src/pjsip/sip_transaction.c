@@ -1,4 +1,4 @@
-/* $Id: sip_transaction.c 5682 2017-11-08 02:58:18Z riza $ */
+/* $Id: sip_transaction.c 5759 2018-03-26 10:41:05Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -1119,6 +1119,11 @@ static void tsx_timer_callback( pj_timer_heap_t *theap, pj_timer_entry *entry)
 
     PJ_UNUSED_ARG(theap);
 
+    /* Just return if transaction is already destroyed (see also #2102). */
+    if (tsx->state >= PJSIP_TSX_STATE_DESTROYED) {
+        return;
+    }
+
     if (entry->id == TRANSPORT_ERR_TIMER) {
 	/* Posted transport error event */
 	entry->id = 0;
@@ -2044,9 +2049,14 @@ static void transport_callback(void *token, pjsip_tx_data *tdata,
 	 */
 	lock_timer(tsx);
 	tsx->transport_err = (pj_status_t)-sent;
-	tsx_cancel_timer(tsx, &tsx->timeout_timer);
-	tsx_schedule_timer(tsx, &tsx->timeout_timer, &delay,
-	                   TRANSPORT_ERR_TIMER);
+	/* Don't cancel timeout timer if tsx state is already
+	 * PJSIP_TSX_STATE_COMPLETED (see #2076).
+	 */
+	if (tsx->state < PJSIP_TSX_STATE_COMPLETED) {
+	    tsx_cancel_timer(tsx, &tsx->timeout_timer);
+	    tsx_schedule_timer(tsx, &tsx->timeout_timer, &delay,
+			       TRANSPORT_ERR_TIMER);
+	}
 	unlock_timer(tsx);
    }
 
@@ -2077,9 +2087,14 @@ static void tsx_tp_state_callback( pjsip_transport *tp,
 	 */
 	lock_timer(tsx);
 	tsx->transport_err = info->status;
-	tsx_cancel_timer(tsx, &tsx->timeout_timer);
-	tsx_schedule_timer(tsx, &tsx->timeout_timer, &delay,
-	                   TRANSPORT_ERR_TIMER);
+	/* Don't cancel timeout timer if tsx state is already
+	 * PJSIP_TSX_STATE_COMPLETED (see #2076).
+	 */
+	if (tsx->state < PJSIP_TSX_STATE_COMPLETED) {
+	    tsx_cancel_timer(tsx, &tsx->timeout_timer);
+	    tsx_schedule_timer(tsx, &tsx->timeout_timer, &delay,
+			       TRANSPORT_ERR_TIMER);
+	}
 	unlock_timer(tsx);
     }
 }

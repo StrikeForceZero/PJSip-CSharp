@@ -40,6 +40,16 @@ public class OnDtmfDigitParam : global::System.IDisposable {
     }
   }
 
+  public pjsua_dtmf_method method {
+    set {
+      pjsua2PINVOKE.OnDtmfDigitParam_method_set(swigCPtr, (int)value);
+    } 
+    get {
+      pjsua_dtmf_method ret = (pjsua_dtmf_method)pjsua2PINVOKE.OnDtmfDigitParam_method_get(swigCPtr);
+      return ret;
+    } 
+  }
+
   public string digit {
     set {
       pjsua2PINVOKE.OnDtmfDigitParam_digit_set(swigCPtr, value);
@@ -48,6 +58,16 @@ public class OnDtmfDigitParam : global::System.IDisposable {
     get {
       string ret = pjsua2PINVOKE.OnDtmfDigitParam_digit_get(swigCPtr);
       if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+      return ret;
+    } 
+  }
+
+  public uint duration {
+    set {
+      pjsua2PINVOKE.OnDtmfDigitParam_duration_set(swigCPtr, value);
+    } 
+    get {
+      uint ret = pjsua2PINVOKE.OnDtmfDigitParam_duration_get(swigCPtr);
       return ret;
     } 
   }

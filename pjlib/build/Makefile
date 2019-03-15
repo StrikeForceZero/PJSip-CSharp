@@ -35,7 +35,7 @@ export PJLIB_OBJS += $(OS_OBJS) $(M_OBJS) $(CC_OBJS) $(HOST_OBJS) \
 	guid.o hash.o ip_helper_generic.o list.o lock.o log.o os_time_common.o \
 	os_info.o pool.o pool_buf.o pool_caching.o pool_dbg.o rand.o \
 	rbtree.o sock_common.o sock_qos_common.o \
-	ssl_sock_common.o ssl_sock_ossl.o ssl_sock_dump.o \
+	ssl_sock_common.o ssl_sock_ossl.o ssl_sock_gtls.o ssl_sock_dump.o \
 	string.o timer.o types.o
 export PJLIB_CFLAGS += $(_CFLAGS)
 export PJLIB_CXXFLAGS += $(_CXXFLAGS)
@@ -56,8 +56,9 @@ export TEST_OBJS += activesock.o atomic.o echo_clt.o errno.o exception.o \
 export TEST_CFLAGS += $(_CFLAGS)
 export TEST_CXXFLAGS += $(_CXXFLAGS)
 export TEST_LDFLAGS += $(PJLIB_LDLIB) $(_LDFLAGS)
+ifeq ($(EXCLUDE_APP),0)
 export TEST_EXE := pjlib-test-$(TARGET_NAME)$(HOST_EXE)
-
+endif
 
 export CC_OUT CC AR RANLIB HOST_MV HOST_RM HOST_RMDIR HOST_MKDIR OBJEXT LD LDOUT 
 ###############################################################################

@@ -1,4 +1,4 @@
-/* $Id: sock_bsd.c 5590 2017-05-09 02:39:08Z ming $ */
+/* $Id: sock_bsd.c 5692 2017-11-13 06:06:25Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -229,7 +229,7 @@ PJ_DEF(pj_uint32_t) pj_htonl(pj_uint32_t hostlong)
  */
 PJ_DEF(char*) pj_inet_ntoa(pj_in_addr inaddr)
 {
-#if 0 //!defined(PJ_LINUX) && !defined(PJ_LINUX_KERNEL)
+#if 0
     return inet_ntoa(*(struct in_addr*)&inaddr);
 #else
     struct in_addr addr;

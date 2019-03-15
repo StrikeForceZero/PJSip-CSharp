@@ -1,4 +1,4 @@
-/* $Id: pjsua_im.c 5373 2016-06-30 08:23:08Z ming $ */
+/* $Id: pjsua_im.c 5805 2018-06-13 16:58:49Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -209,9 +209,10 @@ void pjsua_im_process_pager(int call_id, const pj_str_t *from,
 		acc_id = call->acc_id;
 	    }
 
-
-	    (*pjsua_var.ua_cfg.cb.on_typing2)(call_id, from, to, &contact,
-					      is_typing, rdata, acc_id);
+	    if (acc_id != PJSUA_INVALID_ID) {
+		(*pjsua_var.ua_cfg.cb.on_typing2)(call_id, from, to, &contact,
+						  is_typing, rdata, acc_id);
+	    }
 	}
 
     } else {
@@ -258,9 +259,11 @@ void pjsua_im_process_pager(int call_id, const pj_str_t *from,
 		acc_id = call->acc_id;
 	    }
 
-	    (*pjsua_var.ua_cfg.cb.on_pager2)(call_id, from, to, &contact, 
-					     &mime_type, &text_body, rdata,
-					     acc_id);
+	    if (acc_id != PJSUA_INVALID_ID) {
+		(*pjsua_var.ua_cfg.cb.on_pager2)(call_id, from, to, &contact,
+						 &mime_type, &text_body, rdata,
+						 acc_id);
+	    }
 	}
     }
 }

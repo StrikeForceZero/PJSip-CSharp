@@ -1,4 +1,4 @@
-/* $Id: opencore_amr.c 5122 2015-07-01 01:45:57Z riza $ */
+/* $Id: opencore_amr.c 5766 2018-04-02 05:53:37Z ming $ */
 /* 
  * Copyright (C) 2011-2013 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2011 Dan Arrhenius <dan@keystream.se>
@@ -895,7 +895,9 @@ static pj_status_t amr_codec_encode( pjmedia_codec *codec,
 	/* Count the number of SID and DTX frames */
 	if (info->frame_type == 15) /* DTX*/
 	    ++dtx_cnt;
-	else if (info->frame_type == 8) /* SID */
+	else if (info->frame_type == 8 && amr_data->enc_setting.amr_nb) /* SID */
+	    ++sid_cnt;
+	else if (info->frame_type == 9 && !amr_data->enc_setting.amr_nb) /* SID */
 	    ++sid_cnt;
     }
 

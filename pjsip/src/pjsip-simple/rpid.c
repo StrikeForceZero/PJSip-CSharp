@@ -1,4 +1,4 @@
-/* $Id: rpid.c 4537 2013-06-19 06:47:43Z riza $ */
+/* $Id: rpid.c 5701 2017-11-22 06:59:47Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -149,7 +149,7 @@ PJ_DEF(pj_status_t) pjrpid_add_element(pjpidf_pres *pres,
 	pj_str_t person_id;
 	/* xs:ID must start with letter */
 	//pj_create_unique_string(pool, &person_id);
-	person_id.ptr = (char*)pj_pool_alloc(pool, PJ_GUID_STRING_LENGTH+2);
+	person_id.ptr = (char*)pj_pool_alloc(pool, pj_GUID_STRING_LENGTH()+2);
 	person_id.ptr += 2;
 	pj_generate_unique_string(&person_id);
 	person_id.ptr -= 2;

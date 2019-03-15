@@ -1,4 +1,4 @@
-/* $Id: rtcp_xr.c 3553 2011-05-05 06:14:19Z nanang $ */
+/* $Id: rtcp_xr.c 5779 2018-04-09 12:30:48Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -349,7 +349,7 @@ PJ_DEF(void) pjmedia_rtcp_build_rtcp_xr( pjmedia_rtcp_xr_session *sess,
 	 */
 	est_extra_delay = 30;
 
-#if PJMEDIA_SOUND_IMPLEMENTATION!=PJMEDIA_SOUND_NULL_SOUND
+#if !PJMEDIA_AUDIO_DEV_HAS_NULL_AUDIO
 	est_extra_delay += PJMEDIA_SND_DEFAULT_REC_LATENCY + 
 			   PJMEDIA_SND_DEFAULT_PLAY_LATENCY;
 #endif

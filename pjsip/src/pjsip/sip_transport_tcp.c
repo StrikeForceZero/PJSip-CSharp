@@ -1,4 +1,4 @@
-/* $Id: sip_transport_tcp.c 5649 2017-09-15 05:32:08Z riza $ */
+/* $Id: sip_transport_tcp.c 5870 2018-08-28 07:05:43Z riza $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -63,6 +63,7 @@ struct tcp_listener
     pj_sockopt_params	     sockopt_params;
     pj_bool_t		     reuse_addr;        
     unsigned		     async_cnt;    
+    unsigned		     initial_timeout;
 
     /* Group lock to be used by TCP listener and ioqueue key */
     pj_grp_lock_t	    *grp_lock;
@@ -123,6 +124,9 @@ struct tcp_transport
 
     /* Group lock to be used by TCP transport and ioqueue key */
     pj_grp_lock_t	    *grp_lock;
+
+    /* Initial timer. */
+    pj_timer_entry	     initial_timer;
 };
 
 
@@ -236,6 +240,7 @@ PJ_DEF(void) pjsip_tcp_transport_cfg_default(pjsip_tcp_transport_cfg *cfg,
     pj_sockaddr_init(cfg->af, &cfg->bind_addr, NULL, 0);
     cfg->async_cnt = 1;
     cfg->reuse_addr = PJSIP_TCP_TRANSPORT_REUSEADDR;
+    cfg->initial_timeout = PJSIP_TCP_INITIAL_TIMEOUT;
 }
 
 
@@ -328,6 +333,7 @@ static void update_transport_info(struct tcp_listener *listener)
 {    
     enum { INFO_LEN = 100 };
     char local_addr[PJ_INET6_ADDRSTRLEN + 10];
+    char pub_addr[PJ_INET6_ADDRSTRLEN + 10];
     pj_sockaddr *listener_addr = &listener->factory.local_addr;
 
     /* Set transport info. */
@@ -336,19 +342,21 @@ static void update_transport_info(struct tcp_listener *listener)
 						      INFO_LEN);
     }
     pj_sockaddr_print(listener_addr, local_addr, sizeof(local_addr), 3);
+    pj_addr_str_print(&listener->factory.addr_name.host, 
+		      listener->factory.addr_name.port, pub_addr, 
+		      sizeof(pub_addr), 1);
     pj_ansi_snprintf(
-	    listener->factory.info, INFO_LEN, "tcp %s [published as %.*s:%d]",
-	    local_addr,
-	    (int)listener->factory.addr_name.host.slen,
-	    listener->factory.addr_name.host.ptr,
-	    listener->factory.addr_name.port);
+	    listener->factory.info, INFO_LEN, "tcp %s [published as %s]",
+	    local_addr, pub_addr);
 
-    if (listener->asock) {
+    if (listener->asock) {	
+	char addr[PJ_INET6_ADDRSTRLEN+10];
+
 	PJ_LOG(4, (listener->factory.obj_name,
-	       "SIP TCP listener ready for incoming connections at %.*s:%d",
-	       (int)listener->factory.addr_name.host.slen,
-	       listener->factory.addr_name.host.ptr,
-	       listener->factory.addr_name.port));
+		   "SIP TCP listener ready for incoming connections at %s",
+		   pj_addr_str_print(&listener->factory.addr_name.host,
+				     listener->factory.addr_name.port, addr,
+				     sizeof(addr), 1)));
     } else {
 	PJ_LOG(4, (listener->factory.obj_name, "SIP TCP is ready "
 	       "(client only)"));
@@ -388,6 +396,7 @@ PJ_DEF(pj_status_t) pjsip_tcp_transport_start3(
     listener->qos_type = cfg->qos_type;
     listener->reuse_addr = cfg->reuse_addr;
     listener->async_cnt = cfg->async_cnt;
+    listener->initial_timeout = cfg->initial_timeout;
     pj_memcpy(&listener->qos_params, &cfg->qos_params,
 	      sizeof(cfg->qos_params));
     pj_memcpy(&listener->sockopt_params, &cfg->sockopt_params,
@@ -591,6 +600,9 @@ static pj_bool_t on_connect_complete(pj_activesock_t *asock,
 /* TCP keep-alive timer callback */
 static void tcp_keep_alive_timer(pj_timer_heap_t *th, pj_timer_entry *e);
 
+/* TCP initial timer callback */
+static void tcp_initial_timer(pj_timer_heap_t *th, pj_timer_entry *e);
+
 /* Clean up TCP resources */
 static void tcp_on_destroy(void *arg);
 
@@ -711,6 +723,20 @@ static pj_status_t tcp_create( struct tcp_listener *listener,
     pj_ioqueue_op_key_init(&tcp->ka_op_key.key, sizeof(pj_ioqueue_op_key_t));
     pj_strdup(tcp->base.pool, &tcp->ka_pkt, &ka_pkt);
 
+    /* Initialize initial timer. */
+    if (is_server && listener->initial_timeout) {
+	pj_time_val delay = { 0 };
+
+	tcp->initial_timer.user_data = (void*)tcp;
+	tcp->initial_timer.cb = &tcp_initial_timer;
+	
+	delay.sec = listener->initial_timeout;
+	pjsip_endpt_schedule_timer(listener->endpt, 
+				    &tcp->initial_timer, 
+				    &delay);
+	tcp->initial_timer.id = PJ_TRUE;
+    }
+
     /* Done setting up basic transport. */
     *p_tcp = tcp;
 
@@ -806,6 +832,12 @@ static pj_status_t tcp_destroy(pjsip_transport *transport,
     if (tcp->ka_timer.id) {
 	pjsip_endpt_cancel_timer(tcp->base.endpt, &tcp->ka_timer);
 	tcp->ka_timer.id = PJ_FALSE;
+    }
+
+    /* Stop initial timer. */
+    if (tcp->initial_timer.id) {
+	pjsip_endpt_cancel_timer(tcp->base.endpt, &tcp->initial_timer);
+	tcp->initial_timer.id = PJ_FALSE;
     }
 
     /* Cancel all delayed transmits */
@@ -1029,6 +1061,9 @@ static pj_status_t lis_create_transport(pjsip_tpfactory *factory,
     }
 
     if (tcp->has_pending_connect) {
+	char local_addr_buf[PJ_INET6_ADDRSTRLEN+10];
+	char remote_addr_buf[PJ_INET6_ADDRSTRLEN+10];
+
 	/* Update (again) local address, just in case local address currently
 	 * set is different now that asynchronous connect() is started.
 	 */
@@ -1050,13 +1085,13 @@ static pj_status_t lis_create_transport(pjsip_tpfactory *factory,
 	}
 	
 	PJ_LOG(4,(tcp->base.obj_name, 
-		  "TCP transport %.*s:%d is connecting to %.*s:%d...",
-		  (int)tcp->base.local_name.host.slen,
-		  tcp->base.local_name.host.ptr,
-		  tcp->base.local_name.port,
-		  (int)tcp->base.remote_name.host.slen,
-		  tcp->base.remote_name.host.ptr,
-		  tcp->base.remote_name.port));
+		  "TCP transport %s is connecting to %s...",
+		  pj_addr_str_print(&tcp->base.local_name.host, 
+				    tcp->base.local_name.port, 
+				    local_addr_buf, sizeof(local_addr_buf), 1),
+		  pj_addr_str_print(&tcp->base.remote_name.host, 
+			        tcp->base.remote_name.port, 
+				remote_addr_buf, sizeof(remote_addr_buf), 1)));
     }
 
     /* Done */
@@ -1082,6 +1117,7 @@ static pj_bool_t on_accept_complete(pj_activesock_t *asock,
     pj_sockaddr tmp_src_addr, tmp_dst_addr;
     int addr_len;
     pj_status_t status;
+    char addr_buf[PJ_INET6_ADDRSTRLEN+10];    
 
     PJ_UNUSED_ARG(src_addr_len);
 
@@ -1093,11 +1129,11 @@ static pj_bool_t on_accept_complete(pj_activesock_t *asock,
 	return PJ_FALSE;
 
     PJ_LOG(4,(listener->factory.obj_name, 
-	      "TCP listener %.*s:%d: got incoming TCP connection "
+	      "TCP listener %s: got incoming TCP connection "
 	      "from %s, sock=%d",
-	      (int)listener->factory.addr_name.host.slen,
-	      listener->factory.addr_name.host.ptr,
-	      listener->factory.addr_name.port,
+	      pj_addr_str_print(&listener->factory.addr_name.host, 
+				listener->factory.addr_name.port, addr_buf, 
+				sizeof(addr_buf), 1),
 	      pj_sockaddr_print(src_addr, addr, sizeof(addr), 3),
 	      sock));
 
@@ -1332,6 +1368,12 @@ static pj_status_t tcp_shutdown(pjsip_transport *transport)
 	tcp->ka_timer.id = PJ_FALSE;
     }
 
+    /* Stop initial timer. */
+    if (tcp->initial_timer.id) {
+	pjsip_endpt_cancel_timer(tcp->base.endpt, &tcp->initial_timer);
+	tcp->initial_timer.id = PJ_FALSE;
+    }
+
     return PJ_SUCCESS;
 }
 
@@ -1358,6 +1400,11 @@ static pj_bool_t on_data_read(pj_activesock_t *asock,
     if (tcp->is_closing) {
 	tcp->is_closing++;
 	return PJ_FALSE;
+    }
+
+    if (tcp->initial_timer.id) {
+	pjsip_endpt_cancel_timer(tcp->base.endpt, &tcp->initial_timer);
+	tcp->initial_timer.id = PJ_FALSE;
     }
 
     /* Houston, we have packet! Report the packet to transport manager
@@ -1422,6 +1469,8 @@ static pj_bool_t on_connect_complete(pj_activesock_t *asock,
     pj_sockaddr addr;
     int addrlen;
     pjsip_tp_state_callback state_cb;
+    char local_addr_buf[PJ_INET6_ADDRSTRLEN+10];
+    char remote_addr_buf[PJ_INET6_ADDRSTRLEN+10];
 
     tcp = (struct tcp_transport*) pj_activesock_get_user_data(asock);
 
@@ -1462,13 +1511,13 @@ static pj_bool_t on_connect_complete(pj_activesock_t *asock,
     }
 
     PJ_LOG(4,(tcp->base.obj_name, 
-	      "TCP transport %.*s:%d is connected to %.*s:%d",
-	      (int)tcp->base.local_name.host.slen,
-	      tcp->base.local_name.host.ptr,
-	      tcp->base.local_name.port,
-	      (int)tcp->base.remote_name.host.slen,
-	      tcp->base.remote_name.host.ptr,
-	      tcp->base.remote_name.port));
+	      "TCP transport %s is connected to %s",
+	      pj_addr_str_print(&tcp->base.local_name.host, 
+				tcp->base.local_name.port, local_addr_buf, 
+				sizeof(local_addr_buf), 1),
+	      pj_addr_str_print(&tcp->base.remote_name.host, 
+				tcp->base.remote_name.port, remote_addr_buf, 
+				sizeof(remote_addr_buf), 1)));
 
 
     /* Update (again) local address, just in case local address currently
@@ -1528,6 +1577,7 @@ static void tcp_keep_alive_timer(pj_timer_heap_t *th, pj_timer_entry *e)
     pj_time_val now;
     pj_ssize_t size;
     pj_status_t status;
+    char addr[PJ_INET6_ADDRSTRLEN+10];        
 
     PJ_UNUSED_ARG(th);
 
@@ -1547,10 +1597,11 @@ static void tcp_keep_alive_timer(pj_timer_heap_t *th, pj_timer_entry *e)
 	return;
     }
 
-    PJ_LOG(5,(tcp->base.obj_name, "Sending %d byte(s) keep-alive to %.*s:%d", 
-	      (int)tcp->ka_pkt.slen, (int)tcp->base.remote_name.host.slen,
-	      tcp->base.remote_name.host.ptr,
-	      tcp->base.remote_name.port));
+    PJ_LOG(5,(tcp->base.obj_name, "Sending %d byte(s) keep-alive to %s", 
+	      (int)tcp->ka_pkt.slen, 
+	      pj_addr_str_print(&tcp->base.remote_name.host, 
+				tcp->base.remote_name.port, addr, 
+				sizeof(addr), 1)));
 
     /* Send the data */
     size = tcp->ka_pkt.slen;
@@ -1573,6 +1624,16 @@ static void tcp_keep_alive_timer(pj_timer_heap_t *th, pj_timer_entry *e)
     tcp->ka_timer.id = PJ_TRUE;
 }
 
+/* Transport keep-alive timer callback */
+static void tcp_initial_timer(pj_timer_heap_t *th, pj_timer_entry *e)
+{
+    pj_status_t status = PJ_ETIMEDOUT;
+    struct tcp_transport *tcp = (struct tcp_transport*) e->user_data;
+
+    PJ_UNUSED_ARG(th);
+
+    tcp_init_shutdown(tcp, status);
+}
 
 PJ_DEF(pj_sock_t) pjsip_tcp_transport_get_socket(pjsip_transport *transport)
 {

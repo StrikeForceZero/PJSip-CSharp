@@ -1,4 +1,4 @@
-/* $Id: ffmpeg_vid_codecs.c 5305 2016-05-18 07:50:15Z riza $ */
+/* $Id: ffmpeg_vid_codecs.c 5705 2017-11-29 02:23:08Z ming $ */
 /* 
  * Copyright (C) 2010-2011 Teluu Inc. (http://www.teluu.com)
  *
@@ -350,6 +350,7 @@ static pj_status_t h264_preopen(ffmpeg_private *ff)
 
     /* Create packetizer */
     pktz_cfg.mtu = ff->param.enc_mtu;
+    pktz_cfg.unpack_nal_start = 0;
 #if 0
     if (data->fmtp.packetization_mode == 0)
 	pktz_cfg.mode = PJMEDIA_H264_PACKETIZER_MODE_SINGLE_NAL;

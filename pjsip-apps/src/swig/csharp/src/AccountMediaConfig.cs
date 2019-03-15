@@ -90,12 +90,44 @@ public class AccountMediaConfig : PersistentObject {
     } 
   }
 
+  public SrtpOpt srtpOpt {
+    set {
+      pjsua2PINVOKE.AccountMediaConfig_srtpOpt_set(swigCPtr, SrtpOpt.getCPtr(value));
+    } 
+    get {
+      global::System.IntPtr cPtr = pjsua2PINVOKE.AccountMediaConfig_srtpOpt_get(swigCPtr);
+      SrtpOpt ret = (cPtr == global::System.IntPtr.Zero) ? null : new SrtpOpt(cPtr, false);
+      return ret;
+    } 
+  }
+
   public pjsua_ipv6_use ipv6Use {
     set {
       pjsua2PINVOKE.AccountMediaConfig_ipv6Use_set(swigCPtr, (int)value);
     } 
     get {
       pjsua_ipv6_use ret = (pjsua_ipv6_use)pjsua2PINVOKE.AccountMediaConfig_ipv6Use_get(swigCPtr);
+      return ret;
+    } 
+  }
+
+  public bool rtcpMuxEnabled {
+    set {
+      pjsua2PINVOKE.AccountMediaConfig_rtcpMuxEnabled_set(swigCPtr, value);
+    } 
+    get {
+      bool ret = pjsua2PINVOKE.AccountMediaConfig_rtcpMuxEnabled_get(swigCPtr);
+      return ret;
+    } 
+  }
+
+  public RtcpFbConfig rtcpFbConfig {
+    set {
+      pjsua2PINVOKE.AccountMediaConfig_rtcpFbConfig_set(swigCPtr, RtcpFbConfig.getCPtr(value));
+    } 
+    get {
+      global::System.IntPtr cPtr = pjsua2PINVOKE.AccountMediaConfig_rtcpFbConfig_get(swigCPtr);
+      RtcpFbConfig ret = (cPtr == global::System.IntPtr.Zero) ? null : new RtcpFbConfig(cPtr, false);
       return ret;
     } 
   }

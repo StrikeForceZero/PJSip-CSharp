@@ -1,4 +1,4 @@
-/* $Id: md5.c 5544 2017-01-24 05:41:05Z nanang $ */
+/* $Id: md5.c 5688 2017-11-10 03:14:58Z ming $ */
 /* 
  * This is the implementation of MD5 algorithm, based on the code
  * written by Colin Plumb. This file is put in public domain.
@@ -29,13 +29,13 @@
 #ifndef HIGHFIRST
 #define byteReverse(buf, len)	/* Nothing */
 #else
-void byteReverse(unsigned char *buf, unsigned longs);
+static void byteReverse(unsigned char *buf, unsigned longs);
 
 #ifndef ASM_MD5
 /*
  * Note: this code is harmless on little-endian machines.
  */
-void byteReverse(unsigned char *buf, unsigned longs)
+static void byteReverse(unsigned char *buf, unsigned longs)
 {
     pj_uint32_t t;
     do {

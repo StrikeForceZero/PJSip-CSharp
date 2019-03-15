@@ -155,6 +155,11 @@ public class Call : global::System.IDisposable {
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
+  public void sendDtmf(CallSendDtmfParam param) {
+    pjsua2PINVOKE.Call_sendDtmf(swigCPtr, CallSendDtmfParam.getCPtr(param));
+    if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+  }
+
   public void sendInstantMessage(SendInstantMessageParam prm) {
     pjsua2PINVOKE.Call_sendInstantMessage(swigCPtr, SendInstantMessageParam.getCPtr(prm));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
@@ -279,49 +284,54 @@ public class Call : global::System.IDisposable {
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
+  public virtual void onCallRxReinvite(OnCallRxReinviteParam prm) {
+    if (SwigDerivedClassHasMethod("onCallRxReinvite", swigMethodTypes12)) pjsua2PINVOKE.Call_onCallRxReinviteSwigExplicitCall(swigCPtr, OnCallRxReinviteParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onCallRxReinvite(swigCPtr, OnCallRxReinviteParam.getCPtr(prm));
+    if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+  }
+
   public virtual void onCallTxOffer(OnCallTxOfferParam prm) {
-    if (SwigDerivedClassHasMethod("onCallTxOffer", swigMethodTypes12)) pjsua2PINVOKE.Call_onCallTxOfferSwigExplicitCall(swigCPtr, OnCallTxOfferParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onCallTxOffer(swigCPtr, OnCallTxOfferParam.getCPtr(prm));
+    if (SwigDerivedClassHasMethod("onCallTxOffer", swigMethodTypes13)) pjsua2PINVOKE.Call_onCallTxOfferSwigExplicitCall(swigCPtr, OnCallTxOfferParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onCallTxOffer(swigCPtr, OnCallTxOfferParam.getCPtr(prm));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
   public virtual void onInstantMessage(OnInstantMessageParam prm) {
-    if (SwigDerivedClassHasMethod("onInstantMessage", swigMethodTypes13)) pjsua2PINVOKE.Call_onInstantMessageSwigExplicitCall(swigCPtr, OnInstantMessageParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onInstantMessage(swigCPtr, OnInstantMessageParam.getCPtr(prm));
+    if (SwigDerivedClassHasMethod("onInstantMessage", swigMethodTypes14)) pjsua2PINVOKE.Call_onInstantMessageSwigExplicitCall(swigCPtr, OnInstantMessageParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onInstantMessage(swigCPtr, OnInstantMessageParam.getCPtr(prm));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
   public virtual void onInstantMessageStatus(OnInstantMessageStatusParam prm) {
-    if (SwigDerivedClassHasMethod("onInstantMessageStatus", swigMethodTypes14)) pjsua2PINVOKE.Call_onInstantMessageStatusSwigExplicitCall(swigCPtr, OnInstantMessageStatusParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onInstantMessageStatus(swigCPtr, OnInstantMessageStatusParam.getCPtr(prm));
+    if (SwigDerivedClassHasMethod("onInstantMessageStatus", swigMethodTypes15)) pjsua2PINVOKE.Call_onInstantMessageStatusSwigExplicitCall(swigCPtr, OnInstantMessageStatusParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onInstantMessageStatus(swigCPtr, OnInstantMessageStatusParam.getCPtr(prm));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
   public virtual void onTypingIndication(OnTypingIndicationParam prm) {
-    if (SwigDerivedClassHasMethod("onTypingIndication", swigMethodTypes15)) pjsua2PINVOKE.Call_onTypingIndicationSwigExplicitCall(swigCPtr, OnTypingIndicationParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onTypingIndication(swigCPtr, OnTypingIndicationParam.getCPtr(prm));
+    if (SwigDerivedClassHasMethod("onTypingIndication", swigMethodTypes16)) pjsua2PINVOKE.Call_onTypingIndicationSwigExplicitCall(swigCPtr, OnTypingIndicationParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onTypingIndication(swigCPtr, OnTypingIndicationParam.getCPtr(prm));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
   public virtual pjsip_redirect_op onCallRedirected(OnCallRedirectedParam prm) {
-    pjsip_redirect_op ret = (pjsip_redirect_op)(SwigDerivedClassHasMethod("onCallRedirected", swigMethodTypes16) ? pjsua2PINVOKE.Call_onCallRedirectedSwigExplicitCall(swigCPtr, OnCallRedirectedParam.getCPtr(prm)) : pjsua2PINVOKE.Call_onCallRedirected(swigCPtr, OnCallRedirectedParam.getCPtr(prm)));
+    pjsip_redirect_op ret = (pjsip_redirect_op)(SwigDerivedClassHasMethod("onCallRedirected", swigMethodTypes17) ? pjsua2PINVOKE.Call_onCallRedirectedSwigExplicitCall(swigCPtr, OnCallRedirectedParam.getCPtr(prm)) : pjsua2PINVOKE.Call_onCallRedirected(swigCPtr, OnCallRedirectedParam.getCPtr(prm)));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
     return ret;
   }
 
   public virtual void onCallMediaTransportState(OnCallMediaTransportStateParam prm) {
-    if (SwigDerivedClassHasMethod("onCallMediaTransportState", swigMethodTypes17)) pjsua2PINVOKE.Call_onCallMediaTransportStateSwigExplicitCall(swigCPtr, OnCallMediaTransportStateParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onCallMediaTransportState(swigCPtr, OnCallMediaTransportStateParam.getCPtr(prm));
+    if (SwigDerivedClassHasMethod("onCallMediaTransportState", swigMethodTypes18)) pjsua2PINVOKE.Call_onCallMediaTransportStateSwigExplicitCall(swigCPtr, OnCallMediaTransportStateParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onCallMediaTransportState(swigCPtr, OnCallMediaTransportStateParam.getCPtr(prm));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
   public virtual void onCallMediaEvent(OnCallMediaEventParam prm) {
-    if (SwigDerivedClassHasMethod("onCallMediaEvent", swigMethodTypes18)) pjsua2PINVOKE.Call_onCallMediaEventSwigExplicitCall(swigCPtr, OnCallMediaEventParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onCallMediaEvent(swigCPtr, OnCallMediaEventParam.getCPtr(prm));
+    if (SwigDerivedClassHasMethod("onCallMediaEvent", swigMethodTypes19)) pjsua2PINVOKE.Call_onCallMediaEventSwigExplicitCall(swigCPtr, OnCallMediaEventParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onCallMediaEvent(swigCPtr, OnCallMediaEventParam.getCPtr(prm));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
   public virtual void onCreateMediaTransport(OnCreateMediaTransportParam prm) {
-    if (SwigDerivedClassHasMethod("onCreateMediaTransport", swigMethodTypes19)) pjsua2PINVOKE.Call_onCreateMediaTransportSwigExplicitCall(swigCPtr, OnCreateMediaTransportParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onCreateMediaTransport(swigCPtr, OnCreateMediaTransportParam.getCPtr(prm));
+    if (SwigDerivedClassHasMethod("onCreateMediaTransport", swigMethodTypes20)) pjsua2PINVOKE.Call_onCreateMediaTransportSwigExplicitCall(swigCPtr, OnCreateMediaTransportParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onCreateMediaTransport(swigCPtr, OnCreateMediaTransportParam.getCPtr(prm));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
   public virtual void onCreateMediaTransportSrtp(OnCreateMediaTransportSrtpParam prm) {
-    if (SwigDerivedClassHasMethod("onCreateMediaTransportSrtp", swigMethodTypes20)) pjsua2PINVOKE.Call_onCreateMediaTransportSrtpSwigExplicitCall(swigCPtr, OnCreateMediaTransportSrtpParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onCreateMediaTransportSrtp(swigCPtr, OnCreateMediaTransportSrtpParam.getCPtr(prm));
+    if (SwigDerivedClassHasMethod("onCreateMediaTransportSrtp", swigMethodTypes21)) pjsua2PINVOKE.Call_onCreateMediaTransportSrtpSwigExplicitCall(swigCPtr, OnCreateMediaTransportSrtpParam.getCPtr(prm)); else pjsua2PINVOKE.Call_onCreateMediaTransportSrtp(swigCPtr, OnCreateMediaTransportSrtpParam.getCPtr(prm));
     if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
   }
 
@@ -350,25 +360,27 @@ public class Call : global::System.IDisposable {
       swigDelegate10 = new SwigDelegateCall_10(SwigDirectoronCallReplaced);
     if (SwigDerivedClassHasMethod("onCallRxOffer", swigMethodTypes11))
       swigDelegate11 = new SwigDelegateCall_11(SwigDirectoronCallRxOffer);
-    if (SwigDerivedClassHasMethod("onCallTxOffer", swigMethodTypes12))
-      swigDelegate12 = new SwigDelegateCall_12(SwigDirectoronCallTxOffer);
-    if (SwigDerivedClassHasMethod("onInstantMessage", swigMethodTypes13))
-      swigDelegate13 = new SwigDelegateCall_13(SwigDirectoronInstantMessage);
-    if (SwigDerivedClassHasMethod("onInstantMessageStatus", swigMethodTypes14))
-      swigDelegate14 = new SwigDelegateCall_14(SwigDirectoronInstantMessageStatus);
-    if (SwigDerivedClassHasMethod("onTypingIndication", swigMethodTypes15))
-      swigDelegate15 = new SwigDelegateCall_15(SwigDirectoronTypingIndication);
-    if (SwigDerivedClassHasMethod("onCallRedirected", swigMethodTypes16))
-      swigDelegate16 = new SwigDelegateCall_16(SwigDirectoronCallRedirected);
-    if (SwigDerivedClassHasMethod("onCallMediaTransportState", swigMethodTypes17))
-      swigDelegate17 = new SwigDelegateCall_17(SwigDirectoronCallMediaTransportState);
-    if (SwigDerivedClassHasMethod("onCallMediaEvent", swigMethodTypes18))
-      swigDelegate18 = new SwigDelegateCall_18(SwigDirectoronCallMediaEvent);
-    if (SwigDerivedClassHasMethod("onCreateMediaTransport", swigMethodTypes19))
-      swigDelegate19 = new SwigDelegateCall_19(SwigDirectoronCreateMediaTransport);
-    if (SwigDerivedClassHasMethod("onCreateMediaTransportSrtp", swigMethodTypes20))
-      swigDelegate20 = new SwigDelegateCall_20(SwigDirectoronCreateMediaTransportSrtp);
-    pjsua2PINVOKE.Call_director_connect(swigCPtr, swigDelegate0, swigDelegate1, swigDelegate2, swigDelegate3, swigDelegate4, swigDelegate5, swigDelegate6, swigDelegate7, swigDelegate8, swigDelegate9, swigDelegate10, swigDelegate11, swigDelegate12, swigDelegate13, swigDelegate14, swigDelegate15, swigDelegate16, swigDelegate17, swigDelegate18, swigDelegate19, swigDelegate20);
+    if (SwigDerivedClassHasMethod("onCallRxReinvite", swigMethodTypes12))
+      swigDelegate12 = new SwigDelegateCall_12(SwigDirectoronCallRxReinvite);
+    if (SwigDerivedClassHasMethod("onCallTxOffer", swigMethodTypes13))
+      swigDelegate13 = new SwigDelegateCall_13(SwigDirectoronCallTxOffer);
+    if (SwigDerivedClassHasMethod("onInstantMessage", swigMethodTypes14))
+      swigDelegate14 = new SwigDelegateCall_14(SwigDirectoronInstantMessage);
+    if (SwigDerivedClassHasMethod("onInstantMessageStatus", swigMethodTypes15))
+      swigDelegate15 = new SwigDelegateCall_15(SwigDirectoronInstantMessageStatus);
+    if (SwigDerivedClassHasMethod("onTypingIndication", swigMethodTypes16))
+      swigDelegate16 = new SwigDelegateCall_16(SwigDirectoronTypingIndication);
+    if (SwigDerivedClassHasMethod("onCallRedirected", swigMethodTypes17))
+      swigDelegate17 = new SwigDelegateCall_17(SwigDirectoronCallRedirected);
+    if (SwigDerivedClassHasMethod("onCallMediaTransportState", swigMethodTypes18))
+      swigDelegate18 = new SwigDelegateCall_18(SwigDirectoronCallMediaTransportState);
+    if (SwigDerivedClassHasMethod("onCallMediaEvent", swigMethodTypes19))
+      swigDelegate19 = new SwigDelegateCall_19(SwigDirectoronCallMediaEvent);
+    if (SwigDerivedClassHasMethod("onCreateMediaTransport", swigMethodTypes20))
+      swigDelegate20 = new SwigDelegateCall_20(SwigDirectoronCreateMediaTransport);
+    if (SwigDerivedClassHasMethod("onCreateMediaTransportSrtp", swigMethodTypes21))
+      swigDelegate21 = new SwigDelegateCall_21(SwigDirectoronCreateMediaTransportSrtp);
+    pjsua2PINVOKE.Call_director_connect(swigCPtr, swigDelegate0, swigDelegate1, swigDelegate2, swigDelegate3, swigDelegate4, swigDelegate5, swigDelegate6, swigDelegate7, swigDelegate8, swigDelegate9, swigDelegate10, swigDelegate11, swigDelegate12, swigDelegate13, swigDelegate14, swigDelegate15, swigDelegate16, swigDelegate17, swigDelegate18, swigDelegate19, swigDelegate20, swigDelegate21);
   }
 
   private bool SwigDerivedClassHasMethod(string methodName, global::System.Type[] methodTypes) {
@@ -425,6 +437,10 @@ public class Call : global::System.IDisposable {
     onCallRxOffer(new OnCallRxOfferParam(prm, false));
   }
 
+  private void SwigDirectoronCallRxReinvite(global::System.IntPtr prm) {
+    onCallRxReinvite(new OnCallRxReinviteParam(prm, false));
+  }
+
   private void SwigDirectoronCallTxOffer(global::System.IntPtr prm) {
     onCallTxOffer(new OnCallTxOfferParam(prm, false));
   }
@@ -477,11 +493,12 @@ public class Call : global::System.IDisposable {
   public delegate void SwigDelegateCall_13(global::System.IntPtr prm);
   public delegate void SwigDelegateCall_14(global::System.IntPtr prm);
   public delegate void SwigDelegateCall_15(global::System.IntPtr prm);
-  public delegate int SwigDelegateCall_16(global::System.IntPtr prm);
-  public delegate void SwigDelegateCall_17(global::System.IntPtr prm);
+  public delegate void SwigDelegateCall_16(global::System.IntPtr prm);
+  public delegate int SwigDelegateCall_17(global::System.IntPtr prm);
   public delegate void SwigDelegateCall_18(global::System.IntPtr prm);
   public delegate void SwigDelegateCall_19(global::System.IntPtr prm);
   public delegate void SwigDelegateCall_20(global::System.IntPtr prm);
+  public delegate void SwigDelegateCall_21(global::System.IntPtr prm);
 
   private SwigDelegateCall_0 swigDelegate0;
   private SwigDelegateCall_1 swigDelegate1;
@@ -504,6 +521,7 @@ public class Call : global::System.IDisposable {
   private SwigDelegateCall_18 swigDelegate18;
   private SwigDelegateCall_19 swigDelegate19;
   private SwigDelegateCall_20 swigDelegate20;
+  private SwigDelegateCall_21 swigDelegate21;
 
   private static global::System.Type[] swigMethodTypes0 = new global::System.Type[] { typeof(OnCallStateParam) };
   private static global::System.Type[] swigMethodTypes1 = new global::System.Type[] { typeof(OnCallTsxStateParam) };
@@ -517,15 +535,16 @@ public class Call : global::System.IDisposable {
   private static global::System.Type[] swigMethodTypes9 = new global::System.Type[] { typeof(OnCallReplaceRequestParam) };
   private static global::System.Type[] swigMethodTypes10 = new global::System.Type[] { typeof(OnCallReplacedParam) };
   private static global::System.Type[] swigMethodTypes11 = new global::System.Type[] { typeof(OnCallRxOfferParam) };
-  private static global::System.Type[] swigMethodTypes12 = new global::System.Type[] { typeof(OnCallTxOfferParam) };
-  private static global::System.Type[] swigMethodTypes13 = new global::System.Type[] { typeof(OnInstantMessageParam) };
-  private static global::System.Type[] swigMethodTypes14 = new global::System.Type[] { typeof(OnInstantMessageStatusParam) };
-  private static global::System.Type[] swigMethodTypes15 = new global::System.Type[] { typeof(OnTypingIndicationParam) };
-  private static global::System.Type[] swigMethodTypes16 = new global::System.Type[] { typeof(OnCallRedirectedParam) };
-  private static global::System.Type[] swigMethodTypes17 = new global::System.Type[] { typeof(OnCallMediaTransportStateParam) };
-  private static global::System.Type[] swigMethodTypes18 = new global::System.Type[] { typeof(OnCallMediaEventParam) };
-  private static global::System.Type[] swigMethodTypes19 = new global::System.Type[] { typeof(OnCreateMediaTransportParam) };
-  private static global::System.Type[] swigMethodTypes20 = new global::System.Type[] { typeof(OnCreateMediaTransportSrtpParam) };
+  private static global::System.Type[] swigMethodTypes12 = new global::System.Type[] { typeof(OnCallRxReinviteParam) };
+  private static global::System.Type[] swigMethodTypes13 = new global::System.Type[] { typeof(OnCallTxOfferParam) };
+  private static global::System.Type[] swigMethodTypes14 = new global::System.Type[] { typeof(OnInstantMessageParam) };
+  private static global::System.Type[] swigMethodTypes15 = new global::System.Type[] { typeof(OnInstantMessageStatusParam) };
+  private static global::System.Type[] swigMethodTypes16 = new global::System.Type[] { typeof(OnTypingIndicationParam) };
+  private static global::System.Type[] swigMethodTypes17 = new global::System.Type[] { typeof(OnCallRedirectedParam) };
+  private static global::System.Type[] swigMethodTypes18 = new global::System.Type[] { typeof(OnCallMediaTransportStateParam) };
+  private static global::System.Type[] swigMethodTypes19 = new global::System.Type[] { typeof(OnCallMediaEventParam) };
+  private static global::System.Type[] swigMethodTypes20 = new global::System.Type[] { typeof(OnCreateMediaTransportParam) };
+  private static global::System.Type[] swigMethodTypes21 = new global::System.Type[] { typeof(OnCreateMediaTransportSrtpParam) };
 }
 
 }

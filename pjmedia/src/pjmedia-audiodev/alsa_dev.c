@@ -1,4 +1,4 @@
-/* $Id: alsa_dev.c 5678 2017-11-01 04:55:29Z riza $ */
+/* $Id: alsa_dev.c 5846 2018-07-27 02:58:41Z ming $ */
 /*
  * Copyright (C) 2009-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2007-2009 Keystream AB and Konftel AB, All rights reserved.
@@ -243,8 +243,11 @@ static pj_status_t add_dev (struct alsa_factory *af, const char *dev_name)
 
     /* Check if the device could be opened in playback or capture mode */
     if (pb_result<0 && ca_result<0) {
-	TRACE_((THIS_FILE, "Unable to open sound device %s", dev_name));
-	return PJMEDIA_EAUD_NODEV;
+	TRACE_((THIS_FILE, "Unable to open sound device %s, setting "
+	        	   "in/out channel count to 0", dev_name));
+	/* Set I/O channel counts to 0 to indicate unavailable device */
+	adi->output_count = 0;
+	adi->input_count =  0;
     }
 
     /* Reset device info */

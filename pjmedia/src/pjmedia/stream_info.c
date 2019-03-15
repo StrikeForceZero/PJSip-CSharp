@@ -1,4 +1,4 @@
-/* $Id: stream_info.c 5597 2017-06-03 09:22:34Z nanang $ */
+/* $Id: stream_info.c 5820 2018-07-12 08:22:31Z nanang $ */
 /*
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -27,8 +27,6 @@ static const pj_str_t ID_AUDIO = { "audio", 5};
 static const pj_str_t ID_IN = { "IN", 2 };
 static const pj_str_t ID_IP4 = { "IP4", 3};
 static const pj_str_t ID_IP6 = { "IP6", 3};
-static const pj_str_t ID_RTP_AVP = { "RTP/AVP", 7 };
-static const pj_str_t ID_RTP_SAVP = { "RTP/SAVP", 8 };
 //static const pj_str_t ID_SDP_NAME = { "pjmedia", 7 };
 static const pj_str_t ID_RTPMAP = { "rtpmap", 6 };
 static const pj_str_t ID_TELEPHONE_EVENT = { "telephone-event", 15 };
@@ -366,6 +364,7 @@ PJ_DEF(pj_status_t) pjmedia_stream_info_from_sdp(
     const pjmedia_sdp_conn *rem_conn;
     int rem_af, local_af;
     pj_sockaddr local_addr;
+    unsigned i;
     pj_status_t status;
 
 
@@ -415,20 +414,12 @@ PJ_DEF(pj_status_t) pjmedia_stream_info_from_sdp(
     if (status != PJ_SUCCESS)
 	return PJMEDIA_SDPNEG_EINVANSTP;
 
-    if (pj_stricmp(&local_m->desc.transport, &ID_RTP_AVP) == 0) {
+    /* Get the transport protocol */
+    si->proto = pjmedia_sdp_transport_get_proto(&local_m->desc.transport);
 
-	si->proto = PJMEDIA_TP_PROTO_RTP_AVP;
-
-    } else if (pj_stristr(&local_m->desc.transport, &ID_RTP_SAVP)) {
-
-	si->proto = PJMEDIA_TP_PROTO_RTP_SAVP;
-
-    } else {
-
-	si->proto = PJMEDIA_TP_PROTO_UNKNOWN;
+    /* Just return success if stream is not RTP/AVP compatible */
+    if (!PJMEDIA_TP_PROTO_HAS_FLAG(si->proto, PJMEDIA_TP_PROTO_RTP_AVP))
 	return PJ_SUCCESS;
-    }
-
 
     /* Check address family in remote SDP */
     rem_af = pj_AF_UNSPEC();
@@ -524,6 +515,12 @@ PJ_DEF(pj_status_t) pjmedia_stream_info_from_sdp(
 	return PJ_SUCCESS;
     }
 
+    /* Check if "rtcp-mux" is present in the SDP. */
+    attr = pjmedia_sdp_attr_find2(rem_m->attr_count, rem_m->attr,
+    				  "rtcp-mux", NULL);
+    if (attr)
+    	si->rtcp_mux = PJ_TRUE;
+
     /* If "rtcp" attribute is present in the SDP, set the RTCP address
      * from that attribute. Otherwise, calculate from RTP address.
      */
@@ -554,6 +551,23 @@ PJ_DEF(pj_status_t) pjmedia_stream_info_from_sdp(
 	pj_sockaddr_set_port(&si->rem_rtcp, (pj_uint16_t)rtcp_port);
     }
 
+    /* Check if "ssrc" attribute is present in the SDP. */
+    for (i = 0; i < rem_m->attr_count; i++) {
+	if (pj_strcmp2(&rem_m->attr[i]->name, "ssrc") == 0) {
+	    pjmedia_sdp_ssrc_attr ssrc;
+
+	    status = pjmedia_sdp_attr_get_ssrc(
+	    		(const pjmedia_sdp_attr *)rem_m->attr[i], &ssrc);
+	    if (status == PJ_SUCCESS) {
+	        si->has_rem_ssrc = PJ_TRUE;
+	    	si->rem_ssrc = ssrc.ssrc;
+	    	if (ssrc.cname.slen > 0) {
+	    	    pj_strdup(pool, &si->rem_cname, &ssrc.cname);
+	    	    break;
+	    	}
+	    }
+	}
+    }
 
     /* Get the payload number for receive channel. */
     /*
@@ -577,12 +591,26 @@ PJ_DEF(pj_status_t) pjmedia_stream_info_from_sdp(
 
     /* Get codec info and param */
     status = get_audio_codec_info_param(si, pool, mgr, local_m, rem_m);
+    if (status != PJ_SUCCESS)
+	return status;
 
     /* Leave SSRC to random. */
     si->ssrc = pj_rand();
 
     /* Set default jitter buffer parameter. */
     si->jb_init = si->jb_max = si->jb_min_pre = si->jb_max_pre = -1;
+
+    /* Get local RTCP-FB info */
+    status = pjmedia_rtcp_fb_decode_sdp(pool, endpt, NULL, local, stream_idx,
+					&si->loc_rtcp_fb);
+    if (status != PJ_SUCCESS)
+	return status;
+
+    /* Get remote RTCP-FB info */
+    status = pjmedia_rtcp_fb_decode_sdp(pool, endpt, NULL, remote, stream_idx,
+					&si->rem_rtcp_fb);
+    if (status != PJ_SUCCESS)
+	return status;
 
     return status;
 }

@@ -94,6 +94,17 @@ public class CallOpParam : global::System.IDisposable {
     } 
   }
 
+  public SdpSession sdp {
+    set {
+      pjsua2PINVOKE.CallOpParam_sdp_set(swigCPtr, SdpSession.getCPtr(value));
+    } 
+    get {
+      global::System.IntPtr cPtr = pjsua2PINVOKE.CallOpParam_sdp_get(swigCPtr);
+      SdpSession ret = (cPtr == global::System.IntPtr.Zero) ? null : new SdpSession(cPtr, false);
+      return ret;
+    } 
+  }
+
   public CallOpParam(bool useDefaultCallSetting) : this(pjsua2PINVOKE.new_CallOpParam__SWIG_0(useDefaultCallSetting), true) {
   }
 

@@ -45,8 +45,8 @@ export _CFLAGS 	:= $(CC_CFLAGS) $(OS_CFLAGS) $(HOST_CFLAGS) $(M_CFLAGS) \
 		   $(CC_INC)../../pjmedia/include \
 		   $(CC_INC)../../pjnath/include \
 		   $(CC_INC)../..
-export _CXXFLAGS:= $(_CFLAGS) $(CC_CXXFLAGS) $(OS_CXXFLAGS) $(M_CXXFLAGS) \
-		   $(HOST_CXXFLAGS) $(CXXFLAGS)
+export _CXXFLAGS:= $(CC_CXXFLAGS) $(OS_CXXFLAGS) $(M_CXXFLAGS) \
+		   $(HOST_CXXFLAGS) $(CXXFLAGS) $(_CFLAGS) 
 
 export _LDFLAGS := $(APP_THIRD_PARTY_LIBS) \
 		   $(APP_THIRD_PARTY_EXT) \
@@ -67,7 +67,7 @@ export PJMEDIA_OBJS += $(OS_OBJS) $(M_OBJS) $(CC_OBJS) $(HOST_OBJS) \
 			g711.o jbuf.o master_port.o mem_capture.o mem_player.o \
 			null_port.o plc_common.o port.o splitcomb.o \
 			resample_resample.o resample_libsamplerate.o resample_speex.o \
-			resample_port.o rtcp.o rtcp_xr.o rtp.o \
+			resample_port.o rtcp.o rtcp_xr.o rtcp_fb.o rtp.o \
 			sdp.o sdp_cmp.o sdp_neg.o session.o silencedet.o \
 			sound_legacy.o sound_port.o stereo_port.o stream_common.o \
 			stream.o stream_info.o tonegen.o transport_adapter_sample.o \
@@ -166,8 +166,9 @@ export PJMEDIA_TEST_LDFLAGS += $(PJMEDIA_CODEC_LDLIB) \
 			       $(PJLIB_UTIL_LDLIB) \
 			       $(PJLIB_LDLIB) \
 			       $(_LDFLAGS)
+ifeq ($(EXCLUDE_APP),0)
 export PJMEDIA_TEST_EXE:=pjmedia-test-$(TARGET_NAME)$(HOST_EXE)
-
+endif
 	
 export CC_OUT CC AR RANLIB HOST_MV HOST_RM HOST_RMDIR HOST_MKDIR OBJEXT LD LDOUT 
 ###############################################################################

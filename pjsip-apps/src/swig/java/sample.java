@@ -1,4 +1,4 @@
-/* $Id: sample.java 5649 2017-09-15 05:32:08Z riza $ */
+/* $Id: sample.java 5738 2018-02-16 09:37:00Z nanang $ */
 /* 
  * Copyright (C) 2013 Teluu Inc. (http://www.teluu.com)
  *
@@ -25,6 +25,16 @@ import org.pjsip.pjsua2.app.*;
 
 class MyObserver implements MyAppObserver {
 	private static MyCall currentCall = null;
+	private boolean del_call_scheduled = false;
+	
+	public void check_call_deletion()
+	{
+		if (del_call_scheduled && currentCall != null) {
+			currentCall.delete();
+			currentCall = null;
+			del_call_scheduled = false;
+		}
+	}
 	
 	@Override
 	public void notifyRegState(pjsip_status_code code, String reason, int expiration) {}
@@ -57,8 +67,13 @@ class MyObserver implements MyAppObserver {
 		} catch (Exception e) {
 			ci = null;
 		}
-		if (ci.getState() == pjsip_inv_state.PJSIP_INV_STATE_DISCONNECTED)
-			currentCall = null;		
+		if (ci.getState() == pjsip_inv_state.PJSIP_INV_STATE_DISCONNECTED) {
+			// Should not delete call instance in this context,
+			// so let's just schedule it, the call will be deleted
+			// in our main worker thread context.
+			del_call_scheduled = true;
+		}
+			
 	}
 	
 	@Override
@@ -85,7 +100,7 @@ class MyShutdownHook extends Thread {
 
 public class sample {
 	private static MyApp app = new MyApp();
-	private static MyAppObserver observer = new MyObserver();
+	private static MyObserver observer = new MyObserver();
 	private static MyAccount account = null;
 	private static AccountConfig accCfg = null;		
 
@@ -141,12 +156,17 @@ public class sample {
 		} catch (Exception e) {}				
 
 		while (!Thread.currentThread().isInterrupted()) {
+			// Handle events
 			MyApp.ep.libHandleEvents(10);
+			
+			// Check if any call instance need to be deleted
+			observer.check_call_deletion();
+			
 			try {						
 				Thread.currentThread().sleep(50);
 			} catch (InterruptedException ie) {						
 				break;
-			}					
+			}			
 		}
 		app.deinit();
 	}	

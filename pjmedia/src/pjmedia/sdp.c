@@ -1,4 +1,4 @@
-/* $Id: sdp.c 5743 2018-02-21 02:51:52Z ming $ */
+/* $Id: sdp.c 5820 2018-07-12 08:22:31Z nanang $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -276,6 +276,9 @@ PJ_DEF(pj_status_t) pjmedia_sdp_attr_get_rtpmap( const pjmedia_sdp_attr *attr,
 	attr->value.ptr[attr->value.slen] = '\0';
     }
 
+    /* The buffer passed to the scanner is not guaranteed to be NULL
+     * terminated, but should be safe. See ticket #2063.
+     */    
     pj_scan_init(&scanner, (char*)attr->value.ptr, attr->value.slen,
 		 PJ_SCAN_AUTOSKIP_WS, &on_scanner_error);
 
@@ -392,6 +395,9 @@ PJ_DEF(pj_status_t) pjmedia_sdp_attr_get_rtcp(const pjmedia_sdp_attr *attr,
      *	a=rtcp:<port> [nettype addrtype address]
      */
 
+    /* The buffer passed to the scanner is not guaranteed to be NULL
+     * terminated, but should be safe. See ticket #2063.
+     */
     pj_scan_init(&scanner, (char*)attr->value.ptr, attr->value.slen,
 		 PJ_SCAN_AUTOSKIP_WS, &on_scanner_error);
 
@@ -464,6 +470,89 @@ PJ_DEF(pjmedia_sdp_attr*) pjmedia_sdp_attr_create_rtcp(pj_pool_t *pool,
 	pj_assert(!"Unsupported address family");
 	return NULL;
     }
+
+    return attr;
+}
+
+
+PJ_DEF(pj_status_t) pjmedia_sdp_attr_get_ssrc(const pjmedia_sdp_attr *attr,
+					      pjmedia_sdp_ssrc_attr *ssrc)
+{
+    pj_scanner scanner;
+    pj_str_t token;
+    pj_status_t status = -1;
+    PJ_USE_EXCEPTION;
+
+    PJ_ASSERT_RETURN(pj_strcmp2(&attr->name, "ssrc")==0, PJ_EINVALIDOP);
+
+    if (attr->value.slen == 0)
+        return PJMEDIA_SDP_EINATTR;
+
+    init_sdp_parser();
+
+    /* ssrc BNF:
+     *  a=ssrc:<ssrc-id> <attribute>
+     *	a=ssrc:<ssrc-id> <attribute>:<value>
+     */
+
+    /* The buffer passed to the scanner is not guaranteed to be NULL
+     * terminated, but should be safe. See ticket #2063.
+     */
+    pj_scan_init(&scanner, (char*)attr->value.ptr, attr->value.slen,
+		 PJ_SCAN_AUTOSKIP_WS, &on_scanner_error);
+
+    /* Init */
+    pj_bzero(ssrc, sizeof(*ssrc));
+
+    /* Parse */
+    PJ_TRY {
+        pj_str_t attr;
+
+	/* Get the ssrc */
+	pj_scan_get(&scanner, &cs_digit, &token);
+	ssrc->ssrc = pj_strtoul(&token);
+
+    	pj_scan_get_char(&scanner);
+	pj_scan_get(&scanner, &cs_token, &attr);
+	
+	/* Get cname attribute, if any */
+	if (!pj_scan_is_eof(&scanner) &&
+	    pj_scan_get_char(&scanner) == ':' &&
+	    pj_strcmp2(&attr, "cname"))
+	{
+	    pj_scan_get(&scanner, &cs_token, &ssrc->cname);
+	}
+
+	status = PJ_SUCCESS;
+
+    }
+    PJ_CATCH_ANY {
+	status = PJMEDIA_SDP_EINSSRC;
+    }
+    PJ_END;
+
+    pj_scan_fini(&scanner);
+    return status;
+}
+
+
+PJ_DEF(pjmedia_sdp_attr*) pjmedia_sdp_attr_create_ssrc( pj_pool_t *pool,
+							pj_uint32_t ssrc,
+							const pj_str_t *cname)
+{
+    pjmedia_sdp_attr *attr;
+
+    if (cname->slen == 0)
+        return NULL;
+
+    attr = PJ_POOL_ALLOC_T(pool, pjmedia_sdp_attr);
+    attr->name = pj_str("ssrc");
+    attr->value.ptr = (char*) pj_pool_alloc(pool, cname->slen+7 /* " cname:"*/
+    						  + 10 /* 32-bit integer */
+    						  + 1 /* NULL */);
+    attr->value.slen = pj_ansi_snprintf(attr->value.ptr, cname->slen+18,
+    					"%d cname:%.*s", ssrc,
+			   	   	(int)cname->slen, cname->ptr);
 
     return attr;
 }
@@ -1552,19 +1641,85 @@ PJ_DEF(pj_status_t) pjmedia_sdp_validate2(const pjmedia_sdp_session *sdp,
 PJ_DEF(pj_status_t) pjmedia_sdp_transport_cmp( const pj_str_t *t1,
 					       const pj_str_t *t2)
 {
-    static const pj_str_t ID_RTP_AVP  = { "RTP/AVP", 7 };
-    static const pj_str_t ID_RTP_SAVP = { "RTP/SAVP", 8 };
+    pj_uint32_t t1_proto, t2_proto;
 
     /* Exactly equal? */
     if (pj_stricmp(t1, t2) == 0)
 	return PJ_SUCCESS;
 
-    /* Compatible? */
-    if ((!pj_stricmp(t1, &ID_RTP_AVP) || !pj_stricmp(t1, &ID_RTP_SAVP)) &&
-        (!pj_stricmp(t2, &ID_RTP_AVP) || !pj_stricmp(t2, &ID_RTP_SAVP)))
+    /* Check if boths are RTP/AVP based */
+    t1_proto = pjmedia_sdp_transport_get_proto(t1);
+    t2_proto = pjmedia_sdp_transport_get_proto(t2);
+    if (PJMEDIA_TP_PROTO_HAS_FLAG(t1_proto, PJMEDIA_TP_PROTO_RTP_AVP) && 
+	PJMEDIA_TP_PROTO_HAS_FLAG(t2_proto, PJMEDIA_TP_PROTO_RTP_AVP))
+    {
 	return PJ_SUCCESS;
+    }
+
+    /* Compatible? */
+    //{
+    //	static const pj_str_t ID_RTP_AVP  = { "RTP/AVP", 7 };
+    //	static const pj_str_t ID_RTP_SAVP = { "RTP/SAVP", 8 };
+    //	if ((!pj_stricmp(t1, &ID_RTP_AVP) || !pj_stricmp(t1, &ID_RTP_SAVP)) &&
+    //      (!pj_stricmp(t2, &ID_RTP_AVP) || !pj_stricmp(t2, &ID_RTP_SAVP)))
+    //	    return PJ_SUCCESS;
+    //}
 
     return PJMEDIA_SDP_ETPORTNOTEQUAL;
+}
+
+
+/*
+ * Get media transport info, e.g: protocol and profile.
+ */
+PJ_DEF(pj_uint32_t) pjmedia_sdp_transport_get_proto(const pj_str_t *tp)
+{
+    pj_str_t token, rest = {0};
+    pj_ssize_t idx;
+
+    PJ_ASSERT_RETURN(tp, PJMEDIA_TP_PROTO_NONE);
+
+    idx = pj_strtok2(tp, "/", &token, 0);
+    if (idx != tp->slen)
+	pj_strset(&rest, tp->ptr + token.slen + 1, tp->slen - token.slen - 1);
+
+    if (pj_stricmp2(&token, "RTP") == 0) {
+	/* Starts with "RTP" */
+
+	/* RTP/AVP */
+	if (pj_stricmp2(&rest, "AVP") == 0)
+	    return PJMEDIA_TP_PROTO_RTP_AVP;
+
+	/* RTP/SAVP */
+	if (pj_stricmp2(&rest, "SAVP") == 0)
+	    return PJMEDIA_TP_PROTO_RTP_SAVP;
+
+	/* RTP/AVPF */
+	if (pj_stricmp2(&rest, "AVPF") == 0)
+	    return PJMEDIA_TP_PROTO_RTP_AVPF;
+
+	/* RTP/SAVPF */
+	if (pj_stricmp2(&rest, "SAVPF") == 0)
+	    return PJMEDIA_TP_PROTO_RTP_SAVPF;
+
+    } else if (pj_stricmp2(&token, "UDP") == 0) {
+	/* Starts with "UDP" */
+
+	/* Plain UDP */
+	if (rest.slen == 0)
+	    return PJMEDIA_TP_PROTO_UDP;
+
+	/* DTLS-SRTP */
+	if (pj_stricmp2(&rest, "TLS/RTP/SAVP") == 0)
+	    return PJMEDIA_TP_PROTO_DTLS_SRTP;
+
+	/* DTLS-SRTP with RTCP-FB */
+	if (pj_stricmp2(&rest, "TLS/RTP/SAVPF") == 0)
+	    return PJMEDIA_TP_PROTO_DTLS_SRTPF;
+    }
+
+    /* Unknown transport */
+    return PJMEDIA_TP_PROTO_UNKNOWN;
 }
 
 

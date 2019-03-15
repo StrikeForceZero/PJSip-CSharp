@@ -1,4 +1,4 @@
-/* $Id: ioqueue_select.c 5680 2017-11-03 06:54:54Z nanang $ */
+/* $Id: ioqueue_select.c 5849 2018-08-01 08:05:16Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -509,7 +509,10 @@ PJ_DEF(pj_status_t) pj_ioqueue_unregister( pj_ioqueue_key_t *key)
 #endif
 
     /* Close socket. */
-    pj_sock_close(key->fd);
+    if (key->fd != PJ_INVALID_SOCKET) {
+        pj_sock_close(key->fd);
+        key->fd = PJ_INVALID_SOCKET;
+    }
 
     /* Clear callback */
     key->cb.on_accept_complete = NULL;
@@ -722,71 +725,123 @@ static pj_status_t replace_udp_sock(pj_ioqueue_key_t *h)
 
     old_sock = h->fd;
 
+    fds_cnt = 0;
+    fds[fds_cnt++] = &h->ioqueue->rfdset;
+    fds[fds_cnt++] = &h->ioqueue->wfdset;
+#if PJ_HAS_TCP
+    fds[fds_cnt++] = &h->ioqueue->xfdset;
+#endif
+
     /* Can only replace UDP socket */
     pj_assert(h->fd_type == pj_SOCK_DGRAM());
 
     PJ_LOG(4,(THIS_FILE, "Attempting to replace UDP socket %d", old_sock));
 
-    /* Investigate the old socket */
-    addr_len = sizeof(local_addr);
-    status = pj_sock_getsockname(old_sock, &local_addr, &addr_len);
-    if (status != PJ_SUCCESS)
-	goto on_error;
+    for (msec=20; (msec<1000 && status != PJ_SUCCESS) ;
+         msec<1000? msec=msec*2 : 1000)
+    {
+        if (msec > 20) {
+            PJ_LOG(4,(THIS_FILE, "Retry to replace UDP socket %d", old_sock));
+            pj_thread_sleep(msec);
+        }
+        
+        if (old_sock != PJ_INVALID_SOCKET) {
+            /* Investigate the old socket */
+            addr_len = sizeof(local_addr);
+            status = pj_sock_getsockname(old_sock, &local_addr, &addr_len);
+            if (status != PJ_SUCCESS) {
+                PJ_LOG(5,(THIS_FILE, "Error get socket name %d", status));
+            	continue;
+            }
+        
+            addr_len = sizeof(rem_addr);
+            status = pj_sock_getpeername(old_sock, &rem_addr, &addr_len);
+            if (status != PJ_SUCCESS) {
+                PJ_LOG(5,(THIS_FILE, "Error get peer name %d", status));
+            } else {
+            	flags |= HAS_PEER_ADDR;
+            }
+
+            status = pj_sock_get_qos_params(old_sock, &qos_params);
+            if (status == PJ_STATUS_FROM_OS(EBADF) ||
+                status == PJ_STATUS_FROM_OS(EINVAL))
+            {
+            	PJ_LOG(5,(THIS_FILE, "Error get qos param %d", status));
+            	continue;
+            }
+        
+            if (status != PJ_SUCCESS) {
+            	PJ_LOG(5,(THIS_FILE, "Error get qos param %d", status));
+            } else {
+            	flags |= HAS_QOS;
+            }
+
+            /* We're done with the old socket, close it otherwise we'll get
+             * error in bind()
+             */
+            status = pj_sock_close(old_sock);
+       	    if (status != PJ_SUCCESS) {
+                PJ_LOG(5,(THIS_FILE, "Error closing socket %d", status));
+            }
+            
+            old_sock = PJ_INVALID_SOCKET;
+        }
+
+        /* Prepare the new socket */
+        status = pj_sock_socket(local_addr.addr.sa_family, PJ_SOCK_DGRAM, 0,
+                                &new_sock);
+        if (status != PJ_SUCCESS) {
+            PJ_LOG(5,(THIS_FILE, "Error create socket %d", status));
+            continue;
+        }
+
+        /* Even after the socket is closed, we'll still get "Address in use"
+         * errors, so force it with SO_REUSEADDR
+         */
+        val = 1;
+        status = pj_sock_setsockopt(new_sock, SOL_SOCKET, SO_REUSEADDR,
+                                    &val, sizeof(val));
+        if (status == PJ_STATUS_FROM_OS(EBADF) ||
+            status == PJ_STATUS_FROM_OS(EINVAL))
+        {
+            PJ_LOG(5,(THIS_FILE, "Error set socket option %d",
+                      status));
+            continue;
+        }
+
+        /* The loop is silly, but what else can we do? */
+        addr_len = pj_sockaddr_get_len(&local_addr);
+        for (msec=20; msec<1000 ; msec<1000? msec=msec*2 : 1000) {
+            status = pj_sock_bind(new_sock, &local_addr, addr_len);
+            if (status != PJ_STATUS_FROM_OS(EADDRINUSE))
+                break;
+            PJ_LOG(4,(THIS_FILE, "Address is still in use, retrying.."));
+            pj_thread_sleep(msec);
+        }
+
+        if (status != PJ_SUCCESS)
+            continue;
+
+        if (flags & HAS_QOS) {
+            status = pj_sock_set_qos_params(new_sock, &qos_params);
+            if (status == PJ_STATUS_FROM_OS(EINVAL)) {
+                PJ_LOG(5,(THIS_FILE, "Error set qos param %d", status));
+                continue;
+            }
+        }
+
+        if (flags & HAS_PEER_ADDR) {
+            status = pj_sock_connect(new_sock, &rem_addr, addr_len);
+            if (status != PJ_SUCCESS) {
+                PJ_LOG(5,(THIS_FILE, "Error connect socket %d", status));
+                continue;
+            }
+        }
+    }
     
-    addr_len = sizeof(rem_addr);
-    status = pj_sock_getpeername(old_sock, &rem_addr, &addr_len);
-    if (status == PJ_SUCCESS)
-	flags |= HAS_PEER_ADDR;
-
-    status = pj_sock_get_qos_params(old_sock, &qos_params);
-    if (status == PJ_SUCCESS)
-	flags |= HAS_QOS;
-
-    /* We're done with the old socket, close it otherwise we'll get
-     * error in bind()
-     */
-    pj_sock_close(old_sock);
-
-    /* Prepare the new socket */
-    status = pj_sock_socket(local_addr.addr.sa_family, PJ_SOCK_DGRAM, 0,
-			    &new_sock);
     if (status != PJ_SUCCESS)
-	goto on_error;
-
-    /* Even after the socket is closed, we'll still get "Address in use"
-     * errors, so force it with SO_REUSEADDR
-     */
-    val = 1;
-    status = pj_sock_setsockopt(new_sock, SOL_SOCKET, SO_REUSEADDR,
-				&val, sizeof(val));
-    if (status != PJ_SUCCESS)
-	goto on_error;
-
-    /* The loop is silly, but what else can we do? */
-    addr_len = pj_sockaddr_get_len(&local_addr);
-    for (msec=20; ; msec<1000? msec=msec*2 : 1000) {
-	status = pj_sock_bind(new_sock, &local_addr, addr_len);
-	if (status != PJ_STATUS_FROM_OS(EADDRINUSE))
-	    break;
-	PJ_LOG(4,(THIS_FILE, "Address is still in use, retrying.."));
-	pj_thread_sleep(msec);
-    }
-
-    if (status != PJ_SUCCESS)
-	goto on_error;
-
-    if (flags & HAS_QOS) {
-	status = pj_sock_set_qos_params(new_sock, &qos_params);
-	if (status != PJ_SUCCESS)
-	    goto on_error;
-    }
-
-    if (flags & HAS_PEER_ADDR) {
-	status = pj_sock_connect(new_sock, &rem_addr, addr_len);
-	if (status != PJ_SUCCESS)
-	    goto on_error;
-    }
-
+        goto on_error;
+    
     /* Set socket to nonblocking. */
     val = 1;
 #if defined(PJ_WIN32) && PJ_WIN32!=0 || \
@@ -803,16 +858,9 @@ static pj_status_t replace_udp_sock(pj_ioqueue_key_t *h)
     /* Replace the occurrence of old socket with new socket in the
      * fd sets.
      */
-    fds_cnt = 0;
-    fds[fds_cnt++] = &h->ioqueue->rfdset;
-    fds[fds_cnt++] = &h->ioqueue->wfdset;
-#if PJ_HAS_TCP
-    fds[fds_cnt++] = &h->ioqueue->xfdset;
-#endif
-
     for (i=0; i<fds_cnt; ++i) {
-	if (PJ_FD_ISSET(old_sock, fds[i])) {
-	    PJ_FD_CLR(old_sock, fds[i]);
+	if (PJ_FD_ISSET(h->fd, fds[i])) {
+	    PJ_FD_CLR(h->fd, fds[i]);
 	    PJ_FD_SET(new_sock, fds[i]);
 	}
     }
@@ -829,9 +877,20 @@ static pj_status_t replace_udp_sock(pj_ioqueue_key_t *h)
 on_error:
     if (new_sock != PJ_INVALID_SOCKET)
 	pj_sock_close(new_sock);
-    PJ_PERROR(1,(THIS_FILE, status, "Error replacing socket"));
+    if (old_sock != PJ_INVALID_SOCKET)
+    	pj_sock_close(old_sock);
+
+    /* Clear the occurrence of old socket in the fd sets. */
+    for (i=0; i<fds_cnt; ++i) {
+	if (PJ_FD_ISSET(h->fd, fds[i])) {
+	    PJ_FD_CLR(h->fd, fds[i]);
+	}
+    }
+
+    h->fd = PJ_INVALID_SOCKET;
+    PJ_PERROR(1,(THIS_FILE, status, "Error replacing socket [%d]", status));
     pj_lock_release(h->ioqueue->lock);
-    return status;
+    return PJ_ESOCKETSTOP;
 }
 #endif
 
@@ -945,6 +1004,8 @@ PJ_DEF(int) pj_ioqueue_poll( pj_ioqueue_t *ioqueue, const pj_time_val *timeout)
 	 h != &ioqueue->active_list && event_cnt < MAX_EVENTS;
 	 h = h->next)
     {
+	if (h->fd == PJ_INVALID_SOCKET)
+	    continue;
 
 	if ( (key_has_pending_write(h) || key_has_pending_connect(h))
 	     && PJ_FD_ISSET(h->fd, &wfdset) && !IS_CLOSING(h))

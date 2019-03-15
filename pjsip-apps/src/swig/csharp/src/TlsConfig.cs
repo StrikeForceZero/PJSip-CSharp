@@ -87,6 +87,42 @@ public class TlsConfig : PersistentObject {
     } 
   }
 
+  public string CaBuf {
+    set {
+      pjsua2PINVOKE.TlsConfig_CaBuf_set(swigCPtr, value);
+      if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+    } 
+    get {
+      string ret = pjsua2PINVOKE.TlsConfig_CaBuf_get(swigCPtr);
+      if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+      return ret;
+    } 
+  }
+
+  public string certBuf {
+    set {
+      pjsua2PINVOKE.TlsConfig_certBuf_set(swigCPtr, value);
+      if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+    } 
+    get {
+      string ret = pjsua2PINVOKE.TlsConfig_certBuf_get(swigCPtr);
+      if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+      return ret;
+    } 
+  }
+
+  public string privKeyBuf {
+    set {
+      pjsua2PINVOKE.TlsConfig_privKeyBuf_set(swigCPtr, value);
+      if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+    } 
+    get {
+      string ret = pjsua2PINVOKE.TlsConfig_privKeyBuf_get(swigCPtr);
+      if (pjsua2PINVOKE.SWIGPendingException.Pending) throw pjsua2PINVOKE.SWIGPendingException.Retrieve();
+      return ret;
+    } 
+  }
+
   public pjsip_ssl_method method {
     set {
       pjsua2PINVOKE.TlsConfig_method_set(swigCPtr, (int)value);

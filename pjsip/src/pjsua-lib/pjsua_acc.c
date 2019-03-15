@@ -1,4 +1,4 @@
-/* $Id: pjsua_acc.c 5649 2017-09-15 05:32:08Z riza $ */
+/* $Id: pjsua_acc.c 5872 2018-09-03 07:13:40Z ming $ */
 /* 
  * Copyright (C) 2008-2011 Teluu Inc. (http://www.teluu.com)
  * Copyright (C) 2003-2008 Benny Prijono <benny@prijono.org>
@@ -139,7 +139,11 @@ PJ_DEF(void) pjsua_acc_config_dup( pj_pool_t *pool,
     pjsua_ice_config_dup(pool, &dst->ice_cfg, &src->ice_cfg);
     pjsua_turn_config_dup(pool, &dst->turn_cfg, &src->turn_cfg);
 
+    pjsua_srtp_opt_dup(pool, &dst->srtp_opt, &src->srtp_opt, PJ_FALSE);
+
     pj_strdup(pool, &dst->ka_data, &src->ka_data);
+
+    pjmedia_rtcp_fb_setting_dup(pool, &dst->rtcp_fb_cfg, &src->rtcp_fb_cfg);
 }
 
 /*
@@ -531,9 +535,9 @@ PJ_DEF(pj_status_t) pjsua_acc_add_local( pjsua_transport_id tid,
 {
     pjsua_acc_config cfg;
     pjsua_transport_data *t = &pjsua_var.tpdata[tid];
-    const char *beginquote, *endquote;
     char transport_param[32];
     char uri[PJSIP_MAX_URL_SIZE];
+    char addr_buf[PJ_INET6_ADDRSTRLEN+10];
     pjsua_acc_id acc_id;
     pj_status_t status;
 
@@ -549,14 +553,6 @@ PJ_DEF(pj_status_t) pjsua_acc_add_local( pjsua_transport_id tid,
     /* Lower the priority of local account */
     --cfg.priority;
 
-    /* Enclose IPv6 address in square brackets */
-    if (get_ip_addr_ver(&t->local_name.host) == 6) {
-	beginquote = "[";
-	endquote = "]";
-    } else {
-	beginquote = endquote = "";
-    }
-
     /* Don't add transport parameter if it's UDP */
     if (t->type!=PJSIP_TRANSPORT_UDP && t->type!=PJSIP_TRANSPORT_UDP6) {
 	pj_ansi_snprintf(transport_param, sizeof(transport_param),
@@ -567,16 +563,14 @@ PJ_DEF(pj_status_t) pjsua_acc_add_local( pjsua_transport_id tid,
     }
 
     /* Build URI for the account */
-    pj_ansi_snprintf(uri, PJSIP_MAX_URL_SIZE,
-		     "<sip:%s%.*s%s:%d%s>", 
-		     beginquote,
-		     (int)t->local_name.host.slen,
-		     t->local_name.host.ptr,
-		     endquote,
-		     t->local_name.port,
+    pj_ansi_snprintf(uri, PJSIP_MAX_URL_SIZE,		     
+		     "<sip:%s%s>", 
+		     pj_addr_str_print(&t->local_name.host, t->local_name.port, 
+				       addr_buf, sizeof(addr_buf), 1),
 		     transport_param);
 
     cfg.id = pj_str(uri);
+    cfg.transport_id = tid;
     
     status = pjsua_acc_add(&cfg, is_default, &acc_id);
     if (status == PJ_SUCCESS) {
@@ -1045,6 +1039,12 @@ PJ_DEF(pj_status_t) pjsua_acc_modify( pjsua_acc_id acc_id,
     /* Transport */
     if (acc->cfg.transport_id != cfg->transport_id) {
 	acc->cfg.transport_id = cfg->transport_id;
+
+	if (acc->cfg.transport_id != PJSUA_INVALID_ID)
+	    acc->tp_type = pjsua_var.tpdata[acc->cfg.transport_id].type;
+	else
+	    acc->tp_type = PJSIP_TRANSPORT_UNSPECIFIED;
+
 	update_reg = PJ_TRUE;
 	unreg_first = PJ_TRUE;
     }
@@ -1331,6 +1331,7 @@ PJ_DEF(pj_status_t) pjsua_acc_modify( pjsua_acc_id acc_id,
 
     acc->cfg.nat64_opt = cfg->nat64_opt;
     acc->cfg.ipv6_media_use = cfg->ipv6_media_use;
+    acc->cfg.enable_rtcp_mux = cfg->enable_rtcp_mux;
 
     /* STUN and Media customization */
     if (acc->cfg.sip_stun_use != cfg->sip_stun_use) {
@@ -1424,6 +1425,14 @@ PJ_DEF(pj_status_t) pjsua_acc_modify( pjsua_acc_id acc_id,
     acc->cfg.ip_change_cfg.shutdown_tp = cfg->ip_change_cfg.shutdown_tp;
     acc->cfg.ip_change_cfg.hangup_calls = cfg->ip_change_cfg.hangup_calls;    
     acc->cfg.ip_change_cfg.reinvite_flags = cfg->ip_change_cfg.reinvite_flags;
+
+    /* SRTP setting */
+    pjsua_srtp_opt_dup(acc->pool, &acc->cfg.srtp_opt, &cfg->srtp_opt,
+    		       PJ_TRUE);
+
+    /* RTCP-FB config */
+    pjmedia_rtcp_fb_setting_dup(acc->pool, &acc->cfg.rtcp_fb_cfg,
+				&cfg->rtcp_fb_cfg);
 
 on_return:
     PJSUA_UNLOCK();
@@ -1596,6 +1605,8 @@ static pj_bool_t acc_check_nat_addr(pjsua_acc *acc,
     pj_bool_t matched;
     pj_str_t srv_ip;
     pjsip_contact_hdr *contact_hdr;
+    char host_addr_buf[PJ_INET6_ADDRSTRLEN+10];
+    char via_addr_buf[PJ_INET6_ADDRSTRLEN+10];
     const pj_str_t STR_CONTACT = { "Contact", 7 };
 
     tp = param->rdata->tp_info.transport;
@@ -1762,18 +1773,14 @@ static pj_bool_t acc_check_nat_addr(pjsua_acc *acc,
 	pj_pool_release(pool);
 	return PJ_FALSE;
     }
-
+    pj_addr_str_print(&uri->host, uri->port, host_addr_buf, 
+		      sizeof(host_addr_buf), 1);
+    pj_addr_str_print(via_addr, rport, via_addr_buf, 
+		      sizeof(via_addr_buf), 1);
     PJ_LOG(3,(THIS_FILE, "IP address change detected for account %d "
-			 "(%.*s:%d --> %.*s:%d). Updating registration "
+			 "(%s --> %s). Updating registration "
 			 "(using method %d)",
-			 acc->index,
-			 (int)uri->host.slen,
-			 uri->host.ptr,
-			 uri->port,
-			 (int)via_addr->slen,
-			 via_addr->ptr,
-			 rport,
-			 contact_rewrite_method));
+			 acc->index, host_addr_buf, via_addr_buf));
 
     pj_assert(contact_rewrite_method == PJSUA_CONTACT_REWRITE_UNREGISTER ||
 	      contact_rewrite_method == PJSUA_CONTACT_REWRITE_NO_UNREG ||
@@ -1802,14 +1809,14 @@ static pj_bool_t acc_check_nat_addr(pjsua_acc *acc,
 
 	secure = pjsip_transport_get_flag_from_type(tp->key.type) &
 		 PJSIP_TRANSPORT_SECURE;
-
-	/* Enclose IPv6 address in square brackets */
-	if (tp->key.type & PJSIP_TRANSPORT_IPV6) {
-	    beginquote = "[";
-	    endquote = "]";
-	} else {
-	    beginquote = endquote = "";
-	}
+  	
+        /* Enclose IPv6 address in square brackets */
+        if (tp->key.type & PJSIP_TRANSPORT_IPV6) {
+            beginquote = "[";
+            endquote = "]";
+        } else {
+            beginquote = endquote = "";
+        }
 
 	/* Don't add transport parameter if it's UDP */
 	if (tp->key.type != PJSIP_TRANSPORT_UDP &&
@@ -1994,6 +2001,12 @@ static void keep_alive_timer_cb(pj_timer_heap_t *th, pj_timer_entry *te)
 
     acc = (pjsua_acc*) te->user_data;
 
+    /* Check if the account is still active. It might have just been deleted
+     * while the keep-alive timer was about to be called (race condition).
+     */
+    if (acc->ka_transport == NULL)
+	goto on_return;
+
     /* Select the transport to send the packet */
     pj_bzero(&tp_sel, sizeof(tp_sel));
     tp_sel.type = PJSIP_TPSELECTOR_TRANSPORT;
@@ -2113,13 +2126,15 @@ static void update_keep_alive(pjsua_acc *acc, pj_bool_t start,
 	status = pjsip_endpt_schedule_timer(pjsua_var.endpt, &acc->ka_timer, 
 					    &delay);
 	if (status == PJ_SUCCESS) {
+	    char addr[PJ_INET6_ADDRSTRLEN+10];
+	    pj_str_t input_str = pj_str(param->rdata->pkt_info.src_name);
 	    acc->ka_timer.id = PJ_TRUE;
+
+	    pj_addr_str_print(&input_str, param->rdata->pkt_info.src_port, 
+			      addr, sizeof(addr), 1);
 	    PJ_LOG(4,(THIS_FILE, "Keep-alive timer started for acc %d, "
 				 "destination:%s:%d, interval:%ds",
-				 acc->index,
-				 param->rdata->pkt_info.src_name,
-				 param->rdata->pkt_info.src_port,
-				 acc->cfg.ka_interval));
+				 acc->index, addr, acc->cfg.ka_interval));
 	} else {
 	    acc->ka_timer.id = PJ_FALSE;
 	    pjsip_transport_dec_ref(acc->ka_transport);
@@ -2984,10 +2999,15 @@ PJ_DEF(pjsua_acc_id) pjsua_acc_find_for_incoming(pjsip_rx_data *rdata)
     pjsip_uri *uri;
     pjsip_sip_uri *sip_uri;
     pjsua_acc_id id = PJSUA_INVALID_ID;
+    int max_score;
     unsigned i;
 
-    /* Check that there's at least one account configured */
-    PJ_ASSERT_RETURN(pjsua_var.acc_cnt!=0, pjsua_var.default_acc);
+    if (pjsua_var.acc_cnt == 0) {
+	PJ_LOG(2, (THIS_FILE, "No available account to handle %s",
+		  pjsip_rx_data_get_info(rdata)));
+
+	return PJSUA_INVALID_ID;
+    }
 
     uri = rdata->msg_info.to->uri;
 
@@ -3012,47 +3032,40 @@ PJ_DEF(pjsua_acc_id) pjsua_acc_find_for_incoming(pjsip_rx_data *rdata)
 
     sip_uri = (pjsip_sip_uri*)pjsip_uri_get_uri(uri);
 
-    /* Find account which has matching username and domain. */
+    /* Select account by weighted score. Matching priority order is:
+     * transport type (matched or not set), domain part, and user part.
+     * Note that the transport type has higher priority as unmatched
+     * transport type may cause failure in sending response.
+     */
+    max_score = 0;
     for (i=0; i < pjsua_var.acc_cnt; ++i) {
 	unsigned acc_id = pjsua_var.acc_ids[i];
 	pjsua_acc *acc = &pjsua_var.acc[acc_id];
+	int score = 0;
 
-	if (acc->valid && pj_stricmp(&acc->user_part, &sip_uri->user)==0 &&
-	    pj_stricmp(&acc->srv_domain, &sip_uri->host)==0) 
+	if (!acc->valid)
+	    continue;
+
+	/* Match transport type */
+	if (acc->tp_type == rdata->tp_info.transport->key.type ||
+	    acc->tp_type == PJSIP_TRANSPORT_UNSPECIFIED)
 	{
-	    /* Match ! */
-	    id = acc_id;
-	    goto on_return;
+	    score |= 4;
 	}
-    }
 
-    /* No matching account, try match domain part only. */
-    for (i=0; i < pjsua_var.acc_cnt; ++i) {
-	unsigned acc_id = pjsua_var.acc_ids[i];
-	pjsua_acc *acc = &pjsua_var.acc[acc_id];
-
-	if (acc->valid && pj_stricmp(&acc->srv_domain, &sip_uri->host)==0) {
-	    /* Match ! */
-	    id = acc_id;
-	    goto on_return;
+	/* Match domain */
+	if (pj_stricmp(&acc->srv_domain, &sip_uri->host)==0) {
+	    score |= 2;
 	}
-    }
 
-    /* No matching account, try match user part (and transport type) only. */
-    for (i=0; i < pjsua_var.acc_cnt; ++i) {
-	unsigned acc_id = pjsua_var.acc_ids[i];
-	pjsua_acc *acc = &pjsua_var.acc[acc_id];
+	/* Match username */
+	if (pj_stricmp(&acc->user_part, &sip_uri->user)==0) {
+	    score |= 1;
+	}
 
-	if (acc->valid && pj_stricmp(&acc->user_part, &sip_uri->user)==0) {
-	    if (acc->tp_type != PJSIP_TRANSPORT_UNSPECIFIED &&
-		acc->tp_type != rdata->tp_info.transport->key.type)
-	    {
-		continue;
-	    }
-
-	    /* Match ! */
+	if (score > max_score) {
 	    id = acc_id;
-	    goto on_return;
+	    max_score = score;
 	}
     }
 
@@ -3820,6 +3833,12 @@ void pjsua_acc_on_tp_state_changed(pjsip_transport *tp,
 	if (!acc->valid)
 	    continue;
 
+	/* Reset Account's via transport and via address */
+	if (acc->via_tp == (void*)tp) {
+	    pj_bzero(&acc->via_addr, sizeof(acc->via_addr));
+	    acc->via_tp = NULL;
+	}
+
 	/* Release transport immediately if regc is using it
 	 * See https://trac.pjsip.org/repos/ticket/1481
 	 */
@@ -3909,7 +3928,7 @@ pj_status_t pjsua_acc_handle_call_on_ip_change(pjsua_acc *acc)
 		acc->ip_change_op = PJSUA_IP_CHANGE_OP_ACC_HANGUP_CALLS;
 		PJ_LOG(3, (THIS_FILE, "call to %.*s: hangup "
 			   "triggered by IP change",
-			   call_info.remote_info.slen,
+			   (int)call_info.remote_info.slen,
 			   call_info.remote_info.ptr));
 
 		status = pjsua_call_hangup(i, PJSIP_SC_GONE, NULL, NULL);

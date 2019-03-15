@@ -1,11 +1,11 @@
-# $Id: 301_timer_good_retry_after_422.py 3287 2010-08-18 14:30:17Z nanang $
+# $Id: 301_timer_good_retry_after_422.py 5844 2018-07-26 03:37:08Z nanang $
 import inc_sip as sip
 import inc_sdp as sdp
 
 # Session timers retry after 422
 
 
-pjsua = "--null-audio sip:127.0.0.1:$PORT --timer-min-se 100 --timer-se 1000"
+pjsua = "--null-audio sip:127.0.0.1:$PORT --timer-min-se 100 --timer-se 1000 --no-tcp"
 
 # First INVITE with timer rejected with 422
 req1 = sip.RecvfromTransaction("INVITE with SE too small", 422,

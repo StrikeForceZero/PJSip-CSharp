@@ -1,4 +1,4 @@
-/* $Id: call.cpp 5645 2017-09-06 03:44:35Z riza $ */
+/* $Id: call.cpp 5878 2018-09-04 15:12:58Z riza $ */
 /*
  * Copyright (C) 2012-2013 Teluu Inc. (http://www.teluu.com)
  *
@@ -29,7 +29,6 @@ using namespace std;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#define SDP_BUFFER_SIZE 1024
 
 MathStat::MathStat()
 : n(0), max(0), min(0), last(0), mean(0)
@@ -110,11 +109,15 @@ void JbufState::fromPj(const pjmedia_jb_state &prm)
 
 void SdpSession::fromPj(const pjmedia_sdp_session &sdp)
 {
-    char buf[SDP_BUFFER_SIZE];
+#if PJSUA2_MAX_SDP_BUF_LEN
+    char buf[PJSUA2_MAX_SDP_BUF_LEN];
     int len;
 
     len = pjmedia_sdp_print(&sdp, buf, sizeof(buf));
     wholeSdp = (len > -1? string(buf, len): "");
+#else
+    wholeSdp = "";
+#endif    
     pjSdpSession = (void *)&sdp;
 }
 
@@ -131,11 +134,29 @@ void MediaEvent::fromPj(const pjmedia_event &ev)
 void MediaTransportInfo::fromPj(const pjmedia_transport_info &info)
 {
     char straddr[PJ_INET6_ADDRSTRLEN+10];
-    
-    pj_sockaddr_print(&info.src_rtp_name, straddr, sizeof(straddr), 3);
-    srcRtpName = straddr;
-    pj_sockaddr_print(&info.src_rtcp_name, straddr, sizeof(straddr), 3);
-    srcRtcpName = straddr;
+   
+    localRtpName = localRtcpName = srcRtpName = srcRtcpName = "";    
+    if (pj_sockaddr_has_addr(&info.sock_info.rtp_addr_name)) { 
+        pj_sockaddr_print(&info.sock_info.rtp_addr_name, straddr, 
+		          sizeof(straddr), 3);
+        localRtpName = straddr;
+    }
+
+    if (pj_sockaddr_has_addr(&info.sock_info.rtcp_addr_name)) { 
+        pj_sockaddr_print(&info.sock_info.rtcp_addr_name, straddr, 
+		          sizeof(straddr), 3);
+        localRtcpName = straddr;
+    }
+
+    if (pj_sockaddr_has_addr(&info.src_rtp_name)) {     
+        pj_sockaddr_print(&info.src_rtp_name, straddr, sizeof(straddr), 3);
+        srcRtpName = straddr;
+    }
+
+    if (pj_sockaddr_has_addr(&info.src_rtcp_name)) { 
+        pj_sockaddr_print(&info.src_rtcp_name, straddr, sizeof(straddr), 3);
+        srcRtcpName = straddr;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -149,6 +170,11 @@ public:
      * call audio media.
      */
     void setPortId(int id);
+
+    /**
+     * Destructor
+     */
+    virtual ~CallAudioMedia();
 };
 
 
@@ -157,9 +183,15 @@ void CallAudioMedia::setPortId(int pid)
     this->id = pid;
 }
 
+CallAudioMedia::~CallAudioMedia()
+{
+    id = PJSUA_INVALID_ID;
+}
+
 CallOpParam::CallOpParam(bool useDefaultCallSetting)
 : statusCode(pjsip_status_code(0)), reason(""), options(0)
 {
+    sdp.wholeSdp = "";
     if (useDefaultCallSetting)
         opt = CallSetting(true);
 }
@@ -179,6 +211,30 @@ CallVidSetStreamParam::CallVidSetStreamParam()
     this->dir    = prm.dir;
     this->capDev = prm.cap_dev;
 #endif
+}
+
+CallSendDtmfParam::CallSendDtmfParam()
+{
+    pjsua_call_send_dtmf_param param;
+    pjsua_call_send_dtmf_param_default(&param);
+    fromPj(param);
+}
+
+pjsua_call_send_dtmf_param CallSendDtmfParam::toPj() const
+{
+    pjsua_call_send_dtmf_param param;
+    pjsua_call_send_dtmf_param_default(&param);
+    param.method    = this->method;
+    param.duration  = this->duration;
+    param.digits    = str2Pj(this->digits);
+    return param;
+}
+
+void CallSendDtmfParam::fromPj(const pjsua_call_send_dtmf_param &param)
+{
+    this->method    = param.method;
+    this->duration  = param.duration;
+    this->digits    = pj2Str(param.digits);
 }
 
 CallSetting::CallSetting(pj_bool_t useDefaultValues)
@@ -328,6 +384,7 @@ struct call_param
     pjsua_call_setting *p_opt;
     pj_str_t            reason;
     pj_str_t           *p_reason;
+    pjmedia_sdp_session *sdp;
 
 public:
     /**
@@ -335,7 +392,8 @@ public:
      */
     call_param(const SipTxOption &tx_option);
     call_param(const SipTxOption &tx_option, const CallSetting &setting,
-               const string &reason_str);
+               const string &reason_str, pj_pool_t *pool = NULL,
+               const string &sdp_str = "");
 };
 
 call_param::call_param(const SipTxOption &tx_option)
@@ -349,10 +407,12 @@ call_param::call_param(const SipTxOption &tx_option)
     
     p_opt = NULL;
     p_reason = NULL;
+    sdp = NULL;
 }
 
 call_param::call_param(const SipTxOption &tx_option, const CallSetting &setting,
-                       const string &reason_str)
+                       const string &reason_str, pj_pool_t *pool,
+                       const string &sdp_str)
 {
     if (tx_option.isEmpty()) {
         p_msg_data = NULL;
@@ -370,6 +430,22 @@ call_param::call_param(const SipTxOption &tx_option, const CallSetting &setting,
     
     reason = str2Pj(reason_str);
     p_reason = (reason.slen == 0? NULL: &reason);
+
+    sdp = NULL;
+    if (sdp_str != "") {
+        pj_str_t dup_pj_sdp;
+        pj_str_t pj_sdp_str = {(char*)sdp_str.c_str(),
+        		       (pj_ssize_t)sdp_str.size()};
+	pj_status_t status;
+
+        pj_strdup(pool, &dup_pj_sdp, &pj_sdp_str);        
+        status = pjmedia_sdp_parse(pool, dup_pj_sdp.ptr,
+				   dup_pj_sdp.slen, &sdp);
+	if (status != PJ_SUCCESS) {
+	    PJ_PERROR(4,(THIS_FILE, status,
+			 "Failed to parse SDP for call param"));
+	}
+    }
 }
 
 Call::Call(Account& account, int call_id)
@@ -492,10 +568,19 @@ void Call::makeCall(const string &dst_uri, const CallOpParam &prm) throw(Error)
 
 void Call::answer(const CallOpParam &prm) throw(Error)
 {
-    call_param param(prm.txOption, prm.opt, prm.reason);
+    call_param param(prm.txOption, prm.opt, prm.reason,
+    		     sdp_pool, prm.sdp.wholeSdp);
     
-    PJSUA2_CHECK_EXPR( pjsua_call_answer2(id, param.p_opt, prm.statusCode,
-                                          param.p_reason, param.p_msg_data) );
+    if (param.sdp) {
+    	PJSUA2_CHECK_EXPR( pjsua_call_answer_with_sdp(id, param.sdp, param.p_opt,
+    						      prm.statusCode,
+                                              	      param.p_reason,
+                                              	      param.p_msg_data) );
+    } else {
+    	PJSUA2_CHECK_EXPR( pjsua_call_answer2(id, param.p_opt, prm.statusCode,
+                                              param.p_reason,
+                                              param.p_msg_data) );
+    }
 }
 
 void Call::hangup(const CallOpParam &prm) throw(Error)
@@ -555,6 +640,14 @@ void Call::dialDtmf(const string &digits) throw(Error)
     
     PJSUA2_CHECK_EXPR(pjsua_call_dial_dtmf(id, &pj_digits));
 }
+
+void Call::sendDtmf(const CallSendDtmfParam &param) throw (Error)
+{
+    pjsua_call_send_dtmf_param pj_param = param.toPj();
+    
+    PJSUA2_CHECK_EXPR(pjsua_call_send_dtmf(id, &pj_param));
+}
+
 
 void Call::sendInstantMessage(const SendInstantMessageParam& prm)
     throw(Error)
@@ -676,6 +769,15 @@ void Call::processMediaUpdate(OnCallMediaStateParam &prm)
     unsigned mi;
     
     if (pjsua_call_get_info(id, &pj_ci) == PJ_SUCCESS) {
+	if (medias.size()) {
+	    /* Clear medias. */
+	    for (mi = 0; mi < medias.size(); mi++) {
+		if (medias[mi])
+		    delete medias[mi];
+	    }
+	    medias.clear();	
+	}
+
         for (mi = 0; mi < pj_ci.media_cnt; mi++) {
             if (mi >= medias.size()) {
                 if (pj_ci.media[mi].type == PJMEDIA_TYPE_AUDIO) {
